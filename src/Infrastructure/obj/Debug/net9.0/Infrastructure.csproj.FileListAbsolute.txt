@@ -15,3 +15,4 @@
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Infrastructure/obj/Debug/net9.0/refint/Infrastructure.dll
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Infrastructure/obj/Debug/net9.0/Infrastructure.pdb
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Infrastructure/obj/Debug/net9.0/ref/Infrastructure.dll
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Infrastructure/obj/Debug/net9.0/Infrastructure.sourcelink.json

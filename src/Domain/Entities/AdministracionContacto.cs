@@ -15,4 +15,8 @@ public class AdministracionContacto
         public string NivelNombre { get; set; } = string.Empty;
         public long LPaisId { get; set; }
         public string PaisNombre { get; set; } = string.Empty;
+        public int LBancoId { get; set; } 
+        public string Banco { get; set; } = string.Empty;
+        public string Comentario { get; set; } = string.Empty;
+        public string Moneda { get; set; } = string.Empty;
 }

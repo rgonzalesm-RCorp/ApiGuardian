@@ -9,3 +9,4 @@
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Debug/net9.0/refint/Domain.dll
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Debug/net9.0/Domain.pdb
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Debug/net9.0/ref/Domain.dll
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Debug/net9.0/Domain.sourcelink.json

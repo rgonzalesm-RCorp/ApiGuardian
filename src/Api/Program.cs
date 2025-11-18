@@ -33,6 +33,7 @@ builder.Services.AddScoped<IAdministracionCicloFacturaRepository, Administracion
 builder.Services.AddScoped<IAdministracionObservacionComisionRepository, AdministracionObservacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionBuscarAsesorRepository, AdministracionBuscarAsesorRepository>();
 builder.Services.AddScoped<IAdministracionCuentaBancoRepository, AdministracionCuentaBancoRepository>();
+builder.Services.AddScoped<IAdministracionBancoRepository, AdministracionBancoRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 
 var app = builder.Build();

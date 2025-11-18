@@ -57,16 +57,22 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
 
             string query = @"
                 SELECT 
-                    lcontacto_id LContactoId, 
-                    ctienecuenta CTieneCuenta, 
-                    lcuentabanco LCuentaBanco, 
-                    lcodigobanco LCodigoBanco, 
-                    cbaja CBaja, 
-                    snombrecompleto SNombreCompleto, 
-                    dtfecharegistro FechaRegistro, 
-                    scedulaidentidad SCedulaIdentidad, 
-                    lnit LNit 
-                FROM administracioncontacto 
+                    AC.lcontacto_id LContactoId, 
+                    AC.ctienecuenta CTieneCuenta, 
+                    AC.lcuentabanco LCuentaBanco, 
+                    AC.lcodigobanco LCodigoBanco, 
+                    AC.cbaja CBaja, 
+                    AC.snombrecompleto SNombreCompleto, 
+                    AC.dtfecharegistro FechaRegistro, 
+                    AC.scedulaidentidad SCedulaIdentidad, 
+                    AC.lnit LNit,
+                    IFNULL(AB.lbanco_id, 0) LBancoId,
+                    IFNULL(AB.snombre, '') Banco,
+                    AC.sotro Comentario,
+                    IFNULL( AM.snombre, '') Moneda
+                FROM administracioncontacto AC
+                LEFT JOIN administracionbanco AB ON AB.lbanco_id = AC.lbanco_id
+                LEFT JOIN administracionmoneda AM on AM.lmoneda_id = AB.lmoneda_id
                 WHERE snombrecompleto LIKE @Search
                 OR scedulaidentidad LIKE @Search
                 LIMIT @PageSize OFFSET @page;";
@@ -114,7 +120,8 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
                     scedulaidentidad = @SCedulaIdentidad,
                     lnit = @LNit,
                     susuariomod = @usuario,
-                    dtfechamod = now()
+                    dtfechamod = now(),
+                    lbanco_id = @LBancoId
                 WHERE lcontacto_id = @LContactoId;
             ";
 
@@ -131,7 +138,8 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
                 data.FechaRegistro,
                 data.SCedulaIdentidad,
                 data.LNit,
-                data.usuario
+                data.usuario,
+                data.LBancoId
             });
 
             if (rows > 0)

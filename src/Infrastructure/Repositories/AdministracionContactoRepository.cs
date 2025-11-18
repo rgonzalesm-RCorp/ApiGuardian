@@ -33,11 +33,17 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                             A.lnivel_id nNivelId,
                             N.snombre AS nivelNombre,
                             A.lpais_id lPaisId,
-                            BP.snombre AS paisNombre
+                            BP.snombre AS paisNombre,
+                            IFNULL(AB.lbanco_id, 0) LBancoId,
+                            IFNULL(AB.snombre, '') Banco,
+                            A.sotro Comentario,
+                            IFNULL( AM.snombre, '') Moneda
                         FROM administracioncontacto A
                         INNER JOIN administracioncontacto P ON P.lcontacto_id = A.lpatrocinante_id 
                         INNER JOIN administracionnivel N ON N.lnivel_id = A.lnivel_id
                         INNER JOIN basepais BP ON BP.lpais_id = A.lpais_id
+                        LEFT JOIN administracionbanco AB ON AB.lbanco_id = A.lbanco_id
+                        LEFT JOIN administracionmoneda AM on AM.lmoneda_id = AB.lmoneda_id
                         WHERE A.snombrecompleto LIKE '%{ search }%' OR A.scedulaidentidad LIKE '%{search}%'
                         LIMIT {pageSize} OFFSET {page}; ";
             using var connection = _context.CreateConnection();
