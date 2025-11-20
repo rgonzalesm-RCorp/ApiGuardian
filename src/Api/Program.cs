@@ -12,10 +12,10 @@ builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
         policy
-            .WithOrigins("http://localhost:3000") // URL de tu frontend
+            .WithOrigins() // URL de tu frontend
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
