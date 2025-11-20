@@ -44,32 +44,56 @@ public class UtilsController : ControllerBase
         });
     }
 
-    /*[HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpGet("administracion/complejo")]
+    public async Task<IActionResult> GetAdministracionComplejo()
     {
-        var product = await _productRepository.GetByIdAsync(id);
-        return product is null ? NotFound() : Ok(product);
+        var responseCiclos = await _utilsRepository.GetComplejo();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.Complejo
+            }
+        });
     }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(Product product)
+    [HttpGet("administracion/departamento")]
+    public async Task<IActionResult> GetDepartamento()
     {
-        await _productRepository.AddAsync(product);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
+        var responseCiclos = await _utilsRepository.GetDepartamento();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.Departamento
+            }
+        });
     }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Product product)
+    [HttpGet("administracion/tipo/contrato")]
+    public async Task<IActionResult> GetTipoContrato()
     {
-        product.Id = id;
-        await _productRepository.UpdateAsync(product);
-        return NoContent();
+        var responseCiclos = await _utilsRepository.GetTipoContrato();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.TipoContrato
+            }
+        });
     }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
+    [HttpGet("administracion/estado/contrato")]
+    public async Task<IActionResult> GetEstadoContrato()
     {
-        await _productRepository.DeleteAsync(id);
-        return NoContent();
-    }*/
+        var responseCiclos = await _utilsRepository.GetEstadoContrato();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.EstadoContrato
+            }
+        });
+    }
 }

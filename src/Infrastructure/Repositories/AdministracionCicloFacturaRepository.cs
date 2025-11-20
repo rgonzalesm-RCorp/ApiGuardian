@@ -144,6 +144,31 @@ public class AdministracionCicloFacturaRepository : IAdministracionCicloFacturaR
             return (false, $"Error al insertar ciclo factura: {ex.Message}");
         }
     }
+    public async Task<(bool succes, string mensaje)> DeleteAdministracionCiclofactura(int lciclofactura, string? usuario)
+    {
+        if (lciclofactura <= 0)
+        {
+            return (false, "El ID proporcionado no es válido.");
+        }
+
+        const string query = @"UPDATE  administracionciclopresentafactura 
+                                    SET lciclo_id = (lciclo_id * -1), lcontacto_id = (lcontacto_id * -1) 
+                                WHERE lciclopresentafactura_id = @lciclofactura";
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var rowsAffected = await connection.ExecuteAsync(query, new { lciclofactura }).ConfigureAwait(false);
+
+            return rowsAffected > 0
+                ? (true, "Registro eliminado correctamente.")
+                : (false, "No se encontró ningún registro con el ID especificado.");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Ocurrió un error al eliminar el registro: {ex.Message}");
+        }
+    }
 
    
 }

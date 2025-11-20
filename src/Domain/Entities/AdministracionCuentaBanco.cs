@@ -27,5 +27,7 @@ public class DataCuentaBanco
     public string? LNit { get; set; }
     public string? usuario { get; set; }
     public int LBancoId { get; set; }
+    public string? Comentario { get; set; }
+
 
 }

@@ -156,26 +156,30 @@ public class AdministracionObservacionComisionRepository : IAdministracionObserv
             return (false, $"Error al actualizar observación de comisión: {ex.Message}");
         }
     }
-
-    public async Task<int> GetCountObservacionComicion( string? search,int lCicloId)
+    
+    public async Task<(bool succes, string mensaje)> DeleteAdministracionObservacionComision(int lObservacionId, string? usuario)
     {
+        if (lObservacionId <= 0)
+        {
+            return (false, "El ID proporcionado no es válido.");
+        }
+
+        const string query = @"
+            DELETE FROM administracionobservacioncomision
+            WHERE lobservacioncomision_id = @lObservacionId";
+
         try
         {
             using var connection = _context.CreateConnection();
-            var query = $@"select 
-                            COUNT(*)
-                            from administracionobservacioncomision AOC 
-                            inner join administracionciclo AC on AC.lciclo_id = AOC.lciclo_id
-                            inner join administracioncontacto ACT on ACT.lcontacto_id = AOC.lcontacto_id
-                        WHERE AOC.lciclo_id ={lCicloId} and ACT.snombrecompleto LIKE '%{search}%'";
-            int cantidadCiclofactura = await connection.ExecuteScalarAsync<int>(query);
-            return cantidadCiclofactura;
+            var rowsAffected = await connection.ExecuteAsync(query, new { lObservacionId }).ConfigureAwait(false);
+
+            return rowsAffected > 0
+                ? (true, "Registro eliminado correctamente.")
+                : (false, "No se encontró ningún registro con el ID especificado.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
-            return 0;
+            return (false, $"Ocurrió un error al eliminar el registro: {ex.Message}");
         }
-        
     }
 }

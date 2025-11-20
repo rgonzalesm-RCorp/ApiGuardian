@@ -17,4 +17,26 @@ CREATE TABLE administracionmoneda(
 insert into administracionmoneda (snombre) values 
 ('SUS'), ('BOB');
 
-alter table administracioncontacto add lbanco_id INT DEFAULT 0
+alter table administracioncontacto add lbanco_id INT DEFAULT 0;
+
+ CREATE TABLE administracionestadocontrato (
+    lestadocontrato_id INT PRIMARY KEY,
+    snombre VARCHAR(100) NOT NULL,
+    fechaadd DATETIME,
+    usuarioadd VARCHAR(50),
+    fechamod DATETIME,
+    usuariomod VARCHAR(50)
+) ;
+
+
+insert into administracionestadocontrato 
+(lestadocontrato_id, snombre, fechaadd, usuarioadd, fechamod, usuariomod)
+values 
+(0, 'En Reserva', now(), 'admin', now(), 'admin'),
+(1, 'Cuota Inicial Pagada', now(), 'admin', now(), 'admin'),
+(2, 'Contrato Retenido por Etica', now(), 'admin', now(), 'admin'),
+(3, 'En Plan de Pagos', now(), 'admin', now(), 'admin'),
+(4, 'Contrato Firmado', now(), 'admin', now(), 'admin'),
+(5, 'Comisión pagada', now(), 'admin', now(), 'admin'),
+(6, 'Recuperación', now(), 'admin', now(), 'admin'),
+(7, 'Suscripcion', now(), 'admin', now(), 'admin');

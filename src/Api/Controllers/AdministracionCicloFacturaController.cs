@@ -46,32 +46,17 @@ public class AdministracionCicloFacturaController : ControllerBase
         });
     }
         
-    /*[HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpDelete("delete")]
+    public async Task<IActionResult> DeleteAdministracionCiclofactura(
+        [FromHeader(Name = "lciclofactura")] int lciclofactura,
+        [FromHeader(Name = "usuario")] string? usuario)
     {
-        var product = await _productRepository.GetByIdAsync(id);
-        return product is null ? NotFound() : Ok(product);
+        var responseInsert = await _repository.DeleteAdministracionCiclofactura(lciclofactura, usuario);
+        return Ok(new
+        {
+            status = responseInsert.succes ? true : false,
+            mensaje = responseInsert.mensaje,
+            data = ""
+        });
     }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(Product product)
-    {
-        await _productRepository.AddAsync(product);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
-    }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Product product)
-    {
-        product.Id = id;
-        await _productRepository.UpdateAsync(product);
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        await _productRepository.DeleteAsync(id);
-        return NoContent();
-    }*/
 }

@@ -1,0 +1,12 @@
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/bin/Release/net9.0/Domain.deps.json
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/bin/Release/net9.0/Domain.dll
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/bin/Release/net9.0/Domain.pdb
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.AssemblyInfoInputs.cache
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.AssemblyInfo.cs
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.csproj.CoreCompileInputs.cache
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.sourcelink.json
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.dll
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/refint/Domain.dll
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/Domain.pdb
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Domain/obj/Release/net9.0/ref/Domain.dll

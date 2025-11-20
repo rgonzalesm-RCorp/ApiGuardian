@@ -59,6 +59,7 @@ public class AdministracionBancoRepository : IAdministracionBancoRepository
                     , estado = @Estado
                     , fechamod = now()
                     , usuariomod = @Usuario
+                    , lmoneda_id = @LMonedaId
                 where lbanco_id = @LBancoId
             ";
 
@@ -71,6 +72,7 @@ public class AdministracionBancoRepository : IAdministracionBancoRepository
                 , data.Estado
                 , data.Usuario
                 , data.LBancoId
+                , data.LMonedaId
             });
 
             if (rows > 0)
@@ -120,13 +122,15 @@ public class AdministracionBancoRepository : IAdministracionBancoRepository
             return (false, $"Error al actualizar: {ex.Message}");
         }
     }
-    public async Task<(bool Success, string Mensaje)> DeleteBanco(int LBancoId)
+    public async Task<(bool Success, string Mensaje)> DeleteBanco(int LBancoId, string? usuario)
     {
         try
         {
             string query = @"
                 update administracionbanco set
-                    estado = 0
+                    estado = 0,
+                    usuariomod = @usuario,
+                    fechamod = now()
                 where lbanco_id = @LBancoId
             ";
 
@@ -134,7 +138,7 @@ public class AdministracionBancoRepository : IAdministracionBancoRepository
 
             var rows = await connection.ExecuteAsync(query, new
             {
-                LBancoId
+                LBancoId, usuario
             });
 
             if (rows > 0)

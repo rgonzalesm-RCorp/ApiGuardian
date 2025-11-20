@@ -111,6 +111,93 @@ public class UtilsRepository : IUtilsRepository
             return (Enumerable.Empty<AdministracionSemanaCiclo>(), false, $"Error al obtener semanas del ciclo: {ex.Message}");
         }
     }
+    public async Task<(IEnumerable<AdministracionComplejo> Complejo, bool Success, string Mensaje)> GetComplejo()
+    {
+        const string query = @"
+            select lcomplejo_id LComplejoId, scodigo SCodigo, snombre SNombre from administracioncomplejo
+        ";
 
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var ciclos = await connection.QueryAsync<AdministracionComplejo>(query);
+
+            bool success = ciclos != null && ciclos.Any();
+            string mensaje = success ? "Complejos obtenidos correctamente." : "No se encontraron complejos.";
+
+            return (ciclos ?? Enumerable.Empty<AdministracionComplejo>(), success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            return (Enumerable.Empty<AdministracionComplejo>(), false, $"Error al obtener los complejos: {ex.Message}");
+        }
+    }
+    public async Task<(IEnumerable<BasePaisDepartamento> Departamento, bool Success, string Mensaje)> GetDepartamento()
+    {
+        const string query = @"
+             select lPaisDepartamento_id LDepartamentoId, lpais_id LPaisId, sNombre SNombre from basepaisdepartamento where lpais_id = 2;
+        ";
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var ciclos = await connection.QueryAsync<BasePaisDepartamento>(query);
+
+            bool success = ciclos != null && ciclos.Any();
+            string mensaje = success ? "Departamentos obtenidos correctamente." : "No se encontraron Departamentos.";
+
+            return (ciclos ?? Enumerable.Empty<BasePaisDepartamento>(), success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            return (Enumerable.Empty<BasePaisDepartamento>(), false, $"Error al obtener los Departamentos: {ex.Message}");
+        }
+    }
+    public async Task<(IEnumerable<AdministracionTipoContrato> TipoContrato, bool Success, string Mensaje)> GetTipoContrato()
+    {
+         const string query = @"
+             select ltipocontrato_id LTipoContratoId, snombre SNombre from administraciontipocontrato
+        ";
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var ciclos = await connection.QueryAsync<AdministracionTipoContrato>(query);
+
+            bool success = ciclos != null && ciclos.Any();
+            string mensaje = success ? "Tipo contrato obtenidos correctamente." : "No se encontraron Tipo contrato.";
+
+            return (ciclos ?? Enumerable.Empty<AdministracionTipoContrato>(), success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            return (Enumerable.Empty<AdministracionTipoContrato>(), false, $"Error al obtener los Tipos contratos: {ex.Message}");
+        }
+    }
+    public async Task<(IEnumerable<AdministracionEstadoContrato> EstadoContrato, bool Success, string Mensaje)> GetEstadoContrato()
+    {
+         const string query = @"
+            select lestadocontrato_id LEstadoContratoId, snombre SNombre from administracionestadocontrato
+        ";
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var ciclos = await connection.QueryAsync<AdministracionEstadoContrato>(query);
+
+            bool success = ciclos != null && ciclos.Any();
+            string mensaje = success ? "Estado contratos obtenidos correctamente." : "No se encontraron los estado de los contratos.";
+
+            return (ciclos ?? Enumerable.Empty<AdministracionEstadoContrato>(), success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            return (Enumerable.Empty<AdministracionEstadoContrato>(), false, $"Error al obtener los estado de los contratos: {ex.Message}");
+        }
+    }
 
 }

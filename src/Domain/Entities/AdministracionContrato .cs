@@ -13,4 +13,10 @@ public class AdministracionContrato
     public int Estado { get; set; }
     public string? TipoContrato { get; set; }
     public string? Asesor { get; set; }
+    public int LTipoContratoId { get; set; }
+    public int LAsesorId { get; set; }
+    public int LPropietarioId { get; set; }
+    public int LComplejoId { get; set; }
+    public decimal DPecioInicial { get; set; }
+    public string? EstadoContrato { get; set; }
 }

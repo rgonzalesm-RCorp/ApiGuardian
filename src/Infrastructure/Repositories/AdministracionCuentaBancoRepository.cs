@@ -73,15 +73,15 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
                 FROM administracioncontacto AC
                 LEFT JOIN administracionbanco AB ON AB.lbanco_id = AC.lbanco_id
                 LEFT JOIN administracionmoneda AM on AM.lmoneda_id = AB.lmoneda_id
-                WHERE snombrecompleto LIKE @Search
-                OR scedulaidentidad LIKE @Search
+                WHERE (snombrecompleto LIKE @Search 
+                OR scedulaidentidad LIKE @Search) and AC.lcontacto_id  > 0
                 LIMIT @PageSize OFFSET @page;";
 
             string queryTotal = @"
                 SELECT COUNT(*) 
                 FROM administracioncontacto
-                WHERE snombrecompleto LIKE @Search
-                OR scedulaidentidad LIKE @Search;
+                WHERE (snombrecompleto LIKE @Search 
+                OR scedulaidentidad LIKE @Search) and lcontacto_id  > 0;
             ";
 
             using var connection = _context.CreateConnection();
@@ -121,7 +121,8 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
                     lnit = @LNit,
                     susuariomod = @usuario,
                     dtfechamod = now(),
-                    lbanco_id = @LBancoId
+                    lbanco_id = @LBancoId,
+                    sotro = @Comentario
                 WHERE lcontacto_id = @LContactoId;
             ";
 
@@ -139,7 +140,8 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
                 data.SCedulaIdentidad,
                 data.LNit,
                 data.usuario,
-                data.LBancoId
+                data.LBancoId,
+                data.Comentario
             });
 
             if (rows > 0)

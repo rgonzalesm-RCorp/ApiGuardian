@@ -66,9 +66,11 @@ public class AdministracionBancoController : ControllerBase
         });
     }
     [HttpDelete("delete")]
-    public async Task<IActionResult> DeleteBanco( [FromHeader(Name = "lBancoId")]  int lBancoId)
+    public async Task<IActionResult> DeleteBanco(
+        [FromHeader(Name = "lBancoId")]  int lBancoId ,
+        [FromHeader(Name = "usuario")]  string? usuario)
     {
-        var respose = await _repository.DeleteBanco(lBancoId);
+        var respose = await _repository.DeleteBanco(lBancoId, usuario);
         return Ok(new
         {
             status = respose.Success ? true : false,

@@ -35,22 +35,13 @@ public class AdministracionObservacionComisionController : ControllerBase
             }
         });
     }
-
-    [HttpGet("count")]
-    public async Task<IActionResult> GetCountAdministracionObservacionComision(
-        [FromHeader(Name = "search")] string? search,
-        [FromHeader(Name = "lCicloId")] int lCicloId
-    )
-    {
-        return Ok(await _repository.GetCountObservacionComicion(search, lCicloId));
-    }
     [HttpPost("register")]
     public async Task<IActionResult> InsertAdministracionObservacionComision(AdministracionObservacionComision data)
     {
         var responseInsert = await _repository.InsertAdministracionObservacionComision(data);
         return Ok(new
         {
-            status = responseInsert.succes ? 0 : 1,
+            status = responseInsert.succes ? true : false,
             mensaje = responseInsert.mensaje,
             data = ""
         });
@@ -61,31 +52,22 @@ public class AdministracionObservacionComisionController : ControllerBase
         var responseInsert = await _repository.UpdateAdministracionObservacionComision(data);
         return Ok(new
         {
-            status = responseInsert.succes ? 0 : 1,
+            status = responseInsert.succes ? true : false,
             mensaje = responseInsert.mensaje,
             data = ""
         });
     }
-    /*
-    [HttpPost]
-    public async Task<IActionResult> Create(Product product)
+    [HttpDelete("delete")]
+    public async Task<IActionResult> DeleteAdministracionObservacionComision(
+        [FromHeader(Name = "lObservacionId")] int lObservacionId,
+        [FromHeader(Name = "usuario")] string? usuario)
     {
-        await _productRepository.AddAsync(product);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
+        var responseInsert = await _repository.DeleteAdministracionObservacionComision(lObservacionId, usuario);
+        return Ok(new
+        {
+            status = responseInsert.succes ? true : false,
+            mensaje = responseInsert.mensaje,
+            data = ""
+        });
     }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Product product)
-    {
-        product.Id = id;
-        await _productRepository.UpdateAsync(product);
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        await _productRepository.DeleteAsync(id);
-        return NoContent();
-    }*/
 }
