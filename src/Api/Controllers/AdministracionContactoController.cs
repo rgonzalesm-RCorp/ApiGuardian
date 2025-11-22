@@ -8,11 +8,11 @@ namespace CleanDapperApi.Api.Controllers;
 [Route("api/[controller]")]
 public class AdministracionContactoController : ControllerBase
 {
-    private readonly IAdministracionContactoRepository _productRepository;
+    private readonly IAdministracionContactoRepository _repository;
 
-    public AdministracionContactoController(IAdministracionContactoRepository productRepository)
+    public AdministracionContactoController(IAdministracionContactoRepository repository)
     {
-        _productRepository = productRepository;
+        _repository = repository;
     }
 
     [HttpGet]
@@ -22,35 +22,16 @@ public class AdministracionContactoController : ControllerBase
         [FromHeader(Name = "search")] string? search
     )
     {
-        return Ok(await _productRepository.GetAllAdministracionContacto(page, pageSize, search));
+        var respose = await _repository.GetAllAdministracionContacto(page, pageSize, search);
+        return Ok(new
+        {
+            status = respose.Success ? true : false,
+            mensaje = respose.Mensaje,
+            data = new
+            {
+                listaContacto = respose.Data,
+                total = respose.Total
+            }
+        });
     }
-        
-    /*[HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        var product = await _productRepository.GetByIdAsync(id);
-        return product is null ? NotFound() : Ok(product);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(Product product)
-    {
-        await _productRepository.AddAsync(product);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
-    }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Product product)
-    {
-        product.Id = id;
-        await _productRepository.UpdateAsync(product);
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        await _productRepository.DeleteAsync(id);
-        return NoContent();
-    }*/
 }

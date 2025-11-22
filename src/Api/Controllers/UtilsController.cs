@@ -14,13 +14,6 @@ public class UtilsController : ControllerBase
     {
         _utilsRepository = utilsRepository;
     }
-
-    [HttpGet("configuracion")]
-    public async Task<IActionResult> GetConfiguraciones([FromHeader(Name = "search")] string? search)
-    {
-        var cantidadContactos = await _utilsRepository.GetCountContacto(search);
-        return Ok(cantidadContactos);
-    }
     [HttpGet("administracion/ciclo")]
     public async Task<IActionResult> GetAdministracionCiclo()
     {

@@ -1,4 +1,4 @@
-public class AdministracionContacto
+public class ListaAdministracionContacto
 {
     public long LContactoId { get; set; }
         public string SNombreCompleto { get; set; } = string.Empty;

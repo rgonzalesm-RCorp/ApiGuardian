@@ -5,7 +5,6 @@ namespace ApiGuardian.Application.Interfaces;
 
 public interface IUtilsRepository
 {
-    Task<ConfiguracionUtils> GetCountContacto(string? search);
     Task<(IEnumerable<AdministracionCiclo> Ciclos, bool Success, string Mensaje)> GetCiclos();
     Task<(IEnumerable<AdministracionSemanaCiclo> Semanas, bool Success, string Mensaje)> GetSemanaCiclosAsync(int lCicloId);
     Task<(IEnumerable<AdministracionComplejo> Complejo, bool Success, string Mensaje)> GetComplejo();

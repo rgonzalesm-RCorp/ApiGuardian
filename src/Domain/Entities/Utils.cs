@@ -1,8 +1,3 @@
-public class ConfiguracionUtils
-{
-    public int cantidadContactos { get; set; }
-    public int cantidadContratos { get; set; }
-}
 public class AdministracionCiclo
 {
     public int LCicloId { get; set; }

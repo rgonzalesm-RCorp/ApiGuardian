@@ -4,5 +4,7 @@ namespace ApiGuardian.Application.Interfaces;
 
 public interface IAdministracionContratoRepository
 {
-    Task<IEnumerable<AdministracionContrato>> GetAllAdministracionContrato(int page, int pageSize, string? search);
+    Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContrato(int page, int pageSize, string? search);
+    Task<( bool Success, string Mensaje)> InsertContrato(AdministracionContrato data);
+    Task<(bool Success, string Mensaje)> UpdateContrato(AdministracionContrato data);
 }

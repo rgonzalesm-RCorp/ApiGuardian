@@ -8,14 +8,14 @@ using ApiGuardian.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.UseUrls("http://0.0.0.0:5000");
+//builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy
-            .WithOrigins("http://10.2.10.41:5000") // URL de tu frontend
+            .WithOrigins("http://localhost:3000") // URL de tu frontend
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

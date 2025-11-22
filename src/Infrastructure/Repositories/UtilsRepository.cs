@@ -14,36 +14,6 @@ public class UtilsRepository : IUtilsRepository
         _context = context;
     }
 
-    public async Task<ConfiguracionUtils> GetCountContacto(string? search)
-    {
-        try
-        {
-            var query = $@"select COUNT(*) FROM administracioncontacto WHERE snombrecompleto LIKE '%{search}%' OR scedulaidentidad LIKE '%{search}%'";
-            using var connection = _context.CreateConnection();
-            int cantidadContacto = await connection.ExecuteScalarAsync<int>(query);
-            query = $@"select 
-                            COUNT(*)
-                        from administracioncontrato C
-                        inner join administracioncontacto P on P.lcontacto_id = C.lcontacto_id
-                        inner join administracioncontacto A on A.lcontacto_id = C.lasesor_id
-                        inner join administracioncomplejo AC on AC.lcomplejo_id = C.lcomplejo_id
-                        inner join administraciontipocontrato ATC on ATC.ltipocontrato_id = C.ltipocontrato_id
-                        WHERE P.snombrecompleto LIKE '%{search}%' OR C.snroventa LIKE '%{search}%'";
-            int cantidadContrato = await connection.ExecuteScalarAsync<int>(query);
-  
-            return new ConfiguracionUtils
-            {
-                cantidadContactos = cantidadContacto,
-                cantidadContratos = cantidadContrato
-            };
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-            return new ConfiguracionUtils();
-        }
-
-    }
     public async Task<(IEnumerable<AdministracionCiclo> Ciclos, bool Success, string Mensaje)> GetCiclos()
     {
         const string query = @"

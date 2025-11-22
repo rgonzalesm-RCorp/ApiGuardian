@@ -8,11 +8,11 @@ namespace CleanDapperApi.Api.Controllers;
 [Route("api/[controller]")]
 public class AdministracionContratoController : ControllerBase
 {
-    private readonly IAdministracionContratoRepository _productRepository;
+    private readonly IAdministracionContratoRepository _repository;
 
-    public AdministracionContratoController(IAdministracionContratoRepository productRepository)
+    public AdministracionContratoController(IAdministracionContratoRepository repository)
     {
-        _productRepository = productRepository;
+        _repository = repository;
     }
 
     [HttpGet]
@@ -22,35 +22,39 @@ public class AdministracionContratoController : ControllerBase
         [FromHeader(Name = "search")] string? search
     )
     {
-        return Ok(await _productRepository.GetAllAdministracionContrato(page, pageSize, search));
+        var respose = await _repository.GetAllAdministracionContrato(page, pageSize, search);
+        return Ok(new
+        {
+            status = respose.Success ? true : false,
+            mensaje = respose.Mensaje,
+            data = new
+            {
+                listaContrato = respose.Data,
+                total = respose.Total
+            }
+        });
     }
-        
-    /*[HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpPost("insert")]
+    public async Task<IActionResult> InsertBanco(AdministracionContrato data)
     {
-        var product = await _productRepository.GetByIdAsync(id);
-        return product is null ? NotFound() : Ok(product);
+        var respose = await _repository.InsertContrato(data);
+        return Ok(new
+        {
+            status = respose.Success ? true : false,
+            mensaje = respose.Mensaje,
+            data = ""
+        });
+    }
+    [HttpPut("update")]
+    public async Task<IActionResult> UpdateContrato(AdministracionContrato data)
+    {
+        var respose = await _repository.UpdateContrato(data);
+        return Ok(new
+        {
+            status = respose.Success ? true : false,
+            mensaje = respose.Mensaje,
+            data = ""
+        });
     }
 
-    [HttpPost]
-    public async Task<IActionResult> Create(Product product)
-    {
-        await _productRepository.AddAsync(product);
-        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
-    }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Product product)
-    {
-        product.Id = id;
-        await _productRepository.UpdateAsync(product);
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        await _productRepository.DeleteAsync(id);
-        return NoContent();
-    }*/
 }
