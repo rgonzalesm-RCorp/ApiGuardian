@@ -41,7 +41,8 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                     P.lcontacto_id AS LPropietarioId,
                     AC.lcomplejo_id AS LComplejoId,
                     C.dprecioinicial AS DPecioInicial,
-                    AEC.snombre AS EstadoContrato
+                    AEC.snombre AS EstadoContrato,
+                    C.cespecial CEspecial
                 FROM administracioncontrato C
                 INNER JOIN administracioncontacto P ON P.lcontacto_id = C.lcontacto_id
                 INNER JOIN administracioncontacto A ON A.lcontacto_id = C.lasesor_id
@@ -57,6 +58,10 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 SELECT COUNT(*)
                 FROM administracioncontrato C
                 INNER JOIN administracioncontacto P ON P.lcontacto_id = C.lcontacto_id
+                INNER JOIN administracioncontacto A ON A.lcontacto_id = C.lasesor_id
+                INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
+                INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
+                INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
                 WHERE (@search IS NULL OR P.snombrecompleto LIKE @search OR C.snroventa LIKE @search);
             ";
 

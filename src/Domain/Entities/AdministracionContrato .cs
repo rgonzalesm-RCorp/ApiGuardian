@@ -20,6 +20,7 @@ public class ListaAdministracionContrato
     public int LComplejoId { get; set; }
     public decimal DPecioInicial { get; set; }
     public string? EstadoContrato { get; set; }
+    public int CEspecial { get; set; }
 }
 public class AdministracionContrato
 {

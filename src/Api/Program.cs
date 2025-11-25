@@ -36,6 +36,7 @@ builder.Services.AddScoped<IAdministracionObservacionComisionRepository, Adminis
 builder.Services.AddScoped<IAdministracionBuscarAsesorRepository, AdministracionBuscarAsesorRepository>();
 builder.Services.AddScoped<IAdministracionCuentaBancoRepository, AdministracionCuentaBancoRepository>();
 builder.Services.AddScoped<IAdministracionBancoRepository, AdministracionBancoRepository>();
+builder.Services.AddScoped<IAdministracionDescuentoComisionRepository, AdministracionDescuentoComisionRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 
 var app = builder.Build();

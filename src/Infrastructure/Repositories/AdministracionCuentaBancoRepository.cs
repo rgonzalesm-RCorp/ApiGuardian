@@ -73,15 +73,15 @@ public class AdministracionCuentaBancoRepository : IAdministracionCuentaBancoRep
                 FROM administracioncontacto AC
                 LEFT JOIN administracionbanco AB ON AB.lbanco_id = AC.lbanco_id
                 LEFT JOIN administracionmoneda AM on AM.lmoneda_id = AB.lmoneda_id
-                WHERE (snombrecompleto LIKE @Search 
-                OR scedulaidentidad LIKE @Search) and AC.lcontacto_id  > 0
+                WHERE (snombrecompleto LIKE @Search OR scedulaidentidad LIKE @Search) and AC.lcontacto_id  > 0 AND AC.cbaja = 0
                 LIMIT @PageSize OFFSET @page;";
 
             string queryTotal = @"
                 SELECT COUNT(*) 
-                FROM administracioncontacto
-                WHERE (snombrecompleto LIKE @Search 
-                OR scedulaidentidad LIKE @Search) and lcontacto_id  > 0;
+                FROM administracioncontacto AC
+                LEFT JOIN administracionbanco AB ON AB.lbanco_id = AC.lbanco_id
+                LEFT JOIN administracionmoneda AM on AM.lmoneda_id = AB.lmoneda_id
+                WHERE (snombrecompleto LIKE @Search OR scedulaidentidad LIKE @Search) and AC.lcontacto_id  > 0 AND AC.cbaja = 0;
             ";
 
             using var connection = _context.CreateConnection();

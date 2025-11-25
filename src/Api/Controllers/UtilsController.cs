@@ -51,9 +51,9 @@ public class UtilsController : ControllerBase
         });
     }
     [HttpGet("administracion/departamento")]
-    public async Task<IActionResult> GetDepartamento()
+    public async Task<IActionResult> GetDepartamento([FromHeader(Name = "lPaisId")] int lPaisId = 2)
     {
-        var responseCiclos = await _utilsRepository.GetDepartamento();
+        var responseCiclos = await _utilsRepository.GetDepartamento(lPaisId);
         return Ok(new
         {
             status = responseCiclos.Success ? true : false,
@@ -86,6 +86,58 @@ public class UtilsController : ControllerBase
             mensaje = responseCiclos.Mensaje,
             data = new {
                 responseCiclos.EstadoContrato
+            }
+        });
+    }
+    [HttpGet("administracion/nivel")]
+    public async Task<IActionResult> GetNivel()
+    {
+        var responseCiclos = await _utilsRepository.GetNivel();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.Nivel
+            }
+        });
+    }
+    [HttpGet("administracion/tipo/baja")]
+    public async Task<IActionResult> GetTipoBaja()
+    {
+        var responseCiclos = await _utilsRepository.GetTipoBaja();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.TipoBaja
+            }
+        });
+    }
+    [HttpGet("administracion/pais")]
+    public async Task<IActionResult> GetPais()
+    {
+        var responseCiclos = await _utilsRepository.GetPais();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.Pais
+            }
+        });
+    }
+    [HttpGet("tipo/descuento")]
+    public async Task<IActionResult> GetTipoDescuento()
+    {
+        var responseCiclos = await _utilsRepository.GetTipoDescuento();
+        return Ok(new
+        {
+            status = responseCiclos.Success ? true : false,
+            mensaje = responseCiclos.Mensaje,
+            data = new {
+                responseCiclos.TipoDescuento
             }
         });
     }

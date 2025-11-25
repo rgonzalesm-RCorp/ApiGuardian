@@ -40,3 +40,21 @@ values
 (5, 'Comisión pagada', now(), 'admin', now(), 'admin'),
 (6, 'Recuperación', now(), 'admin', now(), 'admin'),
 (7, 'Suscripcion', now(), 'admin', now(), 'admin');
+
+ CREATE TABLE administraciontipobaja (
+    ltipobaja_id INT PRIMARY KEY,
+    snombre VARCHAR(100) NOT NULL,
+    fechaadd DATETIME,
+    usuarioadd VARCHAR(50),
+    fechamod DATETIME,
+    usuariomod VARCHAR(50)
+) ;
+
+
+insert into administraciontipobaja
+(ltipobaja_id, snombre, fechaadd, usuarioadd, fechamod, usuariomod)
+values 
+(0, 'Cesión de derecho', now(), 'admin', now(), 'admin'),
+(1, 'Suspensión temporal', now(), 'admin', now(), 'admin'),
+(2, 'Expulsión definitiva', now(), 'admin', now(), 'admin'),
+(3, 'Otro caso', now(), 'admin', now(), 'admin');

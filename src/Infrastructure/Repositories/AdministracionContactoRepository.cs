@@ -29,25 +29,32 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                     A.stelefonofijo,
                     A.stelefonomovil,
                     A.stelefonooficina,
-                    A.scorreoelectronico,
+                    --A.scorreoelectronico,
                     A.sciudad,
                     A.lpatrocinante_id AS lPatrocinanteId,
                     P.snombrecompleto AS patrocinanteNombre,
                     A.lnivel_id AS nNivelId,
-                    N.snombre AS nivelNombre,
+                    UPPER(N.snombre) AS nivelNombre,
                     A.lpais_id AS lPaisId,
-                    BP.snombre AS paisNombre,
-                    IFNULL(AB.lbanco_id, 0) AS LBancoId,
-                    IFNULL(AB.snombre, '') AS Banco,
+                    UPPER(BP.snombre) AS paisNombre,
+                    --IFNULL(AB.lbanco_id, 0) AS LBancoId,
+                    --IFNULL(AB.snombre, '') AS Banco,
                     A.sotro AS Comentario,
-                    IFNULL(AM.snombre, '') AS Moneda
+                    --IFNULL(AM.snombre, '') AS Moneda,
+                    A.scorreoelectronico SCorreo,
+                    A.sdireccion SDireccion,
+                    A.dtfechanacimiento FechaNacimiento,
+                    A.dtfecharegistro FechaRegistro,
+                    A.scodigo SCodigo
+
                 FROM administracioncontacto A
                 INNER JOIN administracioncontacto P ON P.lcontacto_id = A.lpatrocinante_id 
                 INNER JOIN administracionnivel N ON N.lnivel_id = A.lnivel_id
                 INNER JOIN basepais BP ON BP.lpais_id = A.lpais_id
                 LEFT JOIN administracionbanco AB ON AB.lbanco_id = A.lbanco_id
                 LEFT JOIN administracionmoneda AM ON AM.lmoneda_id = AB.lmoneda_id
-                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search)
+                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search) AND A.cbaja = 0
+                ORDER BY A.lcontacto_id DESC
                 LIMIT @pageSize OFFSET @page;
             ";
 
@@ -59,7 +66,7 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                 INNER JOIN basepais BP ON BP.lpais_id = A.lpais_id
                 LEFT JOIN administracionbanco AB ON AB.lbanco_id = A.lbanco_id
                 LEFT JOIN administracionmoneda AM ON AM.lmoneda_id = AB.lmoneda_id
-                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search);
+                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search) AND A.cbaja = 0;
             ";
 
             var parameters = new
@@ -80,32 +87,198 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
             return (Enumerable.Empty<ListaAdministracionContacto>(), false, "Error al consultar contactos.", 0);
         }
     }
-
-    public async Task<Product?> GetByIdAsync(int id)
+    public async Task<(bool Success, string Mensaje)> InsertContacto(AdministracionContacto data)
     {
-        var query = "SELECT Id, Name, Price FROM Products WHERE Id = @Id";
-        using var connection = _context.CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<Product>(query, new { Id = id });
+        try
+        {
+            string query = @"
+                INSERT INTO administracioncontacto (
+                    lcontacto_id,
+                    susuarioadd,
+                    dtfechaadd,
+                    susuariomod,
+                    dtfechamod,
+                    snombrecompleto,
+                    scedulaidentidad,
+                    stelefonofijo,
+                    stelefonomovil,
+                    scorreoelectronico,
+                    sciudad,
+                    lpais_id,
+                    lpatrocinante_id,
+                    lnivel_id,
+                    sotro,
+                    stelefonooficina,
+                    lnit,
+                    lbanco_id, pvitalicio, pmax, smotivobaja, ltipobaja,
+                    cbaja, ctienecuenta, lcodigobanco, lcuentabanco,
+                    lpatrotemp_id, scontrasena,
+                    snotadescuentolote, ddescuentolote, cpresentafactura, ltipocontacto_id, ccorreo,
+                    cweb, cradio, cperiodico, ctv, ccena, cpresentacion, cvolante, dproduccion, dlotes, dtfechacalculo,
+                    cestado, scodigo, dtfechabaja, dtfecharegistro,
+                    dtfechanacimiento, sdireccion
+                )
+                SELECT
+                    IFNULL(MAX_ID, 0) + 1,
+                    @Usuario,
+                    NOW(),
+                    @Usuario,
+                    NOW(),
+                    @NombreCompleto,
+                    @CedulaIdentidad,
+                    @TelefonoFijo,
+                    @TelefonoMovil,
+                    @CorreoElectronico,
+                    @Ciudad,
+                    @PaisId,
+                    @PatrocinanteId,
+                    @NivelId,
+                    @Comentario,
+                    @TelefonoOficina,
+                    @Nit,
+                    0, 0, 0, '', 0,
+                    0, 0, 0, 0,
+                    1, @CedulaIdentidad,
+                    '', 0, 0, 1, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, now(),
+                    0, IFNULL(CODIGO, 0) + 1, now(), @FechaRegistro,
+                    @FechaNacimiento, @Direccion
+                FROM (
+                    SELECT MAX(lcontacto_id) AS MAX_ID, MAX( convert(scodigo, UNSIGNED)) AS CODIGO FROM administracioncontacto
+                ) AS sub;
+            ";
+
+            using var connection = _context.CreateConnection();
+
+            var rows = await connection.ExecuteAsync(query, new
+            {
+                data.Usuario,
+                data.NombreCompleto,
+                data.CedulaIdentidad,
+                data.TelefonoFijo,
+                data.TelefonoMovil,
+                data.CorreoElectronico,
+                data.Ciudad,
+                data.PaisId,
+                data.PatrocinanteId,
+                data.NivelId,
+                data.Comentario,
+                data.TelefonoOficina,
+                data.Nit,
+                data.FechaRegistro,
+                data.FechaNacimiento,
+                data.Direccion
+            });
+
+            if (rows > 0)
+            {
+                return (true, "Contacto registrado correctamente.");
+            }
+
+            return (false, "No se realizó el guardado.");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Error al insertar contacto: {ex.Message}");
+        }
+    }
+    public async Task<(bool Success, string Mensaje)> UpdateContacto(AdministracionContacto data)
+    {
+        try
+        {
+            string query = @"
+                UPDATE administracioncontacto SET
+                    snombrecompleto = @NombreCompleto,
+                    scedulaidentidad = @CedulaIdentidad,
+                    stelefonofijo = @TelefonoFijo,
+                    stelefonomovil = @TelefonoMovil,
+                    scorreoelectronico = @CorreoElectronico,
+                    sciudad = @Ciudad,
+                    lpais_id = @PaisId,
+                    lpatrocinante_id = @PatrocinanteId,
+                    lnivel_id = @NivelId,
+                    sotro = @Comentario,
+                    stelefonooficina = @TelefonoOficina,
+                    lnit = @Nit,
+                    dtfecharegistro = @FechaRegistro,
+                    dtfechanacimiento = @FechaNacimiento,
+                    sdireccion = @Direccion,
+                    susuariomod = @Usuario,
+                    dtfechamod = NOW()
+                WHERE lcontacto_id = @LContactoId;
+            ";
+
+            using var connection = _context.CreateConnection();
+
+            var rows = await connection.ExecuteAsync(query, new
+            {
+                data.NombreCompleto,
+                data.CedulaIdentidad,
+                data.TelefonoFijo,
+                data.TelefonoMovil,
+                data.CorreoElectronico,
+                data.Ciudad,
+                data.PaisId,
+                data.PatrocinanteId,
+                data.NivelId,
+                data.Comentario,
+                data.TelefonoOficina,
+                data.Nit,
+                data.FechaRegistro,
+                data.FechaNacimiento,
+                data.Direccion,
+                data.Usuario,
+                data.LContactoId
+            });
+
+            if (rows > 0)
+            {
+                return (true, "Contacto actualizado correctamente.");
+            }
+
+            return (false, "No se realizó la actualización.");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Error al actualizar contacto: {ex.Message}");
+        }
+    }
+    public async Task<(bool Success, string Mensaje)> BajaContacto(AdministracionContactoBaja data)
+    {
+        try
+        {
+            string query = @"
+                UPDATE administracioncontacto SET
+                    cbaja = '1',
+                    dtfechabaja = NOW(),
+                    ltipobaja = @TipoBajaId,
+                    smotivobaja = @MotivoBaja,
+                    susuariomod = @Usuario,
+                    dtfechamod = NOW()
+                WHERE lcontacto_id = @LContactoId;
+            ";
+
+            using var connection = _context.CreateConnection();
+
+            var rows = await connection.ExecuteAsync(query, new
+            {
+                data.TipoBajaId,
+                data.MotivoBaja,
+                data.Usuario,
+                data.LContactoId
+            });
+
+            if (rows > 0)
+            {
+                return (true, "Contacto dado de baja correctamente.");
+            }
+
+            return (false, "No se realizó la baja.");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Error al dar de baja contacto: {ex.Message}");
+        }
     }
 
-    public async Task<int> AddAsync(Product product)
-    {
-        var query = "INSERT INTO Products (Name, Price) VALUES (@Name, @Price)";
-        using var connection = _context.CreateConnection();
-        return await connection.ExecuteAsync(query, product);
-    }
-
-    public async Task<int> UpdateAsync(Product product)
-    {
-        var query = "UPDATE Products SET Name = @Name, Price = @Price WHERE Id = @Id";
-        using var connection = _context.CreateConnection();
-        return await connection.ExecuteAsync(query, product);
-    }
-
-    public async Task<int> DeleteAsync(int id)
-    {
-        var query = "DELETE FROM Products WHERE Id = @Id";
-        using var connection = _context.CreateConnection();
-        return await connection.ExecuteAsync(query, new { Id = id });
-    }
 }
