@@ -56,8 +56,12 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 LContactoId,
                 LCicloId
             });
-            data.TotalComision = data.ComisionVentaPersonal + data.ComisionVentaGrupo + data.ComisionResidual + data.ComisionLiderazgo;
-            data.TotalFinal = (data.ComisionVentaPersonal + data.ComisionVentaGrupo + data.ComisionResidual + data.ComisionLiderazgo)-(data.Retencion + data.DescuentoLote);
+            if (data != null)
+            {
+                data.TotalComision = data.ComisionVentaPersonal + data.ComisionVentaGrupo + data.ComisionResidual + data.ComisionLiderazgo;
+                data.TotalFinal = data.TotalComision-(data.Retencion + data.DescuentoLote);
+            }
+            
             return (data ?? new DataComision(), true, "Consulta realizada correctamente.");
         }
         catch (Exception ex)
