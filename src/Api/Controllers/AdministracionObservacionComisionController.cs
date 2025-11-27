@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
+using Newtonsoft.Json;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -9,10 +10,12 @@ namespace CleanDapperApi.Api.Controllers;
 public class AdministracionObservacionComisionController : ControllerBase
 {
     private readonly IAdministracionObservacionComisionRepository _repository;
-
-    public AdministracionObservacionComisionController(IAdministracionObservacionComisionRepository repository)
+    private readonly string NOMBREARCHIVO = "AdministracionObservacionComisionController.cs";
+    private readonly ILogService _log;
+    public AdministracionObservacionComisionController(IAdministracionObservacionComisionRepository repository, ILogService log)
     {
         _repository = repository;
+        _log = log;
     }
 
     [HttpGet]
@@ -23,51 +26,143 @@ public class AdministracionObservacionComisionController : ControllerBase
         [FromHeader(Name = "lCicloId")] int lCicloId
     )
     {
-        var respose = await _repository.GetAllAdministracionCObservacionComisionAsync(page, pageSize, search, lCicloId);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetAllAdministracionCObservacionComision()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = new
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}, lCicloId:{lCicloId}]");
+
+            var response = await _repository.GetAllAdministracionCObservacionComisionAsync(page, pageSize, search, lCicloId);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {response.Success} - {response.Mensaje}");
+
+            return Ok(new
             {
-                data = respose.Data,
-                total = respose.Total
-            }
-        });
+                status = response.Success,
+                mensaje = response.Mensaje,
+                data = new
+                {
+                    data = response.Data,
+                    total = response.Total
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpPost("register")]
     public async Task<IActionResult> InsertAdministracionObservacionComision(AdministracionObservacionComision data)
     {
-        var responseInsert = await _repository.InsertAdministracionObservacionComision(data);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "InsertAdministracionObservacionComision()";
+
+        try
         {
-            status = responseInsert.succes ? true : false,
-            mensaje = responseInsert.mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionObservacionComision:{JsonConvert.SerializeObject(data)}");
+
+            var responseInsert = await _repository.InsertAdministracionObservacionComision(data);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseInsert.succes} - {responseInsert.mensaje}");
+
+            return Ok(new
+            {
+                status = responseInsert.succes,
+                mensaje = responseInsert.mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpPut("update")]
     public async Task<IActionResult> UpdateAdministracionObservacionComision(AdministracionObservacionComision data)
     {
-        var responseInsert = await _repository.UpdateAdministracionObservacionComision(data);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "UpdateAdministracionObservacionComision()";
+
+        try
         {
-            status = responseInsert.succes ? true : false,
-            mensaje = responseInsert.mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionObservacionComision:{JsonConvert.SerializeObject(data)}");
+
+            var responseUpdate = await _repository.UpdateAdministracionObservacionComision(data);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseUpdate.succes} - {responseUpdate.mensaje}");
+
+            return Ok(new
+            {
+                status = responseUpdate.succes,
+                mensaje = responseUpdate.mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpDelete("delete")]
     public async Task<IActionResult> DeleteAdministracionObservacionComision(
         [FromHeader(Name = "lObservacionId")] int lObservacionId,
         [FromHeader(Name = "usuario")] string? usuario)
     {
-        var responseInsert = await _repository.DeleteAdministracionObservacionComision(lObservacionId, usuario);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "DeleteAdministracionObservacionComision()";
+
+        try
         {
-            status = responseInsert.succes ? true : false,
-            mensaje = responseInsert.mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lObservacionId:{lObservacionId}, usuario:{usuario}]");
+
+            var responseDelete = await _repository.DeleteAdministracionObservacionComision(lObservacionId, usuario);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseDelete.succes} - {responseDelete.mensaje}");
+
+            return Ok(new
+            {
+                status = responseDelete.succes,
+                mensaje = responseDelete.mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
 }

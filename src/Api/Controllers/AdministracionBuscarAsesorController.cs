@@ -9,26 +9,49 @@ namespace CleanDapperApi.Api.Controllers;
 public class AdministracionBuscarAsesorController : ControllerBase
 {
     private readonly IAdministracionBuscarAsesorRepository _repository;
-
-    public AdministracionBuscarAsesorController(IAdministracionBuscarAsesorRepository repository)
+    private readonly ILogService _log;
+    private readonly string NOMBREARCHIVO = "AdministracionBuscarAsesorController.cs";
+    public AdministracionBuscarAsesorController(IAdministracionBuscarAsesorRepository repository, ILogService log)
     {
         _repository = repository;
+        _log = log;
     }
-
     [HttpGet]
-    public async Task<IActionResult> GetAllAdministracionCiclofactura([FromHeader(Name = "lContactoId")] int lContactoId)
+    public async Task<IActionResult> GetAsesoreSieteNiveles([FromHeader(Name = "lContactoId")] int lContactoId)
     {
-        var respose = await _repository.GetAsesoreSieteNiveles(lContactoId);
-        return Ok(new
-        {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = new
-            {
-                dataFijos = respose.DataFijos,
-                dataActivos = respose.DataActivos
-            }
-        });
-    }
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetAsesoreSieteNiveles()";
 
+        try
+        {
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lContactoId:{lContactoId}]");
+
+            var responseCicloFactura = await _repository.GetAsesoreSieteNiveles(lContactoId);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseCicloFactura.Success} - {responseCicloFactura.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseCicloFactura.Success,
+                mensaje = responseCicloFactura.Mensaje,
+                data = new
+                {
+                    dataFijos = responseCicloFactura.DataFijos,
+                    dataActivos = responseCicloFactura.DataActivos
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+    }
 }

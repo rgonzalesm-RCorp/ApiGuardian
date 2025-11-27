@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
+using Newtonsoft.Json;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -8,74 +9,191 @@ namespace CleanDapperApi.Api.Controllers;
 [Route("api/[controller]")]
 public class AdministracionBancoController : ControllerBase
 {
+    private readonly ILogService _log;
     private readonly IAdministracionBancoRepository _repository;
-
-    public AdministracionBancoController(IAdministracionBancoRepository repository)
+    private readonly string NOMBREARCHIVO = "AdministracionBancoController.cs";
+    public AdministracionBancoController(IAdministracionBancoRepository repository, ILogService log)
     {
         _repository = repository;
+        _log = log;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllCuentaBanco()
     {
-        var respose = await _repository.GetAllBanco();
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetAllCuentaBanco()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = new
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
+
+            var responseBanco = await _repository.GetAllBanco();
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
+
+            return Ok(new
             {
-                listaBanco = respose.Data,
-            }
-        });
+                status = responseBanco.Success,
+                mensaje = responseBanco.Mensaje,
+                data = new
+                {
+                    listaBanco = responseBanco.Data
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpGet("moneda")]
     public async Task<IActionResult> GetAllMoneda()
     {
-        var respose = await _repository.GetAllMoneda();
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetAllMoneda()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = new
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
+
+            var responseMoneda = await _repository.GetAllMoneda();
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseMoneda.Success} - {responseMoneda.Mensaje}");
+
+            return Ok(new
             {
-                listaMoneda = respose.Data,
-            }
-        });
+                status = responseMoneda.Success,
+                mensaje = responseMoneda.Mensaje,
+                data = new
+                {
+                    listaMoneda = responseMoneda.Data
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpPut("update")]
     public async Task<IActionResult> UpdateBanco(AdministracionBanco data)
     {
-        var respose = await _repository.UpdateBanco(data);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "UpdateBanco()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionBanco: {JsonConvert.SerializeObject(data)}");
+
+            var responseBanco = await _repository.UpdateBanco(data);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseBanco.Success,
+                mensaje = responseBanco.Mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpPost("insert")]
     public async Task<IActionResult> InsertBanco(AdministracionBanco data)
     {
-        var respose = await _repository.InsertBanco(data);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "InsertBanco()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionBanco: {JsonConvert.SerializeObject(data)}");
+
+            var responseBanco = await _repository.InsertBanco(data);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseBanco.Success,
+                mensaje = responseBanco.Mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpDelete("delete")]
     public async Task<IActionResult> DeleteBanco(
         [FromHeader(Name = "lBancoId")]  int lBancoId ,
         [FromHeader(Name = "usuario")]  string? usuario)
     {
-        var respose = await _repository.DeleteBanco(lBancoId, usuario);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "DeleteBanco()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lBancoId: {lBancoId}, usuario: {usuario}]");
+
+            var responseBanco = await _repository.DeleteBanco(lBancoId, usuario);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseBanco.Success,
+                mensaje = responseBanco.Mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
 }

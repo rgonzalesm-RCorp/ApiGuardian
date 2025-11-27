@@ -107,3 +107,4 @@
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Api/bin/Debug/net9.0/runtimes/win-x64/native/krbcc64.dll
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Api/bin/Debug/net9.0/runtimes/win/lib/net8.0/System.Windows.Extensions.dll
 /Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Api/obj/Debug/net9.0/Api.sourcelink.json
+/Users/rolandomedina/Desktop/ProyectoGuardian/ApiGuardian/src/Api/bin/Debug/net9.0/Newtonsoft.Json.dll

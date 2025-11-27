@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
+using Newtonsoft.Json;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -9,10 +10,12 @@ namespace CleanDapperApi.Api.Controllers;
 public class AdministracionDescuentoComisionController : ControllerBase
 {
     private readonly IAdministracionDescuentoComisionRepository _repository;
-
-    public AdministracionDescuentoComisionController(IAdministracionDescuentoComisionRepository repository)
+    private readonly string NOMBREARCHIVO = "AdministracionDescuentoComisionController.cs";
+    private readonly ILogService _log;
+    public AdministracionDescuentoComisionController(IAdministracionDescuentoComisionRepository repository, ILogService log)
     {
         _repository = repository;
+        _log = log;
     }
 
     [HttpGet]
@@ -22,18 +25,41 @@ public class AdministracionDescuentoComisionController : ControllerBase
         [FromHeader(Name = "lSemanaId")] int lSemanaId
     )
     {
-        var respose = await _repository.GetComision(lContactoId, lCicloId, lSemanaId);
-        var responseDetalle = await _repository.GetDetalleDescuentoCiclo(lCicloId, lContactoId);
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetAllAdministracionCObservacionComision()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = new
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lContactoId:{lContactoId}, lCicloId:{lCicloId}, lSemanaId:{lSemanaId}]");
+
+            var responseComision = await _repository.GetComision(lContactoId, lCicloId, lSemanaId);
+            var responseDetalle = await _repository.GetDetalleDescuentoCiclo(lCicloId, lContactoId);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseComision.Success} - {responseComision.Mensaje}");
+
+            return Ok(new
             {
-                comision = respose.Data,
-                detalleDescuento = responseDetalle.Data
-            }
-        });
+                status = responseComision.Success,
+                mensaje = responseComision.Mensaje,
+                data = new
+                {
+                    comision = responseComision.Data,
+                    detalleDescuento = responseDetalle.Data
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpDelete("delete")]
     public async Task<IActionResult> EliminarDescuento(
@@ -44,25 +70,69 @@ public class AdministracionDescuentoComisionController : ControllerBase
         //int LContactoId, int LCicloId
     )
     {
-        var respose = await _repository.EliminarDescuento(LDescuentoDetalleId, LContactoId, LCicloId, Usuario);
- 
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "EliminarDescuento()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [LDescuentoDetalleId:{LDescuentoDetalleId}, LContactoId:{LContactoId}, LCicloId:{LCicloId}, Usuario:{Usuario}]");
+
+            var responseDescuento = await _repository.EliminarDescuento(LDescuentoDetalleId, LContactoId, LCicloId, Usuario);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseDescuento.Success} - {responseDescuento.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseDescuento.Success,
+                mensaje = responseDescuento.Mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
     [HttpPost("insert")]
-    public async Task<IActionResult> EliminarDescuento( DataDescuento DataDescuento)
+    public async Task<IActionResult> InsertarDescuento( DataDescuento DataDescuento)
     {
-        var respose = await _repository.InsertarDescuento(DataDescuento);
- 
-        return Ok(new
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "InsertarDescuento()";
+
+        try
         {
-            status = respose.Success ? true : false,
-            mensaje = respose.Mensaje,
-            data = ""
-        });
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo DataDescuento:{JsonConvert.SerializeObject(DataDescuento)}");
+
+            var responseDescuento = await _repository.InsertarDescuento(DataDescuento);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+                $"Fin de metodo: {responseDescuento.Success} - {responseDescuento.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseDescuento.Success,
+                mensaje = responseDescuento.Mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
     }
 }
