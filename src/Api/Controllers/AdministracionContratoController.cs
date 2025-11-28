@@ -32,7 +32,7 @@ public class AdministracionContratoController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}]");
 
-            var responseContrato = await _repository.GetAllAdministracionContrato(page, pageSize, search);
+            var responseContrato = await _repository.GetAllAdministracionContrato(logTransaccionId.ToString(), page, pageSize, search);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseContrato.Success} - {responseContrato.Mensaje}");
@@ -68,9 +68,9 @@ public class AdministracionContratoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContrato: {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContrato: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseContrato = await _repository.InsertContrato(data);
+            var responseContrato = await _repository.InsertContrato(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseContrato.Success} - {responseContrato.Mensaje}");
@@ -102,9 +102,9 @@ public class AdministracionContratoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContrato: {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContrato: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseContrato = await _repository.UpdateContrato(data);
+            var responseContrato = await _repository.UpdateContrato(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseContrato.Success} - {responseContrato.Mensaje}");

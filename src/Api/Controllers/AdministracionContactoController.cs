@@ -26,15 +26,15 @@ public class AdministracionContactoController : ControllerBase
     )
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "GetAllAdministracionContacto()";
+        string NombreMetodo = "GetAllAdministracionContacto()";
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}]");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}]");
 
-            var responseContacto = await _repository.GetAllAdministracionContacto(page, pageSize, search);
+            var responseContacto = await _repository.GetAllAdministracionContacto(logTransaccionId.ToString(), page, pageSize, search);
 
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo,
                 $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
 
             return Ok(new
@@ -50,7 +50,7 @@ public class AdministracionContactoController : ControllerBase
         }
         catch (Exception ex)
         {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
 
             return Ok(new
             {
@@ -68,9 +68,9 @@ public class AdministracionContactoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseContacto = await _repository.InsertContacto(data);
+            var responseContacto = await _repository.InsertContacto(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
@@ -102,9 +102,9 @@ public class AdministracionContactoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseContacto = await _repository.UpdateContacto(data);
+            var responseContacto = await _repository.UpdateContacto(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
@@ -136,9 +136,9 @@ public class AdministracionContactoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseContacto = await _repository.BajaContacto(data);
+            var responseContacto = await _repository.BajaContacto(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");

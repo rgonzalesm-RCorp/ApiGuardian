@@ -28,7 +28,7 @@ public class UtilsController : ControllerBase
         try
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-            var responseCiclos = await _utilsRepository.GetCiclos();
+            var responseCiclos = await _utilsRepository.GetCiclos(logTransaccionId.ToString());
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo: {responseCiclos.Success} - {responseCiclos.Mensaje}");
             return Ok(new
             {
@@ -57,8 +57,8 @@ public class UtilsController : ControllerBase
         try
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-            var responseCiclosSemana = await _utilsRepository.GetSemanaCiclosAsync(lCicloId);
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo: {JsonConvert.SerializeObject(responseCiclosSemana)}");
+            var responseCiclosSemana = await _utilsRepository.GetSemanaCiclosAsync(logTransaccionId.ToString(),lCicloId);
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
 
             return Ok(new
             {
@@ -89,7 +89,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseComplejo = await _utilsRepository.GetComplejo();
+            var responseComplejo = await _utilsRepository.GetComplejo(logTransaccionId.ToString());
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo: { responseComplejo.Success } - {responseComplejo.Mensaje}");
 
             return Ok(new
@@ -122,7 +122,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseDepartamento = await _utilsRepository.GetDepartamento(lPaisId);
+            var responseDepartamento = await _utilsRepository.GetDepartamento(logTransaccionId.ToString(), lPaisId);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, 
                 $"Fin de metodo: {responseDepartamento.Success} - {responseDepartamento.Mensaje}");
@@ -159,7 +159,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseTipoContrato = await _utilsRepository.GetTipoContrato();
+            var responseTipoContrato = await _utilsRepository.GetTipoContrato(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseTipoContrato.Success} - {responseTipoContrato.Mensaje}");
@@ -196,7 +196,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseEstadoContrato = await _utilsRepository.GetEstadoContrato();
+            var responseEstadoContrato = await _utilsRepository.GetEstadoContrato(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseEstadoContrato.Success} - {responseEstadoContrato.Mensaje}");
@@ -233,7 +233,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseNivel = await _utilsRepository.GetNivel();
+            var responseNivel = await _utilsRepository.GetNivel(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseNivel.Success} - {responseNivel.Mensaje}");
@@ -270,7 +270,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseTipoBaja = await _utilsRepository.GetTipoBaja();
+            var responseTipoBaja = await _utilsRepository.GetTipoBaja(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseTipoBaja.Success} - {responseTipoBaja.Mensaje}");
@@ -307,7 +307,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responsePais = await _utilsRepository.GetPais();
+            var responsePais = await _utilsRepository.GetPais(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responsePais.Success} - {responsePais.Mensaje}");
@@ -344,7 +344,7 @@ public class UtilsController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseTipoDescuento = await _utilsRepository.GetTipoDescuento();
+            var responseTipoDescuento = await _utilsRepository.GetTipoDescuento(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseTipoDescuento.Success} - {responseTipoDescuento.Mensaje}");

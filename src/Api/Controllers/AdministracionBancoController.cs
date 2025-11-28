@@ -28,7 +28,7 @@ public class AdministracionBancoController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseBanco = await _repository.GetAllBanco();
+            var responseBanco = await _repository.GetAllBanco(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
@@ -65,7 +65,7 @@ public class AdministracionBancoController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
 
-            var responseMoneda = await _repository.GetAllMoneda();
+            var responseMoneda = await _repository.GetAllMoneda(logTransaccionId.ToString());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseMoneda.Success} - {responseMoneda.Mensaje}");
@@ -100,9 +100,9 @@ public class AdministracionBancoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionBanco: {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionBanco: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseBanco = await _repository.UpdateBanco(data);
+            var responseBanco = await _repository.UpdateBanco(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
@@ -134,9 +134,9 @@ public class AdministracionBancoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionBanco: {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionBanco: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseBanco = await _repository.InsertBanco(data);
+            var responseBanco = await _repository.InsertBanco(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");
@@ -172,7 +172,7 @@ public class AdministracionBancoController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lBancoId: {lBancoId}, usuario: {usuario}]");
 
-            var responseBanco = await _repository.DeleteBanco(lBancoId, usuario);
+            var responseBanco = await _repository.DeleteBanco(logTransaccionId.ToString(), lBancoId, usuario);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseBanco.Success} - {responseBanco.Mensaje}");

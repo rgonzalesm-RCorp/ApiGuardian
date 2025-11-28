@@ -1149,7 +1149,8 @@
           "Microsoft.Extensions.Configuration.Abstractions": "9.0.10",
           "Microsoft.Extensions.Configuration.Binder": "9.0.10",
           "Microsoft.Extensions.Options": "9.0.10",
-          "MySql.Data": "9.5.0"
+          "MySql.Data": "9.5.0",
+          "Newtonsoft.Json": "13.0.4"
         },
         "compile": {
           "bin/placeholder/Infrastructure.dll": {}

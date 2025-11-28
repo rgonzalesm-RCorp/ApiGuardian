@@ -2,20 +2,25 @@ using Dapper;
 using ApiGuardian.Domain.Entities;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Persistence;
+using Newtonsoft.Json;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
 public class AdministracionContactoRepository : IAdministracionContactoRepository
 {
     private readonly DapperContext _context;
-
-    public AdministracionContactoRepository(DapperContext context)
+    private readonly ILogService _log;
+    private string NOMBREARCHIVO = "AdministracionContactoRepository.cs";
+    public AdministracionContactoRepository(DapperContext context, ILogService log)
     {
         _context = context;
+        _log = log;
     }
-
-    public async Task<(IEnumerable<ListaAdministracionContacto> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContacto(int page, int pageSize, string? search)
+    public async Task<(IEnumerable<ListaAdministracionContacto> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContacto(string LogTransaccionId, int page, int pageSize, string? search)
     {
+        string NombreMetodo = "GetAllAdministracionContacto()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}]");
+
         try
         {
             using var connection = _context.CreateConnection();
@@ -78,17 +83,20 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
 
             var data = await connection.QueryAsync<ListaAdministracionContacto>(query, parameters);
             var total = await connection.ExecuteScalarAsync<int>(countQuery, parameters);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo [total: {total}, data:{JsonConvert.SerializeObject(data, Formatting.Indented)}]");
 
             return (data, true, "Consulta realizada correctamente.", total);
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ListaAdministracionContacto>(), false, "Error al consultar contactos.", 0);
         }
     }
-    public async Task<(bool Success, string Mensaje)> InsertContacto(AdministracionContacto data)
+    public async Task<(bool Success, string Mensaje)> InsertContacto(string LogTransaccionId, AdministracionContacto data)
     {
+        string NombreMetodo = "InsertContacto()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo");
         try
         {
             string query = @"
@@ -172,18 +180,23 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
 
             if (rows > 0)
             {
+                _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo (Contacto registrado correctamente.)");
+
                 return (true, "Contacto registrado correctamente.");
             }
-
+            _log.Warning(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo (No se realizó el guardado.)");
             return (false, "No se realizó el guardado.");
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (false, $"Error al insertar contacto: {ex.Message}");
         }
     }
-    public async Task<(bool Success, string Mensaje)> UpdateContacto(AdministracionContacto data)
+    public async Task<(bool Success, string Mensaje)> UpdateContacto(string LogTransaccionId, AdministracionContacto data)
     {
+        string NombreMetodo = "UpdateContacto()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo");
         try
         {
             string query = @"
@@ -233,18 +246,22 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
 
             if (rows > 0)
             {
+                _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo (Contacto actualizado correctamente.)");
                 return (true, "Contacto actualizado correctamente.");
             }
-
+            _log.Warning(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo (No se realizó la actualización.)");
             return (false, "No se realizó la actualización.");
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (false, $"Error al actualizar contacto: {ex.Message}");
         }
     }
-    public async Task<(bool Success, string Mensaje)> BajaContacto(AdministracionContactoBaja data)
+    public async Task<(bool Success, string Mensaje)> BajaContacto(string LogTransaccionId, AdministracionContactoBaja data)
     {
+        string NombreMetodo = "BajaContacto()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo");
         try
         {
             string query = @"
@@ -270,15 +287,17 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
 
             if (rows > 0)
             {
+                _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo (Contacto dado de baja correctamente.)");
                 return (true, "Contacto dado de baja correctamente.");
             }
-
+            _log.Warning(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Fin de metodo (No se realizó la baja.)");
             return (false, "No se realizó la baja.");
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+
             return (false, $"Error al dar de baja contacto: {ex.Message}");
         }
     }
-
 }

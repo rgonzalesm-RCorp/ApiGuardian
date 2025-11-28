@@ -32,7 +32,7 @@ public class AdministracionCicloFacturaController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, lCicloId:{lCicloId}]");
 
-            var responseCicloFactura = await _repository.GetAllAdministracionCiclofactura(page, pageSize, lCicloId);
+            var responseCicloFactura = await _repository.GetAllAdministracionCiclofactura(logTransaccionId.ToString(), page, pageSize, lCicloId);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCicloFactura.Success} - {responseCicloFactura.Mensaje}");
@@ -68,9 +68,9 @@ public class AdministracionCicloFacturaController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionCicloFactura: {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionCicloFactura: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseCicloFactura = await _repository.InsertAdministracionCiclofactura(data);
+            var responseCicloFactura = await _repository.InsertAdministracionCiclofactura(logTransaccionId.ToString(),data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCicloFactura.success} - {responseCicloFactura.mensaje}");
@@ -93,8 +93,7 @@ public class AdministracionCicloFacturaController : ControllerBase
                 data = ""
             });
         }
-    }
-        
+    }     
     [HttpDelete("delete")]
     public async Task<IActionResult> DeleteAdministracionCiclofactura(
         [FromHeader(Name = "lciclofactura")] int lciclofactura,
@@ -107,7 +106,7 @@ public class AdministracionCicloFacturaController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lciclofactura:{lciclofactura}, usuario:{usuario}]");
 
-            var responseCicloFactura = await _repository.DeleteAdministracionCiclofactura(lciclofactura, usuario);
+            var responseCicloFactura = await _repository.DeleteAdministracionCiclofactura(logTransaccionId.ToString(),lciclofactura, usuario);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCicloFactura.succes} - {responseCicloFactura.mensaje}");

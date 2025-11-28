@@ -2,19 +2,24 @@ using Dapper;
 using ApiGuardian.Domain.Entities;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Persistence;
+using Newtonsoft.Json;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
 public class UtilsRepository : IUtilsRepository
 {
     private readonly DapperContext _context;
-
-    public UtilsRepository(DapperContext context)
+    private readonly ILogService _log;
+    private string NOMBREARCHIVO = "UtilsRepository.CS";
+    public UtilsRepository(DapperContext context, ILogService log)
     {
         _context = context;
+        _log = log;
     }
-    public async Task<(IEnumerable<AdministracionCiclo> Ciclos, bool Success, string Mensaje)> GetCiclos()
+    public async Task<(IEnumerable<AdministracionCiclo> Ciclos, bool Success, string Mensaje)> GetCiclos(string LogTransaccionId)
     {
+        string NombreMetodo = "GetCiclos()";
+
         const string query = @"
             SELECT 
                 lciclo_id AS LCicloId,
@@ -25,6 +30,7 @@ public class UtilsRepository : IUtilsRepository
             FROM administracionciclo
             ORDER BY lciclo_id DESC;
         ";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
@@ -34,16 +40,21 @@ public class UtilsRepository : IUtilsRepository
 
             bool success = ciclos != null && ciclos.Any();
             string mensaje = success ? "Ciclos obtenidos correctamente." : "No se encontraron ciclos.";
+        
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [mensaje: {mensaje}, ciclos:{JsonConvert.SerializeObject(ciclos, Formatting.Indented)}]");
 
             return (ciclos ?? Enumerable.Empty<AdministracionCiclo>(), success, mensaje);
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<AdministracionCiclo>(), false, $"Error al obtener los ciclos: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<AdministracionSemanaCiclo> Semanas, bool Success, string Mensaje)> GetSemanaCiclosAsync(int lCicloId)
+    public async Task<(IEnumerable<AdministracionSemanaCiclo> Semanas, bool Success, string Mensaje)> GetSemanaCiclosAsync(string LogTransaccionId, int lCicloId)
     {
+        string NombreMetodo = "GetSemanaCiclosAsync()";
+
         const string query = @"
             SELECT 
                 ACS.lciclo_id AS LCicloId,
@@ -59,6 +70,7 @@ public class UtilsRepository : IUtilsRepository
             WHERE ACS.lciclo_id = @lCicloId
             ORDER BY ASE.idsemana;
         ";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
@@ -70,108 +82,169 @@ public class UtilsRepository : IUtilsRepository
             string mensaje = success
                 ? "Semanas del ciclo obtenidas correctamente."
                 : "No se encontraron semanas para el ciclo especificado.";
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [mensaje: {mensaje}, ciclos:{JsonConvert.SerializeObject(semanas, Formatting.Indented)}]");
 
             return (semanas ?? Enumerable.Empty<AdministracionSemanaCiclo>(), success, mensaje);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"rror al obtener semanas del ciclo: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<AdministracionSemanaCiclo>(), false, $"Error al obtener semanas del ciclo: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<AdministracionComplejo> Complejo, bool Success, string Mensaje)> GetComplejo()
+    public async Task<(IEnumerable<AdministracionComplejo> Complejo, bool Success, string Mensaje)> GetComplejo(string LogTransaccionId)
     {
+        string nombreMetodo = "GetComplejo()";
+
         const string query = @"
-            select lcomplejo_id LComplejoId, scodigo SCodigo, UPPER(snombre) SNombre from administracioncomplejo
+            SELECT 
+                lcomplejo_id AS LComplejoId, 
+                scodigo AS SCodigo, 
+                UPPER(snombre) AS SNombre 
+            FROM administracioncomplejo
+            ORDER BY lcomplejo_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var proyecto = await connection.QueryAsync<AdministracionComplejo>(query);
+            var complejos = await connection.QueryAsync<AdministracionComplejo>(query);
 
-            bool success = proyecto != null && proyecto.Any();
+            bool success = complejos != null && complejos.Any();
             string mensaje = success ? "Complejos obtenidos correctamente." : "No se encontraron complejos.";
 
-            return (proyecto ?? Enumerable.Empty<AdministracionComplejo>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, complejos:{JsonConvert.SerializeObject(complejos, Formatting.Indented)}]");
+
+            return (complejos ?? Enumerable.Empty<AdministracionComplejo>(), success, mensaje);
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<AdministracionComplejo>(), false, $"Error al obtener los complejos: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<BasePaisDepartamento> Departamento, bool Success, string Mensaje)> GetDepartamento(int lPaisId)
+    public async Task<(IEnumerable<BasePaisDepartamento> Departamento, bool Success, string Mensaje)> GetDepartamento(string LogTransaccionId, int lPaisId)
     {
+        string nombreMetodo = "GetDepartamento()";
+
         const string query = @"
-             select lPaisDepartamento_id LDepartamentoId, lpais_id LPaisId, UPPER(sNombre) SNombre from basepaisdepartamento where lpais_id = @lPaisId;
+            SELECT 
+                lpaisdepartamento_id AS LDepartamentoId, 
+                lpais_id AS LPaisId, 
+                UPPER(snombre) AS SNombre 
+            FROM basepaisdepartamento 
+            WHERE lpais_id = @lPaisId
+            ORDER BY lpaisdepartamento_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var dpto = await connection.QueryAsync<BasePaisDepartamento>(query, new {lPaisId});
+            var departamentos = await connection.QueryAsync<BasePaisDepartamento>(query, new { lPaisId });
 
-            bool success = dpto != null && dpto.Any();
-            string mensaje = success ? "Departamentos obtenidos correctamente." : "No se encontraron Departamentos.";
+            bool success = departamentos != null && departamentos.Any();
+            string mensaje = success ? "Departamentos obtenidos correctamente." : "No se encontraron departamentos.";
 
-            return (dpto ?? Enumerable.Empty<BasePaisDepartamento>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, departamentos:{JsonConvert.SerializeObject(departamentos, Formatting.Indented)}]");
+
+            return (departamentos ?? Enumerable.Empty<BasePaisDepartamento>(), success, mensaje);
         }
         catch (Exception ex)
         {
-            return (Enumerable.Empty<BasePaisDepartamento>(), false, $"Error al obtener los Departamentos: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<BasePaisDepartamento>(), false, $"Error al obtener los departamentos: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<AdministracionTipoContrato> TipoContrato, bool Success, string Mensaje)> GetTipoContrato()
+    public async Task<(IEnumerable<AdministracionTipoContrato> TipoContrato, bool Success, string Mensaje)> GetTipoContrato(string LogTransaccionId)
     {
-         const string query = @"
-             select ltipocontrato_id LTipoContratoId, UPPER(snombre) SNombre from administraciontipocontrato
+         string nombreMetodo = "GetTipoContrato()";
+
+        const string query = @"
+            SELECT 
+                ltipocontrato_id AS LTipoContratoId, 
+                UPPER(snombre) AS SNombre 
+            FROM administraciontipocontrato
+            ORDER BY ltipocontrato_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var tipo = await connection.QueryAsync<AdministracionTipoContrato>(query);
+            var tipoContrato = await connection.QueryAsync<AdministracionTipoContrato>(query);
 
-            bool success = tipo != null && tipo.Any();
-            string mensaje = success ? "Tipo contrato obtenidos correctamente." : "No se encontraron Tipo contrato.";
+            bool success = tipoContrato != null && tipoContrato.Any();
+            string mensaje = success ? "Tipos de contrato obtenidos correctamente." : "No se encontraron tipos de contrato.";
 
-            return (tipo ?? Enumerable.Empty<AdministracionTipoContrato>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, tipoContrato:{JsonConvert.SerializeObject(tipoContrato, Formatting.Indented)}]");
+
+            return (tipoContrato ?? Enumerable.Empty<AdministracionTipoContrato>(), success, mensaje);
         }
         catch (Exception ex)
         {
-            return (Enumerable.Empty<AdministracionTipoContrato>(), false, $"Error al obtener los Tipos contratos: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<AdministracionTipoContrato>(), false, $"Error al obtener los tipos de contrato: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<AdministracionEstadoContrato> EstadoContrato, bool Success, string Mensaje)> GetEstadoContrato()
+    public async Task<(IEnumerable<AdministracionEstadoContrato> EstadoContrato, bool Success, string Mensaje)> GetEstadoContrato(string LogTransaccionId)
     {
-         const string query = @"
-            select lestadocontrato_id LEstadoContratoId, UPPER(snombre) SNombre from administracionestadocontrato
+         string nombreMetodo = "GetEstadoContrato()";
+
+        const string query = @"
+            SELECT 
+                lestadocontrato_id AS LEstadoContratoId, 
+                UPPER(snombre) AS SNombre 
+            FROM administracionestadocontrato
+            ORDER BY lestadocontrato_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var estado = await connection.QueryAsync<AdministracionEstadoContrato>(query);
+            var estados = await connection.QueryAsync<AdministracionEstadoContrato>(query);
 
-            bool success = estado != null && estado.Any();
-            string mensaje = success ? "Estado contratos obtenidos correctamente." : "No se encontraron los estado de los contratos.";
+            bool success = estados != null && estados.Any();
+            string mensaje = success ? "Estados de contrato obtenidos correctamente." : "No se encontraron estados de contrato.";
 
-            return (estado ?? Enumerable.Empty<AdministracionEstadoContrato>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, estados:{JsonConvert.SerializeObject(estados, Formatting.Indented)}]");
+
+            return (estados ?? Enumerable.Empty<AdministracionEstadoContrato>(), success, mensaje);
         }
         catch (Exception ex)
         {
-            return (Enumerable.Empty<AdministracionEstadoContrato>(), false, $"Error al obtener los estado de los contratos: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<AdministracionEstadoContrato>(), false, $"Error al obtener los estados de contrato: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<ListaAdministracionNivel> Nivel, bool Success, string Mensaje)> GetNivel()
+    public async Task<(IEnumerable<ListaAdministracionNivel> Nivel, bool Success, string Mensaje)> GetNivel(string LogTransaccionId)
     {
-         const string query = @"
-            SELECT lnivel_id LNivelId, UPPER(ssigla) SSigla, UPPER(snombre) SNombre FROM administracionnivel
+         string nombreMetodo = "GetNivel()";
+
+        const string query = @"
+            SELECT 
+                lnivel_id AS LNivelId, 
+                UPPER(ssigla) AS SSigla, 
+                UPPER(snombre) AS SNombre 
+            FROM administracionnivel
+            ORDER BY lnivel_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
@@ -180,79 +253,119 @@ public class UtilsRepository : IUtilsRepository
             var niveles = await connection.QueryAsync<ListaAdministracionNivel>(query);
 
             bool success = niveles != null && niveles.Any();
-            string mensaje = success ? "Niveles obtenidos correctamente." : "No se encontraron los niveles.";
+            string mensaje = success ? "Niveles obtenidos correctamente." : "No se encontraron niveles.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, niveles:{JsonConvert.SerializeObject(niveles, Formatting.Indented)}]");
 
             return (niveles ?? Enumerable.Empty<ListaAdministracionNivel>(), success, mensaje);
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ListaAdministracionNivel>(), false, $"Error al obtener los niveles: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<ListaAdministracionPais> Pais, bool Success, string Mensaje)> GetPais()
+    public async Task<(IEnumerable<ListaAdministracionPais> Pais, bool Success, string Mensaje)> GetPais(string LogTransaccionId)
     {
-         const string query = @"
-            SELECT lPais_id LPaisId, UPPER(snombre) SNombre FROM basepais
+        string nombreMetodo = "GetPais()";
+
+        const string query = @"
+            SELECT 
+                lpais_id AS LPaisId, 
+                UPPER(snombre) AS SNombre 
+            FROM basepais
+            ORDER BY lpais_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var niveles = await connection.QueryAsync<ListaAdministracionPais>(query);
+            var paises = await connection.QueryAsync<ListaAdministracionPais>(query);
 
-            bool success = niveles != null && niveles.Any();
-            string mensaje = success ? "Paises obtenidos correctamente." : "No se encontraron los paises.";
+            bool success = paises != null && paises.Any();
+            string mensaje = success ? "Países obtenidos correctamente." : "No se encontraron países.";
 
-            return (niveles ?? Enumerable.Empty<ListaAdministracionPais>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, paises:{JsonConvert.SerializeObject(paises, Formatting.Indented)}]");
+
+            return (paises ?? Enumerable.Empty<ListaAdministracionPais>(), success, mensaje);
         }
         catch (Exception ex)
         {
-            return (Enumerable.Empty<ListaAdministracionPais>(), false, $"Error al obtener los Paises: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ListaAdministracionPais>(), false, $"Error al obtener los países: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<ListaAdministracionTipoBaja> TipoBaja, bool Success, string Mensaje)> GetTipoBaja()
+    public async Task<(IEnumerable<ListaAdministracionTipoBaja> TipoBaja, bool Success, string Mensaje)> GetTipoBaja(string LogTransaccionId)
     {
-         const string query = @"
-            select ltipobaja_id LTipoBajaId, UPPER(snombre) SNombre from administraciontipobaja
+        string nombreMetodo = "GetTipoBaja()";
+
+        const string query = @"
+            SELECT 
+                ltipobaja_id AS LTipoBajaId, 
+                UPPER(snombre) AS SNombre 
+            FROM administraciontipobaja
+            ORDER BY ltipobaja_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var niveles = await connection.QueryAsync<ListaAdministracionTipoBaja>(query);
+            var tiposBaja = await connection.QueryAsync<ListaAdministracionTipoBaja>(query);
 
-            bool success = niveles != null && niveles.Any();
-            string mensaje = success ? "Tipo Baja obtenidos correctamente." : "No se encontraron los tipos de baja.";
+            bool success = tiposBaja != null && tiposBaja.Any();
+            string mensaje = success ? "Tipos de baja obtenidos correctamente." : "No se encontraron tipos de baja.";
 
-            return (niveles ?? Enumerable.Empty<ListaAdministracionTipoBaja>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, tiposBaja:{JsonConvert.SerializeObject(tiposBaja, Formatting.Indented)}]");
+
+            return (tiposBaja ?? Enumerable.Empty<ListaAdministracionTipoBaja>(), success, mensaje);
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ListaAdministracionTipoBaja>(), false, $"Error al obtener los tipos de baja: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<ListaTipoDescuento> TipoDescuento, bool Success, string Mensaje)> GetTipoDescuento()
+    public async Task<(IEnumerable<ListaTipoDescuento> TipoDescuento, bool Success, string Mensaje)> GetTipoDescuento(string LogTransaccionId)
     {
-         const string query = @"
-            select ldescuentociclotipo_id LDescuentoTipoId, UPPER(snombre) SNombre from administraciondescuentociclotipo
+        string nombreMetodo = "GetTipoDescuento()";
+
+        const string query = @"
+            SELECT 
+                ldescuentociclotipo_id AS LDescuentoTipoId, 
+                UPPER(snombre) AS SNombre 
+            FROM administraciondescuentociclotipo
+            ORDER BY ldescuentociclotipo_id DESC;
         ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var niveles = await connection.QueryAsync<ListaTipoDescuento>(query);
+            var tiposDescuento = await connection.QueryAsync<ListaTipoDescuento>(query);
 
-            bool success = niveles != null && niveles.Any();
-            string mensaje = success ? "Tipo Descuento obtenidos correctamente." : "No se encontraron los tipos de descuentos.";
+            bool success = tiposDescuento != null && tiposDescuento.Any();
+            string mensaje = success ? "Tipos de descuento obtenidos correctamente." : "No se encontraron tipos de descuento.";
 
-            return (niveles ?? Enumerable.Empty<ListaTipoDescuento>(), success, mensaje);
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, tiposDescuento:{JsonConvert.SerializeObject(tiposDescuento, Formatting.Indented)}]");
+
+            return (tiposDescuento ?? Enumerable.Empty<ListaTipoDescuento>(), success, mensaje);
         }
         catch (Exception ex)
         {
-            return (Enumerable.Empty<ListaTipoDescuento>(), false, $"Error al obtener los tipos de descuentos: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ListaTipoDescuento>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
 

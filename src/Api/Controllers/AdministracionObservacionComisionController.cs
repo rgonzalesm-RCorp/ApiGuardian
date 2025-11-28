@@ -33,7 +33,7 @@ public class AdministracionObservacionComisionController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}, lCicloId:{lCicloId}]");
 
-            var response = await _repository.GetAllAdministracionCObservacionComisionAsync(page, pageSize, search, lCicloId);
+            var response = await _repository.GetAllAdministracionCObservacionComisionAsync(logTransaccionId.ToString(), page, pageSize, search, lCicloId);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {response.Success} - {response.Mensaje}");
@@ -69,9 +69,9 @@ public class AdministracionObservacionComisionController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionObservacionComision:{JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionObservacionComision:{JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseInsert = await _repository.InsertAdministracionObservacionComision(data);
+            var responseInsert = await _repository.InsertAdministracionObservacionComision(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseInsert.succes} - {responseInsert.mensaje}");
@@ -103,9 +103,9 @@ public class AdministracionObservacionComisionController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionObservacionComision:{JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionObservacionComision:{JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseUpdate = await _repository.UpdateAdministracionObservacionComision(data);
+            var responseUpdate = await _repository.UpdateAdministracionObservacionComision(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseUpdate.succes} - {responseUpdate.mensaje}");
@@ -141,7 +141,7 @@ public class AdministracionObservacionComisionController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lObservacionId:{lObservacionId}, usuario:{usuario}]");
 
-            var responseDelete = await _repository.DeleteAdministracionObservacionComision(lObservacionId, usuario);
+            var responseDelete = await _repository.DeleteAdministracionObservacionComision(logTransaccionId.ToString(), lObservacionId, usuario);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseDelete.succes} - {responseDelete.mensaje}");

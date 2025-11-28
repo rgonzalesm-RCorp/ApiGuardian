@@ -2,20 +2,24 @@ using Dapper;
 using ApiGuardian.Domain.Entities;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Persistence;
+using Newtonsoft.Json;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
 public class AdministracionObservacionComisionRepository : IAdministracionObservacionComisionRepository
 {
     private readonly DapperContext _context;
-
-    public AdministracionObservacionComisionRepository(DapperContext context)
+    private readonly ILogService _log;
+    private string NOMBREARCHIVO = "UtilsRepository.CS";
+    public AdministracionObservacionComisionRepository(DapperContext context, ILogService log)
     {
         _context = context;
+        _log = log;
     }
-
-    public async Task<(IEnumerable<ListaAdministracionObservacionComision> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionCObservacionComisionAsync(int page, int pageSize, string? search, int lCicloId)
+    public async Task<(IEnumerable<ListaAdministracionObservacionComision> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionCObservacionComisionAsync(string LogTransaccionId, int page, int pageSize, string? search, int lCicloId)
     {
+        string nombreMetodo = "GetAllAdministracionCObservacionComisionAsync()";
+
         const string queryData = @"
             SELECT 
                 AOC.lobservacioncomision_id AS ObservacionId,
@@ -43,14 +47,15 @@ public class AdministracionObservacionComisionRepository : IAdministracionObserv
             AND (@search IS NULL OR ACT.snombrecompleto LIKE CONCAT('%', @search, '%'));
         ";
 
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [scriptData: {queryData}]");
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [scriptCount: {queryCount}]");
+
         try
         {
             using var connection = _context.CreateConnection();
 
-            // Obtener el total
             int total = await connection.ExecuteScalarAsync<int>(queryCount, new { lCicloId, search });
 
-            // Obtener la lista paginada
             var data = await connection.QueryAsync<ListaAdministracionObservacionComision>(
                 queryData, new { lCicloId, search, pageSize, page }
             );
@@ -60,125 +65,155 @@ public class AdministracionObservacionComisionRepository : IAdministracionObserv
                 ? "Registros obtenidos correctamente."
                 : "No se encontraron registros para los criterios especificados.";
 
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, total:{total}, data:{JsonConvert.SerializeObject(data, Formatting.Indented)}]");
+
             return (data ?? Enumerable.Empty<ListaAdministracionObservacionComision>(), success, mensaje, total);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error al obtener observaciones de comisión: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ListaAdministracionObservacionComision>(), false, $"Error al obtener observaciones: {ex.Message}", 0);
         }
     }
-
-    public async Task<(bool succes, string mensaje)> InsertAdministracionObservacionComision(AdministracionObservacionComision data)
+    public async Task<(bool succes, string mensaje)> InsertAdministracionObservacionComision(string LogTransaccionId, AdministracionObservacionComision data)
     {
+        string nombreMetodo = "InsertAdministracionObservacionComision()";
+
+        const string query = @"
+            INSERT INTO administracionobservacioncomision (
+                susuarioadd,
+                dtfechaadd,
+                lobservacioncomision_id,
+                susuariomod,
+                dtfechamod,
+                lcontacto_id,
+                lciclo_id,
+                sobservacion
+            )
+            SELECT 
+                @usuario,
+                NOW(),
+                IFNULL(MAX_ID, 0) + 1,
+                @usuario,
+                NOW(),
+                @LContactoId,
+                @LCicloId,
+                @SObservacion
+            FROM (SELECT MAX(lobservacioncomision_id) AS MAX_ID 
+                FROM administracionobservacioncomision) AS sub;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
         try
         {
-            var query = @"
-                INSERT INTO administracionobservacioncomision (
-                            susuarioadd,
-                            dtfechaadd,
-                            lobservacioncomision_id,
-                            susuariomod,
-                            dtfechamod,
-                            lcontacto_id,
-                            lciclo_id,
-                            sobservacion
-                        )
-                SELECT 
-                     @usuario,
-                    NOW(),
-                    IFNULL(MAX_ID, 0) + 1,
-                    @usuario,
-                    NOW(),
-                    @LContactoId,
-                    @LCicloId,
-                    @SObservacion
-                FROM (SELECT MAX(lobservacioncomision_id) AS MAX_ID 
-                    FROM administracionobservacioncomision) AS sub;";
-
             using var connection = _context.CreateConnection();
 
             var rowsAffected = await connection.ExecuteAsync(query, new
             {
-                data.usuario,
+                usuario = data.usuario,
                 data.LContactoId,
                 data.LCicloId,
                 data.SObservacion
             });
 
-            if (rowsAffected > 0)
-            {
-                Console.WriteLine("Registro insertado correctamente.");
-                return (true, "Registro insertado correctamente.");
-            }
-            else
-            {
-                Console.WriteLine("No se insertó ningún registro.");
-                return (false, "No se insertó ningún registro.");
-            }
+            bool success = rowsAffected > 0;
+            string mensaje = success ? "Registro insertado correctamente." : "No se insertó ningún registro.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rowsAffected}, data:{JsonConvert.SerializeObject(data, Formatting.Indented)}]");
+
+            return (success, mensaje);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error al insertar observación de comisión: {ex.Message}");
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (false, $"Error al insertar observación de comisión: {ex.Message}");
         }
     }
-    public async Task<(bool succes, string mensaje)> UpdateAdministracionObservacionComision(AdministracionObservacionComision data)
+    public async Task<(bool succes, string mensaje)> UpdateAdministracionObservacionComision(string LogTransaccionId, AdministracionObservacionComision data)
     {
+        string nombreMetodo = "UpdateAdministracionObservacionComision()";
+
+        const string query = @"
+            UPDATE administracionobservacioncomision 
+            SET 
+                susuariomod = @Usuario, 
+                dtfechamod = NOW(), 
+                lcontacto_id = @LContactoId, 
+                lciclo_id = @LCicloId, 
+                sobservacion = @SObservacion
+            WHERE lobservacioncomision_id = @LObservacionId;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
         try
         {
-            var query = @"
-                    update administracionobservacioncomision set 
-                        susuariomod = @usuario, 
-                        dtfechamod = now(), 
-                        lcontacto_id = @LContactoId, 
-                        lciclo_id = @LCicloId, 
-                        sobservacion = @SObservacion
-                    where lobservacioncomision_id = @lObservacionId";
-
             using var connection = _context.CreateConnection();
 
-            var rowsAffected = await connection.ExecuteAsync(query, new {
-                data.lObservacionId, data.LContactoId, data.LCicloId, data.usuario, data.SObservacion
+            var rowsAffected = await connection.ExecuteAsync(query, new
+            {
+                LObservacionId = data.lObservacionId,
+                data.LContactoId,
+                data.LCicloId,
+                Usuario = data.usuario,
+                data.SObservacion
             });
 
-            if (rowsAffected > 0)
-            {
-                return (true, "Registro actualizado correctamente.");
-            }
-            else
-            {
-                return (false, "No se encontró ningún registro con el ID especificado.");
-            }
+            bool success = rowsAffected > 0;
+            string mensaje = success
+                ? "Registro actualizado correctamente."
+                : "No se encontró ningún registro con el ID especificado.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rowsAffected}, data:{JsonConvert.SerializeObject(data, Formatting.Indented)}]");
+
+            return (success, mensaje);
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (false, $"Error al actualizar observación de comisión: {ex.Message}");
         }
     }
-    
-    public async Task<(bool succes, string mensaje)> DeleteAdministracionObservacionComision(int lObservacionId, string? usuario)
+    public async Task<(bool succes, string mensaje)> DeleteAdministracionObservacionComision(string LogTransaccionId, int lObservacionId, string? usuario)
     {
+        string nombreMetodo = "DeleteAdministracionObservacionComision()";
+
         if (lObservacionId <= 0)
         {
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin/Inicio de metodo [El ID proporcionado no es válido.]");
             return (false, "El ID proporcionado no es válido.");
         }
 
         const string query = @"
             DELETE FROM administracionobservacioncomision
-            WHERE lobservacioncomision_id = @lObservacionId";
+            WHERE lobservacioncomision_id = @lObservacionId;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
         {
             using var connection = _context.CreateConnection();
-            var rowsAffected = await connection.ExecuteAsync(query, new { lObservacionId }).ConfigureAwait(false);
 
-            return rowsAffected > 0
-                ? (true, "Registro eliminado correctamente.")
-                : (false, "No se encontró ningún registro con el ID especificado.");
+            var rowsAffected = await connection.ExecuteAsync(query, new { lObservacionId });
+
+            bool success = rowsAffected > 0;
+            string mensaje = success
+                ? "Registro eliminado correctamente."
+                : "No se encontró ningún registro con el ID especificado.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rowsAffected}, usuario:{usuario}]");
+
+            return (success, mensaje);
         }
         catch (Exception ex)
         {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (false, $"Ocurrió un error al eliminar el registro: {ex.Message}");
         }
     }

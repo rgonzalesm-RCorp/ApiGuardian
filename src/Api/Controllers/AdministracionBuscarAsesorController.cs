@@ -26,7 +26,7 @@ public class AdministracionBuscarAsesorController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lContactoId:{lContactoId}]");
 
-            var responseCicloFactura = await _repository.GetAsesoreSieteNiveles(lContactoId);
+            var responseCicloFactura = await _repository.GetAsesoreSieteNiveles(logTransaccionId.ToString(), lContactoId);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCicloFactura.Success} - {responseCicloFactura.Mensaje}");

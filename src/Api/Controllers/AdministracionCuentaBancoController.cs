@@ -28,7 +28,7 @@ public class AdministracionCuentaBancoController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lContactoId:{lContactoId}]");
 
-            var responseCuentaBanco = await _repository.GetCuentaBanco(lContactoId);
+            var responseCuentaBanco = await _repository.GetCuentaBanco(logTransaccionId.ToString(), lContactoId);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCuentaBanco.Success} - {responseCuentaBanco.Mensaje}");
@@ -68,7 +68,7 @@ public class AdministracionCuentaBancoController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}]");
 
-            var responseCuentaBanco = await _repository.GetAllCuentaBanco(page, pageSize, search);
+            var responseCuentaBanco = await _repository.GetAllCuentaBanco(logTransaccionId.ToString(), page, pageSize, search);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCuentaBanco.Success} - {responseCuentaBanco.Mensaje}");
@@ -104,9 +104,9 @@ public class AdministracionCuentaBancoController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo DataCuentaBanco: {JsonConvert.SerializeObject(data)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo DataCuentaBanco: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-            var responseCuentaBanco = await _repository.UpdateCuentaBanco(data);
+            var responseCuentaBanco = await _repository.UpdateCuentaBanco(logTransaccionId.ToString(), data);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseCuentaBanco.Success} - {responseCuentaBanco.Mensaje}");

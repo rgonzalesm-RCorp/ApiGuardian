@@ -32,8 +32,8 @@ public class AdministracionDescuentoComisionController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lContactoId:{lContactoId}, lCicloId:{lCicloId}, lSemanaId:{lSemanaId}]");
 
-            var responseComision = await _repository.GetComision(lContactoId, lCicloId, lSemanaId);
-            var responseDetalle = await _repository.GetDetalleDescuentoCiclo(lCicloId, lContactoId);
+            var responseComision = await _repository.GetComision(logTransaccionId.ToString(),lContactoId, lCicloId, lSemanaId);
+            var responseDetalle = await _repository.GetDetalleDescuentoCiclo(logTransaccionId.ToString(),lCicloId, lContactoId);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseComision.Success} - {responseComision.Mensaje}");
@@ -77,7 +77,7 @@ public class AdministracionDescuentoComisionController : ControllerBase
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [LDescuentoDetalleId:{LDescuentoDetalleId}, LContactoId:{LContactoId}, LCicloId:{LCicloId}, Usuario:{Usuario}]");
 
-            var responseDescuento = await _repository.EliminarDescuento(LDescuentoDetalleId, LContactoId, LCicloId, Usuario);
+            var responseDescuento = await _repository.EliminarDescuento(logTransaccionId.ToString(),LDescuentoDetalleId, LContactoId, LCicloId, Usuario);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseDescuento.Success} - {responseDescuento.Mensaje}");
@@ -109,9 +109,9 @@ public class AdministracionDescuentoComisionController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo DataDescuento:{JsonConvert.SerializeObject(DataDescuento)}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo DataDescuento:{JsonConvert.SerializeObject(DataDescuento, Formatting.Indented)}");
 
-            var responseDescuento = await _repository.InsertarDescuento(DataDescuento);
+            var responseDescuento = await _repository.InsertarDescuento(logTransaccionId.ToString(), DataDescuento);
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
                 $"Fin de metodo: {responseDescuento.Success} - {responseDescuento.Mensaje}");

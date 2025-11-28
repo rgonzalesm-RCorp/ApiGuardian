@@ -18,8 +18,8 @@ public class DataCuentaBanco
 {
     public int LContactoId { get; set; }
     public int CTieneCuenta { get; set; }
-    public long LCuentaBanco { get; set; }
-    public long LCodigoBanco { get; set; }
+    public string? LCuentaBanco { get; set; }
+    public string? LCodigoBanco { get; set; }
     public int CBaja { get; set; }
     public string? SNombreCompleto { get; set; }
     public string? FechaRegistro { get; set; }
