@@ -1,5 +1,6 @@
 /src/Api/bin
 /src/Api/obj
+/src/Api/out
 
 /src/Application/bin
 /src/Application/obj
