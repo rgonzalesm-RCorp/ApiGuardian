@@ -1,2 +1,11 @@
 /src/Api/bin
 /src/Api/obj
+
+/src/Application/bin
+/src/Application/obj
+
+/src/Domain/bin
+/src/Domain/obj
+
+/src/Infrastructure/bin
+/src/Infrastructure/obj
