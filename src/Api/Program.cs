@@ -40,6 +40,10 @@ builder.Services.AddScoped<IAdministracionBuscarAsesorRepository, Administracion
 builder.Services.AddScoped<IAdministracionCuentaBancoRepository, AdministracionCuentaBancoRepository>();
 builder.Services.AddScoped<IAdministracionBancoRepository, AdministracionBancoRepository>();
 builder.Services.AddScoped<IAdministracionDescuentoComisionRepository, AdministracionDescuentoComisionRepository>();
+builder.Services.AddScoped<IAdministracionNivelRepository, AdministracionNivelRepository>();
+builder.Services.AddScoped<IAdministracionCicloRepository, AdministracionCicloRepository>();
+builder.Services.AddScoped<IAdministracionComplejoRepository, AdministracionComplejoRepository>();
+builder.Services.AddScoped<IAdministracionTipoContactoRepository, AdministracionTipoContactoRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 
 var app = builder.Build();

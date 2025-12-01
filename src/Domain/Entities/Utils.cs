@@ -38,12 +38,7 @@ public class AdministracionEstadoContrato
     public int LEstadoContratoId { get; set; }
     public string? SNombre { get; set; }
 }
-public class ListaAdministracionNivel
-{
-    public int LNivelId { get; set; }
-    public string? SSigla { get; set; }
-    public string? SNombre { get; set; }
-}
+
 public class ListaAdministracionPais
 {
     public int LPaisId { get; set; }

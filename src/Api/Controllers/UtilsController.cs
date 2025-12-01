@@ -223,43 +223,6 @@ public class UtilsController : ControllerBase
             });
         }
     }
-    [HttpGet("administracion/nivel")]
-    public async Task<IActionResult> GetNivel()
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "GetNivel()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-
-            var responseNivel = await _utilsRepository.GetNivel(logTransaccionId.ToString());
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
-                $"Fin de metodo: {responseNivel.Success} - {responseNivel.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseNivel.Success,
-                mensaje = responseNivel.Mensaje,
-                data = new
-                {
-                    responseNivel.Nivel
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-    }
     [HttpGet("administracion/tipo/baja")]
     public async Task<IActionResult> GetTipoBaja()
     {

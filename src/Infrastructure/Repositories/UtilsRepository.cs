@@ -231,41 +231,6 @@ public class UtilsRepository : IUtilsRepository
             return (Enumerable.Empty<AdministracionEstadoContrato>(), false, $"Error al obtener los estados de contrato: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<ListaAdministracionNivel> Nivel, bool Success, string Mensaje)> GetNivel(string LogTransaccionId)
-    {
-         string nombreMetodo = "GetNivel()";
-
-        const string query = @"
-            SELECT 
-                lnivel_id AS LNivelId, 
-                UPPER(ssigla) AS SSigla, 
-                UPPER(snombre) AS SNombre 
-            FROM administracionnivel
-            ORDER BY lnivel_id DESC;
-        ";
-
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
-
-        try
-        {
-            using var connection = _context.CreateConnection();
-
-            var niveles = await connection.QueryAsync<ListaAdministracionNivel>(query);
-
-            bool success = niveles != null && niveles.Any();
-            string mensaje = success ? "Niveles obtenidos correctamente." : "No se encontraron niveles.";
-
-            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
-                $"Fin de metodo [mensaje: {mensaje}, niveles:{JsonConvert.SerializeObject(niveles, Formatting.Indented)}]");
-
-            return (niveles ?? Enumerable.Empty<ListaAdministracionNivel>(), success, mensaje);
-        }
-        catch (Exception ex)
-        {
-            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<ListaAdministracionNivel>(), false, $"Error al obtener los niveles: {ex.Message}");
-        }
-    }
     public async Task<(IEnumerable<ListaAdministracionPais> Pais, bool Success, string Mensaje)> GetPais(string LogTransaccionId)
     {
         string nombreMetodo = "GetPais()";
