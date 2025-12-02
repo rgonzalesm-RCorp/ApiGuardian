@@ -14,4 +14,5 @@ public class AdministracionComplejoABM
     public decimal DPorcentaje6G { get; set; }
     public decimal DPorcentaje7G { get; set; }
     public string? Usuario { get; set; }
+    public string? Empresa { get; set; }
 }

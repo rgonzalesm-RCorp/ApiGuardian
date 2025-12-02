@@ -16,41 +16,6 @@ public class UtilsRepository : IUtilsRepository
         _context = context;
         _log = log;
     }
-    public async Task<(IEnumerable<AdministracionCiclo> Ciclos, bool Success, string Mensaje)> GetCiclos(string LogTransaccionId)
-    {
-        string NombreMetodo = "GetCiclos()";
-
-        const string query = @"
-            SELECT 
-                lciclo_id AS LCicloId,
-                UPPER(snombre) AS NombreCiclo,
-                dtfechainicio AS FechaInicio,
-                dtfechafin AS FechaFin,
-                cverenweb AS CVerEnWeb
-            FROM administracionciclo
-            ORDER BY lciclo_id DESC;
-        ";
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script: {query}]");
-
-        try
-        {
-            using var connection = _context.CreateConnection();
-
-            var ciclos = await connection.QueryAsync<AdministracionCiclo>(query);
-
-            bool success = ciclos != null && ciclos.Any();
-            string mensaje = success ? "Ciclos obtenidos correctamente." : "No se encontraron ciclos.";
-        
-            _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [mensaje: {mensaje}, ciclos:{JsonConvert.SerializeObject(ciclos, Formatting.Indented)}]");
-
-            return (ciclos ?? Enumerable.Empty<AdministracionCiclo>(), success, mensaje);
-        }
-        catch (Exception ex)
-        {
-            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<AdministracionCiclo>(), false, $"Error al obtener los ciclos: {ex.Message}");
-        }
-    }
     public async Task<(IEnumerable<AdministracionSemanaCiclo> Semanas, bool Success, string Mensaje)> GetSemanaCiclosAsync(string LogTransaccionId, int lCicloId)
     {
         string NombreMetodo = "GetSemanaCiclosAsync()";
@@ -90,41 +55,6 @@ public class UtilsRepository : IUtilsRepository
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<AdministracionSemanaCiclo>(), false, $"Error al obtener semanas del ciclo: {ex.Message}");
-        }
-    }
-    public async Task<(IEnumerable<AdministracionComplejo> Complejo, bool Success, string Mensaje)> GetComplejo(string LogTransaccionId)
-    {
-        string nombreMetodo = "GetComplejo()";
-
-        const string query = @"
-            SELECT 
-                lcomplejo_id AS LComplejoId, 
-                scodigo AS SCodigo, 
-                UPPER(snombre) AS SNombre 
-            FROM administracioncomplejo
-            ORDER BY lcomplejo_id DESC;
-        ";
-
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
-
-        try
-        {
-            using var connection = _context.CreateConnection();
-
-            var complejos = await connection.QueryAsync<AdministracionComplejo>(query);
-
-            bool success = complejos != null && complejos.Any();
-            string mensaje = success ? "Complejos obtenidos correctamente." : "No se encontraron complejos.";
-
-            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
-                $"Fin de metodo [mensaje: {mensaje}, complejos:{JsonConvert.SerializeObject(complejos, Formatting.Indented)}]");
-
-            return (complejos ?? Enumerable.Empty<AdministracionComplejo>(), success, mensaje);
-        }
-        catch (Exception ex)
-        {
-            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<AdministracionComplejo>(), false, $"Error al obtener los complejos: {ex.Message}");
         }
     }
     public async Task<(IEnumerable<BasePaisDepartamento> Departamento, bool Success, string Mensaje)> GetDepartamento(string LogTransaccionId, int lPaisId)

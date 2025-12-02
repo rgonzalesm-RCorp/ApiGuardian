@@ -24,22 +24,24 @@ public class AdministracionComplejoRepository : IAdministracionComplejoRepositor
 
         const string query = @"
             SELECT 
-                lcomplejo_id AS LComplejoId,
-                scodigo AS SCodigo,
-                snombre AS SNombre,
-                cestado AS CEstado,
-                lempresa_id AS LEmpresaId,
-                dporcentajeyo AS DPorcentajeYo,
-                dporcentaje1g AS DPorcentaje1G,
-                dporcentaje2g AS DPorcentaje2G,
-                dporcentaje3g AS DPorcentaje3G,
-                dporcentaje4g AS DPorcentaje4G,
-                dporcentaje5g AS DPorcentaje5G,
-                dporcentaje6g AS DPorcentaje6G,
-                dporcentaje7g AS DPorcentaje7G,
-                susuarioadd AS Usuario
-            FROM administracioncomplejo
-            ORDER BY lcomplejo_id DESC;
+                AC.lcomplejo_id AS LComplejoId,
+                AC.scodigo AS SCodigo,
+                UPPER(AC.snombre) AS SNombre,
+                AC.cestado AS CEstado,
+                AC.lempresa_id AS LEmpresaId,
+                AC.dporcentajeyo AS DPorcentajeYo,
+                AC.dporcentaje1g AS DPorcentaje1G,
+                AC.dporcentaje2g AS DPorcentaje2G,
+                AC.dporcentaje3g AS DPorcentaje3G,
+                AC.dporcentaje4g AS DPorcentaje4G,
+                AC.dporcentaje5g AS DPorcentaje5G,
+                AC.dporcentaje6g AS DPorcentaje6G,
+                AC.dporcentaje7g AS DPorcentaje7G,
+                AC.susuarioadd AS Usuario,
+                UPPER(AE.snombre ) as Empresa
+            FROM administracioncomplejo AC
+            INNER JOIN administracionempresa AE ON AE.lempresa_id = AC.lempresa_id
+            ORDER BY AC.lcomplejo_id DESC;
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio script: {query}");
@@ -67,22 +69,24 @@ public class AdministracionComplejoRepository : IAdministracionComplejoRepositor
 
         const string query = @"
             SELECT 
-                lcomplejo_id AS LComplejoId,
-                scodigo AS SCodigo,
-                snombre AS SNombre,
-                cestado AS CEstado,
-                lempresa_id AS LEmpresaId,
-                dporcentajeyo AS DPorcentajeYo,
-                dporcentaje1g AS DPorcentaje1G,
-                dporcentaje2g AS DPorcentaje2G,
-                dporcentaje3g AS DPorcentaje3G,
-                dporcentaje4g AS DPorcentaje4G,
-                dporcentaje5g AS DPorcentaje5G,
-                dporcentaje6g AS DPorcentaje6G,
-                dporcentaje7g AS DPorcentaje7G,
-                susuarioadd AS Usuario
-            FROM administracioncomplejo
-            ORDER BY lcomplejo_id DESC
+                AC.lcomplejo_id AS LComplejoId,
+                AC.scodigo AS SCodigo,
+                UPPER(AC.snombre) AS SNombre,
+                AC.cestado AS CEstado,
+                AC.lempresa_id AS LEmpresaId,
+                AC.dporcentajeyo AS DPorcentajeYo,
+                AC.dporcentaje1g AS DPorcentaje1G,
+                AC.dporcentaje2g AS DPorcentaje2G,
+                AC.dporcentaje3g AS DPorcentaje3G,
+                AC.dporcentaje4g AS DPorcentaje4G,
+                AC.dporcentaje5g AS DPorcentaje5G,
+                AC.dporcentaje6g AS DPorcentaje6G,
+                AC.dporcentaje7g AS DPorcentaje7G,
+                AC.susuarioadd AS Usuario,
+                UPPER(AE.snombre ) as Empresa
+            FROM administracioncomplejo AC
+            INNER JOIN administracionempresa AE ON AE.lempresa_id = AC.lempresa_id
+            ORDER BY AC.lcomplejo_id DESC
             LIMIT @pageSize OFFSET @page;
         ";
 

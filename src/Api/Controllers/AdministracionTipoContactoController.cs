@@ -50,10 +50,6 @@ public class AdministracionTipoContactoController : ControllerBase
             return Ok(new { status = false, mensaje = ex.Message });
         }
     }
-
-    // ======================================
-    // GET PAGINACION
-    // ======================================
     [HttpGet("paginacion")]
     public async Task<IActionResult> GetTipoContactoPagination(
         [FromHeader(Name = "page")] int page,

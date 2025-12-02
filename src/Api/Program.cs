@@ -43,7 +43,12 @@ builder.Services.AddScoped<IAdministracionDescuentoComisionRepository, Administr
 builder.Services.AddScoped<IAdministracionNivelRepository, AdministracionNivelRepository>();
 builder.Services.AddScoped<IAdministracionCicloRepository, AdministracionCicloRepository>();
 builder.Services.AddScoped<IAdministracionComplejoRepository, AdministracionComplejoRepository>();
+builder.Services.AddScoped<IAdministracionTipoContratoRepository, AdministracionTipoContratoRepository>();
+builder.Services.AddScoped<IAdministracionDescuentoCicloTipoRepository, AdministracionDescuentoCicloTipoRepository>();
+builder.Services.AddScoped<IAdministracionSemanaRepository, AdministracionSemanaRepository>();
+builder.Services.AddScoped<IAdministracionEmpresaRepository, AdministracionEmpresaRepository>();
 builder.Services.AddScoped<IAdministracionTipoContactoRepository, AdministracionTipoContactoRepository>();
+builder.Services.AddScoped<IAdministracionSemanaCicloRepository, AdministracionSemanaCicloRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 
 var app = builder.Build();

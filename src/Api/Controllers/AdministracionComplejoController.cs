@@ -19,9 +19,7 @@ public class AdministracionComplejoController : ControllerBase
         _log = log;
     }
 
-    // ================================
-    // GET LISTADO
-    // ================================
+
     [HttpGet]
     public async Task<IActionResult> GetComplejo()
     {
@@ -57,9 +55,6 @@ public class AdministracionComplejoController : ControllerBase
         }
     }
 
-    // ================================
-    // GET PAGINACIÓN
-    // ================================
     [HttpGet("paginacion")]
     public async Task<IActionResult> GetComplejoPagination(
         [FromHeader(Name = "page")] int page,
@@ -100,9 +95,6 @@ public class AdministracionComplejoController : ControllerBase
         }
     }
 
-    // ================================
-    // INSERTAR
-    // ================================
     [HttpPost("insert")]
     public async Task<IActionResult> GuardarComplejo(AdministracionComplejoABM data)
     {
@@ -134,9 +126,6 @@ public class AdministracionComplejoController : ControllerBase
         }
     }
 
-    // ================================
-    // ACTUALIZAR
-    // ================================
     [HttpPut("update")]
     public async Task<IActionResult> ModificarComplejo(AdministracionComplejoABM data)
     {

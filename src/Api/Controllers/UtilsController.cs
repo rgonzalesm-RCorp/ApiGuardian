@@ -20,35 +20,6 @@ public class UtilsController : ControllerBase
         _utilsRepository = utilsRepository;
         _log = log;
     }
-    [HttpGet("administracion/ciclo")]
-    public async Task<IActionResult> GetAdministracionCiclo()
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "GetAdministracionCiclo()";
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-            var responseCiclos = await _utilsRepository.GetCiclos(logTransaccionId.ToString());
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo: {responseCiclos.Success} - {responseCiclos.Mensaje}");
-            return Ok(new
-            {
-                status = responseCiclos.Success ? true : false,
-                mensaje = responseCiclos.Mensaje,
-                data = responseCiclos.Ciclos
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-        
-    }
     [HttpGet("administracion/semana/ciclo")]
     public async Task<IActionResult> GetAdministracionSemanaCiclo([FromHeader(Name = "lCicloId")] int lCicloId)
     {
@@ -78,39 +49,6 @@ public class UtilsController : ControllerBase
             });
         }
         
-    }
-
-    [HttpGet("administracion/complejo")]
-    public async Task<IActionResult> GetAdministracionComplejo()
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "GetAdministracionComplejo()";
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-
-            var responseComplejo = await _utilsRepository.GetComplejo(logTransaccionId.ToString());
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo: { responseComplejo.Success } - {responseComplejo.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseComplejo.Success ? true : false,
-                mensaje = responseComplejo.Mensaje,
-                data = new {
-                    responseComplejo.Complejo
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
     }
     [HttpGet("administracion/departamento")]
     public async Task<IActionResult> GetDepartamento([FromHeader(Name = "lPaisId")] int lPaisId = 2)

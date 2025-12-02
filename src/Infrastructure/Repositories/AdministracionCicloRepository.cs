@@ -24,7 +24,7 @@ namespace ApiGuardian.Infrastructure.Repositories
             string query = @"
                 SELECT 
                     lciclo_id AS LCicloId,
-                    snombre AS SNombre,
+                    UPPER(snombre) AS SNombre,
                     dtfechainicio AS DtFechaInicio,
                     dtfechafin AS DtFechaFin,
                     lestado AS LEstado,
