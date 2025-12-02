@@ -24,6 +24,7 @@ public class LogService : ILogService
             logMessage += $"{Environment.NewLine}Exception: {ex.Message}{Environment.NewLine}{ex.StackTrace}";
 
         File.AppendAllText(logFile, logMessage + Environment.NewLine);
+        Console.WriteLine(logMessage);
     }
 
     public void Info(string id, string archivo, string metodo,  string message) => WriteLog(id,  archivo,  metodo,  "INFO", message);
