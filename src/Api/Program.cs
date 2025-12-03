@@ -1,12 +1,14 @@
-
-
 using ApiGuardian.Application.Interfaces; // 👈 debe coincidir con tu namespace real
 using ApiGuardian.Infrastructure.Repositories;
 using ApiGuardian.Infrastructure.Persistence;
 using ApiGuardian.Infrastructure.Services;
-
+using PuppeteerSharp;                      // <-- agregado
+using ApiGuardian.Infrastructure.Services.Pdf; // <-- agregado si creas el servicio ahí
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Descargar Chromium si no existe
+await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision);  // <-- agregado
 
 if (builder.Environment.IsProduction())
 {
@@ -23,7 +25,6 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-
 
 // Services
 builder.Services.AddControllers();
@@ -51,15 +52,16 @@ builder.Services.AddScoped<IAdministracionTipoContactoRepository, Administracion
 builder.Services.AddScoped<IAdministracionSemanaCicloRepository, AdministracionSemanaCicloRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 
+builder.Services.AddSingleton<PdfService>();   // <-- agregado
+
 var app = builder.Build();
+
 // 2. Usar CORS
 app.UseCors("AllowReactApp");
+
 // Middleware
-//if (app.Environment.IsDevelopment())
-//{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-//}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.MapControllers();
