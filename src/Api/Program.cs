@@ -6,7 +6,10 @@ using ApiGuardian.Infrastructure.Persistence;
 using ApiGuardian.Infrastructure.Services;
 
 
+
 var builder = WebApplication.CreateBuilder(args);
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 
 if (builder.Environment.IsProduction())
 {
