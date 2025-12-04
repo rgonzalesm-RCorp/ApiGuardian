@@ -58,3 +58,13 @@ values
 (1, 'Suspensión temporal', now(), 'admin', now(), 'admin'),
 (2, 'Expulsión definitiva', now(), 'admin', now(), 'admin'),
 (3, 'Otro caso', now(), 'admin', now(), 'admin');
+
+
+
+
+alter table administraciontipocontrato add abr VARCHAR(150) DEFAULT '';
+update administraciontipocontrato set abr = 'CR' where ltipocontrato_id = 1;
+update administraciontipocontrato set abr = 'CT' where ltipocontrato_id = 2;
+update administraciontipocontrato set abr = 'IT' where ltipocontrato_id = 3;
+update administraciontipocontrato set abr = 'PB' where ltipocontrato_id = 4;
+update administraciontipocontrato set abr = 'AM' where ltipocontrato_id = 5;
