@@ -49,8 +49,9 @@ namespace ApiGuardian.Controllers
 
                 // 🔹 Generación del PDF
                 var documento = new ReporteComisionesDocumento(reporteComision.Data);
-                var pdfBytes = documento.GeneratePdf();
 
+
+                byte[] pdfBytes = documento.GeneratePdf();
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
 
                 _log.Info(
