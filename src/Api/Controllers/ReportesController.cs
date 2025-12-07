@@ -31,11 +31,7 @@ namespace ApiGuardian.Controllers
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteComisiones()";
 
-            _log.Info(
-                logId.ToString(),
-                NOMBREARCHIVO,
-                metodo,
-                $"Inicio ReporteComisiones - lCicloId={lCicloId}, lContactoId={lContactoId}, usuario={usuario}"
+            _log.Info(logId.ToString(),NOMBREARCHIVO,metodo,$"Inicio ReporteComisiones - lCicloId={lCicloId}, lContactoId={lContactoId}, usuario={usuario}"
             );
 
             try
@@ -54,12 +50,7 @@ namespace ApiGuardian.Controllers
                 byte[] pdfBytes = documento.GeneratePdf();
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
 
-                _log.Info(
-                    logId.ToString(),
-                    NOMBREARCHIVO,
-                    metodo,
-                    "PDF generado correctamente."
-                );
+                _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
 
                 return Ok(new
                 {
@@ -93,6 +84,69 @@ namespace ApiGuardian.Controllers
                 });
             }
         }
+            [HttpGet("aplicaciones")]
+        public async Task<IActionResult> ReporteAplicaciones(
+            [FromHeader] int lCicloId,
+            [FromHeader] int lContactoId,
+            [FromHeader] string? usuario
+        )
+        {
+            long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string metodo = "ReporteAplicaciones()";
+
+            _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, $"Inicio ReporteAplicaciones - lCicloId={lCicloId}, lContactoId={lContactoId}, usuario={usuario}");
+
+            try
+            {
+                // 🔹 Llamadas al repositorio (debes reemplazar los valores quemados)
+                //var reporteComision = await _repo.GetReporteAplicacines(logId.ToString(), lCicloId, lContactoId);
+                var aplicaciones = await _repo.GetReporteAplicacines(logId.ToString(), lCicloId, lContactoId);
+
+                // 🔹 Unimos las comisiones
+                //reporteComision.Data.Comisiones = comision.Data;
+
+                // 🔹 Generación del PDF
+                var documento = new ReporteAplicacionesDocumento(aplicaciones.Data);
+
+
+                byte[] pdfBytes = documento.GeneratePdf();
+                string base64Pdf = Convert.ToBase64String(pdfBytes);
+
+                _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
+
+                return Ok(new
+                {
+                    status = true,
+                    mensaje = "Reporte generado correctamente.",
+                    data = new
+                    {
+                        FileName = $"REPORTE DE APLICACIONES.pdf",
+                        FileBase64 = base64Pdf,
+                        ContentType = "application/pdf",
+                         
+                    }
+                    
+                });
+            }
+            catch (Exception ex)
+            {
+                _log.Error(
+                    logId.ToString(),
+                    NOMBREARCHIVO,
+                    metodo,
+                    "Error al generar reporte de comisiones",
+                    ex
+                );
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ex.Message,
+                    data =""
+                });
+            }
+        }
+
 
     }
 }

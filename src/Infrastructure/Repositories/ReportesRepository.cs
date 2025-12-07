@@ -13,7 +13,7 @@ public class ReportesRepository : IReportesRepository
     private readonly ILogService _log;
     private string NOMBREARCHIVO = "ReportesRepository.CS";
 
-    #region SQL_SCRIPTS
+    #region SQL_SCRIPTS_REPORTE_COMISIONES
 
     private const string QUERY_VENTA_PERSONAL = @"
         SELECT 
@@ -111,12 +111,9 @@ public class ReportesRepository : IReportesRepository
                 vg.lContrato_id,
                 cr.ltipocontrato_id
             FROM AdministracionVentaGrupo vg
-            JOIN AdministracionContacto ct 
-                ON vg.lAsesor_id = ct.lContacto_id
-            JOIN AdministracionContrato cr 
-                ON cr.lContrato_id = vg.lContrato_id
-            WHERE vg.lciclo_id =  @lCicloId
-            AND vg.lcontacto_id = @lCotactoId
+            JOIN AdministracionContacto ct ON vg.lAsesor_id = ct.lContacto_id
+            JOIN AdministracionContrato cr ON cr.lContrato_id = vg.lContrato_id
+            WHERE vg.lciclo_id =  @lCicloId AND vg.lcontacto_id = @lCotactoId
         ) AS c
         INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
 
@@ -169,6 +166,43 @@ public class ReportesRepository : IReportesRepository
     ";
 
     #endregion
+    #region SCRIPT_REPORTE_APLICACIONES"
+    private const string QUERY_APLICACIONES = @"
+        SELECT 
+            vp.lcontacto_id LContactoId
+            , vp.scodigo SCodigo
+            , vp.scedulaidentidad SCedulaIdentidad
+            , vp.snombrecompleto SNombreCompleto
+            , vp.comisionVP ComisionVP
+            , IFNULL(VG.comisionVG, 0) ComisionVG
+            , IFNULL(BR.comisionBR, 0) ComisionBR
+            , IFNULL(BL.comisionBL, 0) ComisionBL
+            , IFNULL(RT.retencion, 0) Retencion
+            , IFNULL(RT.porcentajeRetecion, 0) PorcentajeRetencion
+            , IFNULL(DS.descuento, 0)Descuento
+        FROM (
+            SELECT sum(dcomision)comisionVP, a.lcontacto_id, b.snombrecompleto, b.scodigo, b.scedulaidentidad  FROM administracionventapersonal a
+            inner JOIN administracioncontacto b on a.lcontacto_id = b.lcontacto_id
+            WHERE a.lciclo_id = @lCicloId group by a.lcontacto_id
+        ) VP
+        LEFT JOIN (
+            SELECT  sum(dcomision)comisionVG, lcontacto_id FROM administracionventagrupo WHERE lciclo_id = @lCicloId GROUP BY lcontacto_id
+        ) VG ON VP.lcontacto_id = VG.lcontacto_id
+        LEFT JOIN (
+            SELECT  SUM(dtotalbono) comisionBR, lcontacto_id FROM administracionbonoresidual WHERE lciclo_id = @lCicloId GROUP BY lcontacto_id 
+        ) BR ON VP.lcontacto_id = BR.lcontacto_id
+        LEFT JOIN (
+            SELECT  SUM(pagar) comisionBL, vendedores_id lcontacto_id FROM t_bono_liderazgo  WHERE lciclo_id = @lCicloId group by vendedores_id
+        ) BL ON VP.lcontacto_id = BL.lcontacto_id
+        LEFT JOIN(
+            SELECT IFNULL(SUM(montoretencion),0) retencion,IFNULL(MAX(porcentajeret),0) porcentajeRetecion ,  lcontacto_id FROM tbl_retencionempresa WHERE lciclo_id = @lCicloId GROUP BY lcontacto_id
+        ) RT ON VP.lcontacto_id = RT.lcontacto_id
+        LEFT JOIN (
+            SELECT IFNULL(SUM(dtotal),0) descuento, lcontacto_id FROM administraciondescuentociclo WHERE lciclo_id = @lCicloId GROUP BY lcontacto_id
+        ) DS ON VP.lcontacto_id = DS.lcontacto_id
+        ORDER BY vp.snombrecompleto
+    ";
+    #endregion
     public ReportesRepository(DapperContext context, ILogService log)
     {
         _context = context;
@@ -204,8 +238,33 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (new ReporteComisionesDto() , false, $"Error al obtener semanas del ciclo: {ex.Message}");
+            return (new ReporteComisionesDto() , false, $"Error al obtener el reporte de comisiones: {ex.Message}");
         }
     }
+    public async Task<(RptAplicaciones Data , bool Success, string Mensaje)> GetReporteAplicacines(string LogTransaccionId, int lCicloId, int lCotactoId)
+    {
+         const string NombreMetodo = "GetReporteAplicacines()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script aplicaciones: {QUERY_APLICACIONES}]");
+        RptAplicaciones DataResponse = new RptAplicaciones();
 
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            DataResponse.Aplicaciones = await connection.QueryAsync<AplicacionesItem>(
+                QUERY_APLICACIONES,
+                new { lCicloId, lCotactoId }
+            );
+
+            return (DataResponse, true, "listado de aplicaciones obtenidas correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (new RptAplicaciones(), false,  $"Error al obtener aplicaciones del ciclo: {ex.Message}");
+        }
+
+    }
+     
 }
