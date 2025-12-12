@@ -12,4 +12,5 @@ public interface IReportesRepository
     Task<(IEnumerable<RptFacturacion> Data , bool Success, string Mensaje)> GetReporteFacturacion(string LogTransaccionId, int lCicloId, int LContactoId);
     Task<(IEnumerable<RptProrrateo> Data , bool Success, string Mensaje)> GetReporteProrrateo(string LogTransaccionId, int lCicloId);
     Task<(IEnumerable<RptComisionServicio> Data , bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId);
+    Task<(IEnumerable<RptPagarComision> Data , bool Success, string Mensaje)> GetReportePagarComision(string LogTransaccionId, int LCicloId);
 }

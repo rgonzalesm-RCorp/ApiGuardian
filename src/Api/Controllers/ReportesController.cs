@@ -374,7 +374,7 @@ namespace ApiGuardian.Controllers
         )
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            string metodo = "ReporteFacturacion()";
+            string metodo = "ReporteComisionServicio()";
 
             _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, $"Inicio ReporteFacturacion - lCicloId={lCicloId}, usuario={usuario}, empresaId={empresaId}");
 
@@ -438,8 +438,75 @@ namespace ApiGuardian.Controllers
             }
         }
 
+        [HttpGet("pagar/comision")]
+        public async Task<IActionResult> ReportePagarComision(
+            [FromHeader] int lCicloId,
+            [FromHeader] string? usuario
+        )
+        {
+            long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string metodo = "ReportePagarComision()";
+
+            _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, $"Inicio ReporteFacturacion - lCicloId={lCicloId}, usuario={usuario}");
+
+            try
+            {
+                var pagarComision = await _repo.GetReportePagarComision(logId.ToString(), lCicloId);
+
+                if(pagarComision.Data == null || pagarComision.Data.Count()<= 0)
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = "No existe datos para el ciclo seleccionado",
+                        data = new
+                        {
+                            FileName = "",
+                            FileBase64 = "",
+                            ContentType = "",
+                            
+                        }
+                    });
+                }
+                var listaPagarComision = pagarComision.Data.ToList();
+                var documento = new ReportePagarComision(listaPagarComision);
 
 
+                byte[] pdfBytes = documento.GeneratePdf();
+                string base64Pdf = Convert.ToBase64String(pdfBytes);
 
+                _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
+
+                return Ok(new
+                {
+                    status = true,
+                    mensaje = "Reporte generado correctamente.",
+                    data = new
+                    {
+                        FileName = $"REPORTE DE PAGAR COMISION - {listaPagarComision[0].Ciclo}.pdf",
+                        FileBase64 = base64Pdf,
+                        ContentType = "application/pdf",
+                         
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _log.Error(
+                    logId.ToString(),
+                    NOMBREARCHIVO,
+                    metodo,
+                    "Error al generar reporte de comisiones",
+                    ex
+                );
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ex.Message,
+                    data =""
+                });
+            }
+        }
     }
 }

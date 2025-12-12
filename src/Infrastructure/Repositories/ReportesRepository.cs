@@ -427,8 +427,8 @@ public class ReportesRepository : IReportesRepository
                                                     inner join (
                                                         SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                         INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
-                                                    ) CE on CE.lcomplejo_id = AC.lcomplejo_id
-                                                    where AVP.lciclo_id = @LCicloId 
+                                                    ) CE on CE.lcomplejo_id = AC.lcomplejo_id 
+                                                    where AVP.lciclo_id = @LCicloId and AVP.lcontacto_Id > 3  
                                                     GROUP BY AVP.lcontacto_id, CE.empresa_id
                                                 )VtaPersonal on VtaPersonal.empresa_id = CE.lempresa_id and VtaPersonal.lcontacto_id = ACPR.lcontacto_id 
                                                 left join (
@@ -438,7 +438,7 @@ public class ReportesRepository : IReportesRepository
                                                         SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                         INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
                                                     ) CE on CE.lcomplejo_id = AC.lcomplejo_id
-                                                    where AVG.lciclo_id = @LCicloId 
+                                                    where AVG.lciclo_id = @LCicloId and AVG.lcontacto_Id > 3  
                                                     GROUP BY AVG.lcontacto_id, CE.empresa_id 
                                                 )VtaGrupo on VtaGrupo.empresa_id = CE.lempresa_id and VtaGrupo.lcontacto_id = ACPR.lcontacto_id 
                                                 left join (
@@ -447,7 +447,7 @@ public class ReportesRepository : IReportesRepository
                                                         SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                         INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
                                                     ) CE on CE.lcomplejo_id = ABR.lcomplejo_id
-                                                    where ABR.lciclo_id = @LCicloId
+                                                    where ABR.lciclo_id = @LCicloId and ABR.lcontacto_Id > 3  
                                                     GROUP BY ABR.lcontacto_id, CE.empresa_id 
                                                 )BonoResidual on BonoResidual.empresa_id = CE.lempresa_id and BonoResidual.lcontacto_id = ACPR.lcontacto_id 
                                                 left join (
@@ -457,7 +457,7 @@ public class ReportesRepository : IReportesRepository
                                                         SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                         INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
                                                     ) CE on CE.lcomplejo_id = ADE.lcomplejo_id
-                                                    WHERE AD.lciclo_id = @LCicloId 
+                                                    WHERE AD.lciclo_id = @LCicloId and AD.lcontacto_Id > 3  
                                                     GROUP BY AD.lcontacto_id, CE.empresa_id 
                                                 ) Descuento on Descuento.empresa_id = CE.lempresa_id and Descuento.lcontacto_id = ACPR.lcontacto_id
                                                 left join (
@@ -466,13 +466,13 @@ public class ReportesRepository : IReportesRepository
                                                         SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                         INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
                                                     ) CE on CE.lcomplejo_id = BL.lcomplejo_id
-                                                    WHERE BL.lciclo_id = @LCicloId 
+                                                    WHERE BL.lciclo_id = @LCicloId and BL.lcontacto_Id > 3  
                                                     group by BL.vendedores_id, CE.empresa_id 
                                                 )BonoLiderago on BonoLiderago.empresa_id = CE.lempresa_id and BonoLiderago.lcontacto_id = ACPR.lcontacto_id
                                                 left join (
                                                     select SUM(montoretencion) Retencion, RE.lcontacto_id, CE.lempresa_id empresa_id from tbl_retencionempresa RE
-                                                    inner join administracionempresa CE on CE.lempresa_id = RE.idempresa
-                                                    WHERE RE.lciclo_id = @LCicloId
+                                                    inner join administracionempresa CE on CE.lempresa_id = RE.idempresa 
+                                                    WHERE RE.lciclo_id = @LCicloId and RE.lcontacto_Id > 3 and RE.lcontacto_Id != 6474
                                                     group by RE.lcontacto_id, CE.lempresa_id 
                                                 )Retencion on Retencion.empresa_id = CE.lempresa_id and Retencion.lcontacto_id = ACPR.lcontacto_id
                                                 where ACPR.lciclo_id = @LCicloId
@@ -484,11 +484,14 @@ public class ReportesRepository : IReportesRepository
                                                 , snombrecompleto SNombreCompleto
                                                 , sum(comisionpersonal) Comision
                                                 , sum(servicio) Servicio
-                                                ,  PorcentajeRetencion
-                                                ,  MontoRetencion
+                                                , max(PorcentajeRetencion) PorcentajeRetencion
+                                                , sum(MontoRetencion) MontoRetencion
                                                 , empresa_id EmpresaId
                                                 , AE.snombre Empresa
-
+                                                , AE.snit SNit
+                                                , UPPER(ACI.snombre) Ciclo
+                                                , ACI.dtfechainicio FechaInicio
+                                                , ACI.dtfechafin FechaFin
                                             FROM (
                                                 select 
                                                 ACT.scodigo
@@ -499,6 +502,7 @@ public class ReportesRepository : IReportesRepository
                                                 , 0 PorcentajeRetencion
                                                 , CE.empresa_id
                                                 , ACT.lcontacto_id
+                                                , AVP.lciclo_id
                                                 from administracionventapersonal AVP 
                                                 inner join administracioncontrato AC on AC.lcontrato_id = AVP.lcontrato_id
                                                 inner join administracioncontacto ACT on ACT.lcontacto_id = AVP.lcontacto_Id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
@@ -520,6 +524,7 @@ public class ReportesRepository : IReportesRepository
                                                 , 0
                                                 , CE.empresa_id
                                                 , ACT.lcontacto_id
+                                                , AVG.lciclo_id
                                                 from administracionventagrupo AVG
                                                 inner join administracioncontrato AC on AC.lcontrato_id = AVG.lcontrato_id
                                                 inner join administracioncontacto ACT on ACT.lcontacto_id = AVG.lcontacto_Id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
@@ -541,6 +546,7 @@ public class ReportesRepository : IReportesRepository
                                                 , 0
                                                 , CE.empresa_id
                                                 , ACT.lcontacto_id
+                                                , ABR.lciclo_id
                                                 from administracionredempresacomplejo ABR
                                                 inner join administracioncontacto ACT on ACT.lcontacto_id = ABR.lcontacto_Id AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
                                                 inner join (
@@ -561,6 +567,7 @@ public class ReportesRepository : IReportesRepository
                                                 , 0
                                                 , CE.empresa_id
                                                 , ACT.lcontacto_id
+                                                , BL.lciclo_id
                                                 FROM t_bono_liderazgo BL 
                                                 inner join administracioncontacto ACT on ACT.lcontacto_id = BL.vendedores_id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
                                                 inner join (
@@ -579,13 +586,15 @@ public class ReportesRepository : IReportesRepository
                                                 , RET.porcentajeret
                                                 , CE. lempresa_id
                                                 , ACT.lcontacto_id
+                                                , RET.lciclo_id
                                                 FROM tbl_retencionempresa RET
                                                 inner join administracioncontacto ACT on ACT.lcontacto_id = RET.lcontacto_id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
                                                 inner join administracionempresa CE on CE.lempresa_id = RET.idempresa and RET.idempresa = @EmpresaId
-                                                WHERE RET.lciclo_id = @LCicloId and RET.lcontacto_id > 3 and RET.lcontacto_id = 92704
+                                                WHERE RET.lciclo_id = @LCicloId and RET.lcontacto_id > 3 and CE.lempresa_id = @EmpresaId
                                                 group by RET.lcontacto_id, CE.lempresa_id 
                                             ) DAT
                                             inner join administracionempresa AE on AE.lempresa_id = DAT.empresa_id 
+                                            inner join administracionciclo ACI on ACI.lciclo_id = DAT.lciclo_id
                                             where empresa_id = @EmpresaId
                                             group by scodigo 
                                             , snombrecompleto 
@@ -594,6 +603,59 @@ public class ReportesRepository : IReportesRepository
  
                                             ";
     #endregion 
+    #region "SCRIPT_PAGAR_COMISION"
+    private const string QUERY_PAGAR_COMISION = @"
+                                            SELECT
+                                                CASE 
+                                                    WHEN ACT.ctienecuenta = 1 THEN 'CTA BANCO $US'
+                                                    WHEN ACT.ctienecuenta = 2 THEN 'CTA BANCO BS'
+                                                    WHEN ACT.ctienecuenta = 3 THEN 'SION PAY'
+                                                    WHEN ACT.ctienecuenta = 4 THEN 'PAGO TERCEROS'
+                                                    ELSE ''
+                                                END TipoCuenta
+                                                , ACT.lcodigobanco CodigoBanco
+                                                , ACT.lcuentabanco CuentaBanco
+                                                , ACT.sciudad Ciudad
+                                                , ACT.snombrecompleto NombreCompleto
+                                                , COMISION.lcontacto_id LContactoId, SUM(COMISION.Personal)Personal, SUM(COMISION.Liderazgo) Liderazgo, SUM(COMISION.Residual) Residual
+                                                , SUM(COMISION.Grupo) Grupo, SUM(COMISION.Descuento) Descuento, SUM(COMISION.Retencion) Retencion
+                                                , (SELECT UPPER(ACL.snombre) FROM administracionciclo ACL WHERE ACL.Lciclo_id = @LCicloId LIMIT 1) Ciclo
+                                                , ACT.scedulaidentidad CedulaIdentidad
+                                            FROM (
+                                                SELECT AVP.lcontacto_id, SUM(AVP.dcomision) Personal, 0 Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
+                                                FROM administracionventapersonal AVP
+                                                WHERE AVP.lciclo_id = @LCicloId AND AVP.lcontacto_id > 3 AND AVP.lcontacto_id != 6474
+                                                GROUP BY AVP.lcontacto_id
+                                                UNION ALL
+                                                SELECT BL.vendedores_id, 0 Personal, SUM(BL.pagar) Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
+                                                FROM t_bono_liderazgo BL
+                                                WHERE BL.Lciclo_id = @LCicloId AND BL.vendedores_id > 3 AND BL.vendedores_id != 6474
+                                                GROUP BY BL.vendedores_id
+                                                UNION ALL
+                                                SELECT ABR.lcontacto_id , 0 Personal, 0 Liderazgo, dtotalbono Residual, 0 Grupo, 0 Descuento, 0 Retencion
+                                                FROM administracionbonoresidual ABR
+                                                WHERE lciclo_id = @LCicloId AND ABR.lcontacto_id > 3 AND ABR.lcontacto_id != 6474
+                                                GROUP BY ABR.lcontacto_id 
+                                                UNION ALL
+                                                SELECT AVG.lcontacto_id, 0 Personal, 0 Liderazgo, 0 Residual, SUM(AVG.dcomision) Grupo, 0 Descuento, 0 Retencion
+                                                FROM AdministracionVentaGrupo AVG
+                                                WHERE AVG.lciclo_id = @LCicloId AND AVG.lcontacto_id > 3 AND AVG.lcontacto_id != 6474
+                                                GROUP BY AVG.lcontacto_id
+                                                UNION ALL
+                                                SELECT ADC.lcontacto_id, 0 Personal, 0 Liderazgo, 0 Residual, 0 Grupo, SUM(DTOTAL) Descuento, 0 Retencion
+                                                FROM administraciondescuentociclo ADC
+                                                WHERE ADC.lciclo_id = @LCicloId AND ADC.lcontacto_id > 3 AND ADC.lcontacto_id != 6474
+                                                GROUP BY ADC.lcontacto_id
+                                                UNION ALL
+                                                SELECT RET.lcontacto_id, 0 Personal, 0 Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, SUM(RET.MONTORETENCION) Retencion
+                                                FROM tbl_retencionempresa RET
+                                                WHERE RET.lciclo_id = @LCicloId AND RET.lcontacto_id > 3 AND RET.lcontacto_id != 6474
+                                                GROUP BY RET.lcontacto_id
+                                            ) COMISION 
+                                            INNER JOIN administracioncontacto ACT ON ACT.lcontacto_id = COMISION.lcontacto_id
+                                            WHERE ACT.cbaja = 0
+                                            GROUP BY COMISION.lcontacto_id";
+    #endregion
     public ReportesRepository(DapperContext context, ILogService log)
     {
         _context = context;
@@ -711,12 +773,12 @@ public class ReportesRepository : IReportesRepository
                 new { LCicloId }
             );
 
-            return (Prorrateo, true, "listado de facturacion obtenidos correctamente.");
+            return (Prorrateo, true, "listado de prorrateo obtenidos correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptProrrateo>(), false,  $"Error al obtener la facturacion: {ex.Message}");
+            return (Enumerable.Empty<RptProrrateo>(), false,  $"Error al obtener la prorrateo: {ex.Message}");
         }
     }
     public async Task<(IEnumerable<RptComisionServicio> Data , bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId)
@@ -732,14 +794,34 @@ public class ReportesRepository : IReportesRepository
                 new { LCicloId, EmpresaId }
             );
 
-            return (Prorrateo, true, "listado de facturacion obtenidos correctamente.");
+            return (Prorrateo, true, "listado de comision servicio obtenidos correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptComisionServicio>(), false,  $"Error al obtener la facturacion: {ex.Message}");
+            return (Enumerable.Empty<RptComisionServicio>(), false,  $"Error al obtener la comision servicio: {ex.Message}");
         }
     }
-    
-    
+    public async Task<(IEnumerable<RptPagarComision> Data , bool Success, string Mensaje)> GetReportePagarComision(string LogTransaccionId, int LCicloId)
+    {
+        const string NombreMetodo = "GetReporteProrrateo()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script pagar comision: {QUERY_PAGAR_COMISION}]");
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var pagarComision = await connection.QueryAsync<RptPagarComision>(
+                QUERY_PAGAR_COMISION,
+                new { LCicloId }
+            );
+
+            return (pagarComision, true, "listado de pagar comision obtenidos correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<RptPagarComision>(), false,  $"Error al obtener la pagar de comision: {ex.Message}");
+        }
+    }
+
 }

@@ -7,4 +7,8 @@ public class RptComisionServicio
     public decimal Servicio { get; set; }
     public decimal MontoRetencion { get; set; }
     public string? Empresa { get; set; }
+    public string? SNit { get; set; }
+    public string? Ciclo { get; set; }
+    public DateTime FechaInicio { get; set; }
+    public DateTime FechaFin { get; set; }
 }
