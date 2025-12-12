@@ -53,6 +53,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         .FontSize(9).Bold().FontColor(Colors.Blue.Medium)
                         .AlignCenter();
                     column.Item().Text("");
+                    column.Item().Text(_data[0].Ciclo).AlignCenter().FontSize(7);
                 });
             });
         }
