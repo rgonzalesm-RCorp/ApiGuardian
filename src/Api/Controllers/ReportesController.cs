@@ -36,14 +36,11 @@ namespace ApiGuardian.Controllers
 
             try
             {
-                // 🔹 Llamadas al repositorio (debes reemplazar los valores quemados)
                 var reporteComision = await _repo.GetReporteComision(logId.ToString(), lCicloId, lContactoId);
                 var comision = await _comision.GetComision(logId.ToString(), lContactoId, lCicloId, 1);
 
-                // 🔹 Unimos las comisiones
                 reporteComision.Data.Comisiones = comision.Data;
 
-                // 🔹 Generación del PDF
                 var documento = new ReporteComisionesDocumento(reporteComision.Data);
 
 
@@ -193,7 +190,9 @@ namespace ApiGuardian.Controllers
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
 
                 _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
-
+                DescuentoEmpresaXls _ins = new DescuentoEmpresaXls();
+                var responseXls = await _ins.GetDescuentoEmpresaXls(ListaDescuentoEmpresa); 
+                
                 return Ok(new
                 {
                     status = true,
@@ -203,7 +202,8 @@ namespace ApiGuardian.Controllers
                         FileName = $"REPORTE DE DESCUENTO POR EMPRESA - {ListaDescuentoEmpresa[0].Empresa}.pdf",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
-                         
+                        FileNameXls = $"REPORTE DE PRORRATEO  {ListaDescuentoEmpresa[0].Empresa}.xlsx",
+                        base64Xls = responseXls.base64
                     }
                 });
             }
@@ -334,7 +334,8 @@ namespace ApiGuardian.Controllers
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
 
                 _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
-
+                ProrrateoXls _ins = new ProrrateoXls();
+                var responseXls = await _ins.GetProrrateoXls(listaFacturacion); 
                 return Ok(new
                 {
                     status = true,
@@ -344,6 +345,8 @@ namespace ApiGuardian.Controllers
                         FileName = $"REPORTE DE PRORRATEO {listaFacturacion[0].Ciclo}.pdf",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
+                        FileNameXls = $"REPORTE DE PRORRATEO  {listaFacturacion[0].Ciclo}.xlsx",
+                        base64Xls = responseXls.base64
                          
                     }
                 });
@@ -405,6 +408,8 @@ namespace ApiGuardian.Controllers
                 string base64Pdf = Convert.ToBase64String(pdfBytes);
 
                 _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
+                ComisionServicioXls _ins = new ComisionServicioXls();
+                var responseXls = await _ins.GetComisionServicioXls(listaComisionServicio);
 
                 return Ok(new
                 {
@@ -415,7 +420,8 @@ namespace ApiGuardian.Controllers
                         FileName = $"REPORTE DE COMISION - SERVICIO  {listaComisionServicio[0].Empresa}.pdf",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
-                         
+                        FileNameXls = $"REPORTE DE COMISION - SERVICIO  {listaComisionServicio[0].Empresa}.xlsx",
+                        base64Xls = responseXls.base64
                     }
                 });
             }
@@ -477,6 +483,9 @@ namespace ApiGuardian.Controllers
 
                 _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
 
+                PagarComisionxls _ins = new PagarComisionxls();
+                var reponseXLS = await _ins.GetPagarComisionXls(listaPagarComision);
+
                 return Ok(new
                 {
                     status = true,
@@ -484,9 +493,10 @@ namespace ApiGuardian.Controllers
                     data = new
                     {
                         FileName = $"REPORTE DE PAGAR COMISION - {listaPagarComision[0].Ciclo}.pdf",
+                        FileNameXls = $"REPORTE DE PAGAR COMISION - {listaPagarComision[0].Ciclo}.xlsx",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
-                         
+                        base64Xls = reponseXLS.base64
                     }
                 });
             }

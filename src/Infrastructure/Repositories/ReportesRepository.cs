@@ -48,7 +48,7 @@ public class ReportesRepository : IReportesRepository
 
             WHERE 
                 vp.lCiclo_id = @lCicloId
-                AND vp.lContacto_id = @lCotactoId
+                AND vp.lContacto_id = @lContactoId
                 AND (
                     (vp.lciclo_id >= 55 AND 
                         vp.lcontacto_id <> ( SELECT lcontacto_id FROM administracioncontacto WHERE scedulaidentidad = '4823437')
@@ -65,7 +65,7 @@ public class ReportesRepository : IReportesRepository
             SELECT CONCAT('CUOTA # ', a.nro_cuotas) AS Cuotas, a.Monto_Pagar AS t, vp.lContacto_id, vp.lContrato_id
             FROM tbl_promocion_pagados a
             JOIN administracionventapersonal vp ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
-            WHERE vp.lciclo_id >= 56 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lCotactoId
+            WHERE vp.lciclo_id >= 56 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
         ) AS b ON b.lContacto_id = c.lContacto_id AND b.lContrato_id = c.lContrato_id
 
         /* Cuota inicial por promo */
@@ -73,7 +73,7 @@ public class ReportesRepository : IReportesRepository
             SELECT 'Cuota Inicial' AS Inicial, vp.dpreciolote AS m, vp.lContacto_id, vp.lContrato_id
             FROM administracionganadorespromo4semana a
             JOIN administracionventapersonal vp  ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
-            WHERE vp.lciclo_id >= 56 AND vp.dcomision <> 0 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lCotactoId
+            WHERE vp.lciclo_id >= 56 AND vp.dcomision <> 0 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
         ) AS d ON d.lContacto_id = c.lContacto_id AND d.lContrato_id = c.lContrato_id
 
         /* Cuota residual */
@@ -81,7 +81,7 @@ public class ReportesRepository : IReportesRepository
             SELECT  'Cuo. Residual' AS Inicial, vp.dpreciolote AS m, vp.lContacto_id, vp.lContrato_id
             FROM t_productos_detalle_cuotas a
             JOIN administracionventapersonal vp ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
-            WHERE vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lCotactoId
+            WHERE vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
             GROUP BY vp.lcontrato_id, vp.lciclo_id
         ) AS ty ON ty.lContacto_id = c.lContacto_id AND ty.lContrato_id = c.lContrato_id
 
@@ -112,7 +112,7 @@ public class ReportesRepository : IReportesRepository
             FROM AdministracionVentaGrupo vg
             JOIN AdministracionContacto ct ON vg.lAsesor_id = ct.lContacto_id
             JOIN AdministracionContrato cr ON cr.lContrato_id = vg.lContrato_id
-            WHERE vg.lciclo_id =  @lCicloId AND vg.lcontacto_id = @lCotactoId
+            WHERE vg.lciclo_id =  @lCicloId AND vg.lcontacto_id = @lContactoId
         ) AS c
         INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
 
@@ -128,7 +128,7 @@ public class ReportesRepository : IReportesRepository
             ltotalterrenossinmora Terrenos,
             dtotalbono Total
         FROM administracionbonoresidual ABR
-        WHERE ABR.lcontacto_id = @lCotactoId AND lciclo_id = @lCicloId
+        WHERE ABR.lcontacto_id = @lContactoId AND lciclo_id = @lCicloId
     ";
 
     private const string QUERY_BONO_LIDERAZGO = @"
@@ -136,20 +136,20 @@ public class ReportesRepository : IReportesRepository
             COUNT(*) Cantidad,
             SUM(pagar) Comision
         FROM t_bono_liderazgo 
-        WHERE vendedores_id = @lCotactoId AND lciclo_id = @lCicloId
+        WHERE vendedores_id = @lContactoId AND lciclo_id = @lCicloId
     ";
 
     private const string QUERY_ENCABEZADO = @"
         SELECT 
             (SELECT CONCAT(RTRIM(snombrecompleto), ' (', SCodigo, ')') 
                 FROM administracioncontacto 
-                WHERE lcontacto_id = @lCotactoId) NombreCompleto,
+                WHERE lcontacto_id = @lContactoId) NombreCompleto,
             UPPER(SNombre) Ciclo,
             dtfechainicio Inicio,
             dtfechafin Fin,
             PERIOD_DIFF(
                 DATE_FORMAT(CURDATE(), '%Y%m'),
-                DATE_FORMAT( (SELECT MIN(crr.dtfecha) FROM administracioncontrato crr WHERE crr.lasesor_id = @lCotactoId), '%Y%m')
+                DATE_FORMAT( (SELECT MIN(crr.dtfecha) FROM administracioncontrato crr WHERE crr.lasesor_id = @lContactoId), '%Y%m')
             ) AS MesActividad
         FROM administracionciclo 
         WHERE lciclo_id = @lCicloId
@@ -161,7 +161,7 @@ public class ReportesRepository : IReportesRepository
             ABC.dbonoporlote CantidadVentas
         FROM administracionbonocarrera ABC
         INNER JOIN administracionnivel AN ON AN.lnivel_id = ABC.lnivel_id
-        WHERE ABC.lcontacto_id = @lCotactoId AND ABC.lciclo_id = @lCicloId
+        WHERE ABC.lcontacto_id = @lContactoId AND ABC.lciclo_id = @lCicloId
     ";
 
     #endregion
