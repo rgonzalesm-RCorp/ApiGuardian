@@ -52,6 +52,10 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 FROM tbl_retencionempresa 
                 WHERE lcontacto_id = @LContactoId AND lciclo_id = @LCicloId) AS PorcentajeRetencion,
 
+                (SELECT IFNULL(sdetalles,'') 
+                FROM administraciondescuentociclo 
+                WHERE lcontacto_id = @LContactoId AND lciclo_id = @LCicloId) AS Detalle,
+
                 (SELECT IFNULL(MAX(ldescuentociclo_id),0) 
                 FROM administraciondescuentociclo 
                 WHERE lcontacto_id = @LContactoId AND lciclo_id = @LCicloId) AS LDescuentoId;
@@ -65,8 +69,8 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
 
             var data = await connection.QuerySingleOrDefaultAsync<DataComision>(query, new
             {
-                LContactoId = LContactoId,
-                LCicloId = LCicloId
+                LContactoId,
+                LCicloId
             });
 
             if (data != null)

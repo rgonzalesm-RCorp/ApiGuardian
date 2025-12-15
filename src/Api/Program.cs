@@ -6,7 +6,10 @@ using ApiGuardian.Infrastructure.Persistence;
 using ApiGuardian.Infrastructure.Services;
 
 
+
 var builder = WebApplication.CreateBuilder(args);
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 
 if (builder.Environment.IsProduction())
 {
@@ -49,6 +52,7 @@ builder.Services.AddScoped<IAdministracionSemanaRepository, AdministracionSemana
 builder.Services.AddScoped<IAdministracionEmpresaRepository, AdministracionEmpresaRepository>();
 builder.Services.AddScoped<IAdministracionTipoContactoRepository, AdministracionTipoContactoRepository>();
 builder.Services.AddScoped<IAdministracionSemanaCicloRepository, AdministracionSemanaCicloRepository>();
+builder.Services.AddScoped<IReportesRepository, ReportesRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 
 var app = builder.Build();
