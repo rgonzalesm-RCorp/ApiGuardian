@@ -52,6 +52,7 @@ builder.Services.AddScoped<IAdministracionSemanaRepository, AdministracionSemana
 builder.Services.AddScoped<IAdministracionEmpresaRepository, AdministracionEmpresaRepository>();
 builder.Services.AddScoped<IAdministracionTipoContactoRepository, AdministracionTipoContactoRepository>();
 builder.Services.AddScoped<IAdministracionSemanaCicloRepository, AdministracionSemanaCicloRepository>();
+builder.Services.AddScoped<IAdministracionDetalleFacturaRepository, AdministracionDetalleFacturaRepository>();
 builder.Services.AddScoped<IReportesRepository, ReportesRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
 

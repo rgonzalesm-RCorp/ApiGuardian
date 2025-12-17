@@ -378,79 +378,26 @@ UPDATE complejosempresa SET identificadorProrrateoEmpresa = 93  WHERE empresa_id
 UPDATE complejosempresa SET identificadorProrrateoEmpresa = 100 WHERE empresa_id = 20;
 UPDATE complejosempresa SET identificadorProrrateoEmpresa = 95  WHERE empresa_id = 63;
 
+ CREATE TABLE administraciontipocomision (
+    ltipocomision_id INT PRIMARY KEY,
+    snombre VARCHAR(100) NOT NULL,
+    fechaadd DATETIME,
+    usuarioadd VARCHAR(50),
+    fechamod DATETIME,
+    usuariomod VARCHAR(50)
+) ;
+insert into administraciontipocomision VALUES
+(1, 'COMISION', NOW(), 'ADMIN', NOW(), 'ADMIN'),
+(2, 'SERVICIO', NOW(), 'ADMIN', NOW(), 'ADMIN');
 
---[1, 2, 5, 3, 4, 6, 11,66,67,68,69,70,71,72,73,74,75,96,97, 7, 8, 9, 10,52,53,54,57,60,86,92,99, 13, 37, 40, 41, 42, 43, 47,50, 61,64, 16, 19, 21, 26, 38,51, 17, 20,25, 14, 15, 18, 23, 31, 22, 58, 59, 62, 27, 29, 28,30, 32, 35, 36, 39, 33, 45, 44,48, 55,65,76,77,78,79,80,82,83,84,87,88,89,90,91,93,94,31,81 , 23, 46, 34,85,95,100,101,102  ]
 
-/*
-1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-11, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-22, 23, 23, 24?, 25?, 26, 27, 28, 29, 30,
-31, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-40, 41, 42, 43, 44, 45, 46, 47, 48, 50,
-52, 53, 54, 55, 57, 58, 59, 60, 61, 62X,
-64, 65, 66, 67, 68, 69, 70, 71, 72, 73,
-74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-84, 85, 86, 87, 88, 89, 90, 91, 92, 93,
-94, 95, 96, 97, 99, 100, 101, 102
-
-SELECT count( REC.lcontacto_id ) AS contar, sum( REC.dmonto ) AS sumar, REC.lcontacto_id, 0 as identificador  
-FROM administracionredempresacomplejo REC
-INNER JOIN complejosempresa CE ON REC.lcomplejo_id = CE.lcomplejo_id 
-WHERE REC.lciclo_id = 137
-GROUP BY REC.lcontacto_id, CE.empresa_id 
-
-UNION ALL
-
-SELECT count( AVP.lcontacto_id ) AS contar, sum( AVP.dcomision ) AS sumar, AVP.lcontacto_id, 0 as identificador 
-FROM administracionventapersonal AVP 
-INNER JOIN administracioncontrato AC ON AC.lcontrato_id = AVP.lcontrato_id 
-LEFT JOIN complejosempresa CE ON AC.lcomplejo_id = CE.lcomplejo_id 
-WHERE AVP.lciclo_id = 137
-GROUP BY AVP.lcontacto_id, CE.empresa_id 
-
-UNION ALL
-
-SELECT count( AVG.lcontacto_id ) AS contar,sum( AVG.dcomision ) AS sumar,AVG.lcontacto_id , 0 as identificador 
-FROM administracionventagrupo AVG
-INNER JOIN  administracioncontrato AC ON AC.lcontrato_id = AVG.lcontrato_id and AVG.lcontacto_id>3
-LEFT JOIN complejosempresa CE ON AC.lcomplejo_id = CE.lcomplejo_id 
-WHERE AVG.lciclo_id = 137
-GROUP BY AVG.lcontacto_id, CE.empresa_id 
-
-UNION ALL
-
-SELECT count( a.vendedores_id ) AS contar,sum( a.pagar ) AS sumar,a.vendedores_id as lcontacto_id, CE.empresa_id  as identificador 
-FROM t_bono_liderazgo a 
-INNER JOIN complejosempresa CE ON A.lcomplejo_id = CE.lcomplejo_id 
-WHERE a.lciclo_id=137 GROUP BY a.vendedores_id, CE.empresa_id 
-
-UNION ALL
-
-SELECT count( a.vendedor_lcontacto_id ) AS contar,sum( a.pagar ) AS sumar,a.vendedor_lcontacto_id as lcontacto_id, 238 as identificador 
-FROM t_top_vendedores a 
-INNER JOIN complejosempresa CE ON A.lcomplejo_id = CE.lcomplejo_id 
-WHERE a.lciclo_id=137 GROUP BY a.vendedor_lcontacto_id, CE.empresa_id 
-
-UNION ALL
-
-SELECT count( a.vendedores_Mes_id ) AS contar,sum( a.monto ) AS sumar,a.vendedores_Mes_id as lcontacto_id, 168 as identificador 
-FROM T_GANADORES_BONOLIDERAZGO_EMPRESA_PAGAR a 
-INNER JOIN complejosempresa CE ON A.lcomplejo_id = CE.lcomplejo_id 
-WHERE a.lciclo_id=137 GROUP BY a.vendedores_Mes_id, CE.empresa_id 
-
-UNION ALL
-
-select count(t.lcontacto_id)as contar,sum(dcd.dmonto )as sumar,t.lcontacto_id ,99 as identificador 
-from administraciondescuentociclo t 
-inner join administraciondescuentociclodetalle dcd on dcd.ldescuentociclo_id=t.ldescuentociclo_id 
-INNER JOIN complejosempresa CE ON dcd.lcomplejo_id = CE.lcomplejo_id 
-where t.lciclo_id=137  group by t.lcontacto_id, CE.empresa_id 
-
-UNION ALL 
-
-select count(t.lcontacto_id)as contar,sum(t.dmonto )as sumar,t.lcontacto_id ,95 as identificador 
-from administracioncomisionprorrateo t 
-INNER JOIN complejosempresa CE ON T.lempresa_id_temp = CE.EMPRESA_ID 
-where t.lciclo_id=137  group by t.lcontacto_id, CE.empresa_id 
-
-*/
+ CREATE TABLE administraciondetallefactura (
+    ldetallefactura_id INT PRIMARY KEY,
+    ltipocomision_id INT,
+    sdetalle VARCHAR(8000) NOT NULL,
+    estado int , -- 0: inactivo: 1:activo
+    fechaadd DATETIME,
+    usuarioadd VARCHAR(50),
+    fechamod DATETIME,
+    usuariomod VARCHAR(50)
+) ;

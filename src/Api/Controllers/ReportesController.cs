@@ -257,7 +257,10 @@ namespace ApiGuardian.Controllers
                     });
                 }
                 var listaFacturacion = facturacion.Data.ToList();
-                var documento = new ReporteFacturacion(listaFacturacion);
+                var logoPath = Path.Combine(Directory.GetCurrentDirectory(),"Assets","Logokalomai.png");
+
+                byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
+                var documento = new ReporteFacturacion(listaFacturacion, logoBytes);
 
 
                 byte[] pdfBytes = documento.GeneratePdf();
