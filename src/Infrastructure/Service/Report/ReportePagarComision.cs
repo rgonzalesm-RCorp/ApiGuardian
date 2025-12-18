@@ -8,10 +8,14 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
     public class ReportePagarComision : IDocument
     {
         private readonly List<RptPagarComision> _data;
+        private readonly List<RptProrrateo> _prorrateo;
+        private readonly List<EmpresaHeaderPagarComision> _headerEmpresa;
 
-        public ReportePagarComision(List<RptPagarComision> data)
+        public ReportePagarComision(List<RptPagarComision> data, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa)
         {
             _data = data.ToList();
+            _prorrateo = prorrateo;
+            _headerEmpresa = headerEmpresa;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -19,7 +23,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
         {
             container.Page(page =>
             {
-                //page.Size(PageSizes.A4.Landscape()); 
+                page.Size(PageSizes.A4.Landscape()); 
                 page.Margin(20);
 
                 //page.Header().Element(ComposeHeader);
@@ -87,6 +91,10 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             columns.RelativeColumn(1.5F);
                             columns.RelativeColumn(5f);
                             columns.RelativeColumn(1f);
+                            foreach (var item in _headerEmpresa)
+                            {
+                                columns.RelativeColumn(1.5f);
+                            }
                             columns.RelativeColumn(1.5f);
                         });
 
@@ -99,10 +107,26 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             header.Cell().Element(HeaderCellStyle).Text("Ciudad").FontSize(5).AlignLeft();
                             header.Cell().Element(HeaderCellStyle).Text("Asesor").FontSize(5).AlignLeft();
                             header.Cell().Element(HeaderCellStyle).Text("Cedula Identidad").FontSize(5).AlignCenter();
+                            foreach (var item in _headerEmpresa)
+                            {
+                                string nombre = item.SEmpresa;
+                                nombre = nombre.Replace("S.R.L.", "");
+                                nombre = nombre.Replace("S.R.L", "");
+                                nombre = nombre.Replace("INMOBILIARIA", "");
+                                header.Cell().Element(HeaderCellStyle).Text(nombre.Trim()).FontSize(5).AlignRight();
+                            }
                             header.Cell().Element(HeaderCellStyle).Text("Total Pagar").FontSize(5).AlignRight();
                         });
 
                         // Filas
+                        decimal montoCero = 0;
+                        var prorrateoLookup = _prorrateo
+                            .GroupBy(x => new { x.LContactoId, x.EmpresaId })
+                            .ToDictionary(
+                                g => (g.Key.LContactoId, g.Key.EmpresaId),
+                                g => g.Sum(x => x.Prorrateo)   // o First(), según lógica
+                            );
+
                         foreach (var v in _data)
                         {
                             table.Cell().Element(BodyCellStyle).Text(v.TipoCuenta).FontSize(6).AlignLeft();
@@ -111,25 +135,57 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             table.Cell().Element(BodyCellStyle).Text(v.Ciudad).FontSize(6).AlignLeft();
                             table.Cell().Element(BodyCellStyle).Text(v.NombreCompleto).FontSize(6).AlignLeft();
                             table.Cell().Element(BodyCellStyle).Text(v.CedulaIdentidad).FontSize(6).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text((
-                                v.Personal + v.Liderazgo + v.Grupo + v.Residual - v.Descuento - v.Retencion
-                            ).ToString("N2")).FontSize(6).AlignRight();
+
+                            decimal montoTotal = 0;
+
+                            foreach (var item in _headerEmpresa)
+                            {
+                                if (prorrateoLookup.TryGetValue((v.LContactold, item.EmpresaId), out var monto))
+                                {
+                                    montoTotal += monto;
+                                    table.Cell().Element(BodyCellStyle)
+                                        .Text(monto.ToString("N2"))
+                                        .FontSize(6)
+                                        .AlignRight();
+                                }
+                                else
+                                {
+                                    table.Cell().Element(BodyCellStyle)
+                                        .Text(montoCero.ToString("N2"))
+                                        .FontSize(6)
+                                        .AlignRight();
+                                }
+                            }
+                            table.Cell().Element(BodyCellStyle)
+                                //.Text((v.Personal + v.Liderazgo + v.Grupo + v.Residual - v.Descuento - v.Retencion).ToString("N2"))
+                                .Text(montoTotal.ToString("N2"))
+                                .FontSize(6)
+                                .AlignRight();
                         }
                         table.Footer(footer =>
                         {
-                            decimal totalPersonal = _data?.Sum(x => x.Personal) ?? 0;
-                            decimal totalLiderazgo = _data?.Sum(x => x.Liderazgo) ?? 0;
-                            decimal totalGrupo = _data?.Sum(x => x.Grupo) ?? 0;
-                            decimal totalResidual = _data?.Sum(x => x.Residual) ?? 0;
-                            decimal totalDescuento = _data?.Sum(x => x.Descuento) ?? 0;
-                            decimal totalRetencion = _data?.Sum(x => x.Retencion) ?? 0;
+                            decimal totalGeneral = 0;
 
-
+                            // ===== TOTAL GENERAL
                             table.Cell().ColumnSpan(6).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text((
-                                totalPersonal + totalLiderazgo + totalGrupo + totalResidual - totalDescuento - totalRetencion
-                            ).ToString("N2")).FontSize(6).AlignRight();
 
+                            // ===== TOTALES POR EMPRESA (DINÁMICO)
+                            foreach (var item in _headerEmpresa)
+                            {
+                                decimal totalEmpresa = 0;
+
+                                foreach (var v in _data)
+                                {
+                                    if (prorrateoLookup.TryGetValue((v.LContactold, item.EmpresaId), out var monto))
+                                    {
+                                        totalEmpresa += monto;
+                                    }
+                                }
+                                totalGeneral += totalEmpresa;
+
+                                table.Cell().Element(HeaderCellStyle).Text(totalEmpresa.ToString("N2")).FontSize(6).AlignRight().Bold();
+                            }
+                            table.Cell().Element(HeaderCellStyle).Text(totalGeneral.ToString("N2")).FontSize(6).AlignRight().Bold();
                         });
                         
                     });

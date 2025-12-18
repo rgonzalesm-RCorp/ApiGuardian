@@ -409,7 +409,7 @@ public class ReportesRepository : IReportesRepository
                                                     , IFNULL(VtaPersonal.ComisionPersonal, 0) + IFNULL(VtaGrupo.ComisionGrupo, 0)+IFNULL(BonoResidual.ComisionResidual, 0) + IFNULL(BonoLiderago.ComisionLiderazgo, 0)  - IFNULL(Retencion.Retencion, 0) Liquido
                                                     , IFNULL(Descuento.Descuento, 0) Descuento
                                                     , ACPR.dmonto Prorrateo
-                                                    , Retencion.empresa_id EmpresaId
+                                                    , CE.lempresa_id  EmpresaId
                                                     , ACPR.lprorrateo_id LProrrateoId
                                                     , ACT.lcontacto_id LContactoId
                                                     , ACI.snombre Ciclo
@@ -621,6 +621,7 @@ public class ReportesRepository : IReportesRepository
                                                 , SUM(COMISION.Grupo) Grupo, SUM(COMISION.Descuento) Descuento, SUM(COMISION.Retencion) Retencion
                                                 , (SELECT UPPER(ACL.snombre) FROM administracionciclo ACL WHERE ACL.Lciclo_id = @LCicloId LIMIT 1) Ciclo
                                                 , ACT.scedulaidentidad CedulaIdentidad
+                                                , ACT.lcontacto_id LContactold
                                             FROM (
                                                 SELECT AVP.lcontacto_id, SUM(AVP.dcomision) Personal, 0 Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
                                                 FROM administracionventapersonal AVP

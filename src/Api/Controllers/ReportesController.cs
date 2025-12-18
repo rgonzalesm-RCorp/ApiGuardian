@@ -3,6 +3,7 @@ using ApiGuardian.Infrastructure.Services.Pdf;
 using QuestPDF.Fluent;
 using ApiGuardian.Models;
 using ApiGuardian.Application.Interfaces;
+using System.ComponentModel;
 
 namespace ApiGuardian.Controllers
 {
@@ -461,6 +462,19 @@ namespace ApiGuardian.Controllers
             try
             {
                 var pagarComision = await _repo.GetReportePagarComision(logId.ToString(), lCicloId);
+                var prorrateo = await _repo.GetReporteProrrateo(logId.ToString(), lCicloId);
+                var listaProrrateo = prorrateo.Data.ToList();
+
+               List<EmpresaHeaderPagarComision> headerEmpresa = listaProrrateo
+                                                                .GroupBy(x => x.EmpresaId)
+                                                                .Select(g => new EmpresaHeaderPagarComision
+                                                                {
+                                                                    EmpresaId = g.Key,
+                                                                    SEmpresa = g.First().SEmpresa
+                                                                })
+                                                                .ToList();
+
+
 
                 if(pagarComision.Data == null || pagarComision.Data.Count()<= 0)
                 {
@@ -478,7 +492,7 @@ namespace ApiGuardian.Controllers
                     });
                 }
                 var listaPagarComision = pagarComision.Data.ToList();
-                var documento = new ReportePagarComision(listaPagarComision);
+                var documento = new ReportePagarComision(listaPagarComision, listaProrrateo, headerEmpresa);
 
 
                 byte[] pdfBytes = documento.GeneratePdf();
@@ -521,5 +535,8 @@ namespace ApiGuardian.Controllers
                 });
             }
         }
+
+
+
     }
 }
