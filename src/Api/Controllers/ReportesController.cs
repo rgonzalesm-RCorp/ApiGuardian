@@ -501,7 +501,7 @@ namespace ApiGuardian.Controllers
                 _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
 
                 PagarComisionxls _ins = new PagarComisionxls();
-                var reponseXLS = await _ins.GetPagarComisionXls(listaPagarComision);
+                var reponseXLS = await _ins.GetPagarComisionXls(listaPagarComision, listaProrrateo, headerEmpresa);
 
                 return Ok(new
                 {
