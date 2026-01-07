@@ -2,6 +2,7 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Reportes.Estilos;
 
 namespace ApiGuardian.Infrastructure.Services.Pdf
 {
@@ -101,21 +102,21 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("Tipo Cuenta.").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Cod. Banco").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Cta. Banco").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Ciudad").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Asesor").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Cedula Identidad").FontSize(5).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Tipo Cuenta.").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cod. Banco").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cta. Banco").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Ciudad").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Asesor").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cedula Identidad").FontSize(5).AlignCenter();
                             foreach (var item in _headerEmpresa)
                             {
                                 string nombre = item.SEmpresa;
                                 nombre = nombre.Replace("S.R.L.", "");
                                 nombre = nombre.Replace("S.R.L", "");
                                 nombre = nombre.Replace("INMOBILIARIA", "");
-                                header.Cell().Element(HeaderCellStyle).Text(nombre.Trim()).FontSize(5).AlignRight();
+                                header.Cell().Element(EstiloReporte.HeaderCellStyle).Text(nombre.Trim()).FontSize(5).AlignRight();
                             }
-                            header.Cell().Element(HeaderCellStyle).Text("Total Pagar").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total Pagar").FontSize(5).AlignRight();
                         });
 
                         // Filas
@@ -129,12 +130,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
 
                         foreach (var v in _data)
                         {
-                            table.Cell().Element(BodyCellStyle).Text(v.TipoCuenta).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.CodigoBanco).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.CuentaBanco).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.Ciudad).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.NombreCompleto).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.CedulaIdentidad).FontSize(6).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.TipoCuenta).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.CodigoBanco).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.CuentaBanco).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Ciudad).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.NombreCompleto).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.CedulaIdentidad).FontSize(6).AlignCenter();
 
                             decimal montoTotal = 0;
 
@@ -143,20 +144,20 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 if (prorrateoLookup.TryGetValue((v.LContactold, item.EmpresaId), out var monto))
                                 {
                                     montoTotal += monto;
-                                    table.Cell().Element(BodyCellStyle)
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle)
                                         .Text(monto.ToString("N2"))
                                         .FontSize(6)
                                         .AlignRight();
                                 }
                                 else
                                 {
-                                    table.Cell().Element(BodyCellStyle)
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle)
                                         .Text(montoCero.ToString("N2"))
                                         .FontSize(6)
                                         .AlignRight();
                                 }
                             }
-                            table.Cell().Element(BodyCellStyle)
+                            table.Cell().Element(EstiloReporte.BodyCellStyle)
                                 //.Text((v.Personal + v.Liderazgo + v.Grupo + v.Residual - v.Descuento - v.Retencion).ToString("N2"))
                                 .Text(montoTotal.ToString("N2"))
                                 .FontSize(6)
@@ -167,7 +168,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal totalGeneral = 0;
 
                             // ===== TOTAL GENERAL
-                            table.Cell().ColumnSpan(6).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
+                            table.Cell().ColumnSpan(6).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
 
                             // ===== TOTALES POR EMPRESA (DINÁMICO)
                             foreach (var item in _headerEmpresa)
@@ -183,46 +184,14 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 }
                                 totalGeneral += totalEmpresa;
 
-                                table.Cell().Element(HeaderCellStyle).Text(totalEmpresa.ToString("N2")).FontSize(6).AlignRight().Bold();
+                                table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalEmpresa.ToString("N2")).FontSize(6).AlignRight().Bold();
                             }
-                            table.Cell().Element(HeaderCellStyle).Text(totalGeneral.ToString("N2")).FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalGeneral.ToString("N2")).FontSize(6).AlignRight().Bold();
                         });
                         
                     });
                 });
             });
-        }
-
- 
-        // ESTILOS DE CELDA
-        private static IContainer HeaderCellStyle(IContainer container)
-        {
-            return container
-                .DefaultTextStyle(x => x.SemiBold())
-                .Background(Colors.Grey.Lighten3)
-                .PaddingVertical(4)
-                .PaddingHorizontal(3)
-                .AlignMiddle()
-                .BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private static IContainer BodyCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .BorderColor(Colors.Grey.Lighten3);
-        }
-        private static IContainer TotalCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .Border(0.3f)
-                
-                .BorderColor(Colors.Black);
         }
     }
 }

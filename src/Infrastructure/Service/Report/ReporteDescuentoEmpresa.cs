@@ -2,6 +2,7 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Reportes.Estilos;
 
 namespace ApiGuardian.Infrastructure.Services.Pdf
 {
@@ -109,75 +110,43 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("ASESOR").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("COMPLEJO").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("EMPRESA").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("MZ").FontSize(6).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("LT").FontSize(6).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("UV").FontSize(6).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("TIPO").FontSize(6).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("MONTO").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("OBSERVACION").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("ASESOR").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("COMPLEJO").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("EMPRESA").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MZ").FontSize(6).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("LT").FontSize(6).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("UV").FontSize(6).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TIPO").FontSize(6).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MONTO").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("OBSERVACION").FontSize(6).AlignLeft();
                         });
 
                         // Filas
                         foreach (var v in _data)
                         {
-                            table.Cell().Element(BodyCellStyle).Text( v.Asesor ).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.Complejo).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.Empresa).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.Mz).FontSize(6).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(v.Lote).FontSize(6).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(v.Uv).FontSize(6).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(v.Tipo).FontSize(6).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(v.Monto.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.Observacion).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text( v.Asesor ).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Complejo).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Empresa).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Mz).FontSize(6).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Lote).FontSize(6).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Uv).FontSize(6).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Tipo).FontSize(6).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Monto.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Observacion).FontSize(6).AlignLeft();
 
                         }
                         table.Footer(footer =>
                         {
                             decimal totalVP = _data?.Sum(x => x.Monto) ?? 0;
 
-                            table.Cell().ColumnSpan(7).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text("").FontSize(6).AlignRight();
+                            table.Cell().ColumnSpan(7).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(6).AlignRight();
                         });
                         
                     });
                 });
             });
-        }
-
- 
-        // ESTILOS DE CELDA
-        private static IContainer HeaderCellStyle(IContainer container)
-        {
-            return container
-                .DefaultTextStyle(x => x.SemiBold())
-                .Background(Colors.Grey.Lighten3)
-                .PaddingVertical(2)
-                .PaddingHorizontal(3)
-                .AlignMiddle()
-                .BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private static IContainer BodyCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .BorderColor(Colors.Grey.Lighten3);
-        }
-        private static IContainer TotalCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .Border(0.3f)
-                
-                .BorderColor(Colors.Black);
         }
     }
 }

@@ -2,6 +2,7 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Reportes.Estilos;
 
 namespace ApiGuardian.Infrastructure.Services.Pdf
 {
@@ -99,33 +100,33 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("Fecha").FontSize(9).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("Nro. Venta").FontSize(9).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("Tipo").FontSize(9).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("Inicial").FontSize(9).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("%").FontSize(9).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("Comisión").FontSize(9).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Fecha").FontSize(9).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Nro. Venta").FontSize(9).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Tipo").FontSize(9).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Inicial").FontSize(9).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("%").FontSize(9).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Comisión").FontSize(9).AlignRight();
                         });
 
                         // Filas
                         foreach (var v in _data.VentasPersonales)
                         {
-                            table.Cell().Element(BodyCellStyle).Text( v.Fecha?.Replace(" 00:00:00", "") ).FontSize(7);
-                            table.Cell().Element(BodyCellStyle).Text(v.NumeroVenta).FontSize(7);
-                            table.Cell().Element(BodyCellStyle).Text(v.Tipo?.ToLower()).FontSize(6).Bold().AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(v.CuotaInicial.ToString("0.00")).FontSize(7).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text($"{v.Porcentaje:0.##}%").FontSize(7).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text($"{v.Comision:0.00}").FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text( v.Fecha?.Replace(" 00:00:00", "") ).FontSize(7);
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.NumeroVenta).FontSize(7);
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Tipo?.ToLower()).FontSize(6).Bold().AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.CuotaInicial.ToString("0.00")).FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{v.Porcentaje:0.##}%").FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{v.Comision:0.00}").FontSize(7).AlignRight();
                         }
                         table.Footer(footer =>
                         {
                             decimal totalInicial = _data.VentasPersonales?.Sum(x => x.CuotaInicial) ?? 0;
                             decimal totalComision = _data.VentasPersonales?.Sum(x => x.Comision) ?? 0;
 
-                            table.Cell().ColumnSpan(3).Element(HeaderCellStyle).Text("TOTAL:").FontSize(7).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text(totalInicial.ToString("N2")).FontSize(7).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text("").FontSize(7);
-                            table.Cell().Element(HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(7).AlignRight();
+                            table.Cell().ColumnSpan(3).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(7).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalInicial.ToString("N2")).FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(7);
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(7).AlignRight();
                         });
                         
                     });
@@ -159,33 +160,33 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
 
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("Asesor").FontSize(9);
-                            header.Cell().Element(HeaderCellStyle).Text("Basado en").FontSize(9).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("Gen.").FontSize(9).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("Tipo").FontSize(9).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("Vta").FontSize(9).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("%").FontSize(9).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("Comision").FontSize(9).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Asesor").FontSize(9);
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Basado en").FontSize(9).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Gen.").FontSize(9).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Tipo").FontSize(9).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Vta").FontSize(9).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("%").FontSize(9).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Comision").FontSize(9).AlignRight();
                         });
 
                         foreach (var g in _data.VentasGrupo)
                         {
-                            table.Cell().Element(BodyCellStyle).Text(g.Asesor).FontSize(7);
-                            table.Cell().Element(BodyCellStyle).Text(g.BasadoEn?.ToLower()).FontSize(6).Bold().AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(g.Generacion).FontSize(7).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(g.Tipo).FontSize(7).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text($"{g.VentaPersonal:0.00}").FontSize(7).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text($"{g.PorcentajeComision.ToString("N2")}%").FontSize(7).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(g.Comision.ToString("N2")).FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.Asesor).FontSize(7);
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.BasadoEn?.ToLower()).FontSize(6).Bold().AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.Generacion).FontSize(7).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.Tipo).FontSize(7).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{g.VentaPersonal:0.00}").FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{g.PorcentajeComision.ToString("N2")}%").FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.Comision.ToString("N2")).FontSize(7).AlignRight();
                         }
                         table.Footer(footer =>
                         {
                             decimal totaVentas = _data.VentasGrupo?.Sum(x => x.VentaPersonal) ?? 0;
                             decimal totalComision = _data.VentasGrupo?.Sum(x => x.Comision) ?? 0;
-                            table.Cell().ColumnSpan(4).Element(HeaderCellStyle).Text("TOTALES:").FontSize(7).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totaVentas.ToString("N2")).FontSize(7).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text("").FontSize(7).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(7).AlignRight();
+                            table.Cell().ColumnSpan(4).Element(EstiloReporte.HeaderCellStyle).Text("TOTALES:").FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totaVentas.ToString("N2")).FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(7).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(7).AlignRight();
                         });
                     });
                 });
@@ -215,14 +216,14 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 });
                                 table.Header(header =>
                                 {
-                                    header.Cell().Element(HeaderCellStyle).Text("Nivel Obtenido en el Mes").FontSize(9).AlignLeft();
-                                    header.Cell().Element(HeaderCellStyle).Text("Cant. Prod. Vtas.").FontSize(9).AlignCenter();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Nivel Obtenido en el Mes").FontSize(9).AlignLeft();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cant. Prod. Vtas.").FontSize(9).AlignCenter();
 
                                 });
                                 foreach (var g in _data.BonoCarrera)
                                 {
-                                    table.Cell().Element(BodyCellStyle).Text(g.NivelCiclo).FontSize(7).AlignLeft();
-                                    table.Cell().Element(BodyCellStyle).Text(g.CantidadVentas.ToString("N2")).FontSize(7).AlignCenter();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.NivelCiclo).FontSize(7).AlignLeft();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g.CantidadVentas.ToString("N2")).FontSize(7).AlignCenter();
 
                                 }
                             });    
@@ -244,19 +245,19 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 });
                                 table.Header(header =>
                                 {
-                                    header.Cell().Element(HeaderCellStyle).Text("Tipo").FontSize(9).AlignCenter();
-                                    header.Cell().Element(HeaderCellStyle).Text("%1G").FontSize(9).AlignCenter();
-                                    header.Cell().Element(HeaderCellStyle).Text("BxL").FontSize(9).AlignCenter();
-                                    header.Cell().Element(HeaderCellStyle).Text("Terrenos").FontSize(9).AlignRight();
-                                    header.Cell().Element(HeaderCellStyle).Text("Total").FontSize(9).AlignRight();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Tipo").FontSize(9).AlignCenter();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("%1G").FontSize(9).AlignCenter();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("BxL").FontSize(9).AlignCenter();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Terrenos").FontSize(9).AlignRight();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total").FontSize(9).AlignRight();
                                 });
                                 foreach (var g in _data.BonoRedisual)
                                 {
-                                    table.Cell().Element(BodyCellStyle).Text($"{g?.Tipo ?? 0}").FontSize(7).AlignCenter();
-                                    table.Cell().Element(BodyCellStyle).Text($"{g?.PocentajeGeneracion ?? 0:0.##}%").FontSize(7).AlignCenter();
-                                    table.Cell().Element(BodyCellStyle).Text($"{g?.Bxl ?? 0:0.00}").FontSize(7).AlignCenter();
-                                    table.Cell().Element(BodyCellStyle).Text(g?.Terrenos.ToString("N2")).FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text(g?.Total.ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{g?.Tipo ?? 0}").FontSize(7).AlignCenter();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{g?.PocentajeGeneracion ?? 0:0.##}%").FontSize(7).AlignCenter();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{g?.Bxl ?? 0:0.00}").FontSize(7).AlignCenter();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g?.Terrenos.ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g?.Total.ToString("N2")).FontSize(7).AlignRight();
                                 }
                             });    
                         });
@@ -275,13 +276,13 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 });
                                 table.Header(header =>
                                 {
-                                    header.Cell().Element(HeaderCellStyle).Text("Cant. P.").FontSize(9).AlignLeft();
-                                    header.Cell().Element(HeaderCellStyle).Text("Total").FontSize(9).AlignRight();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cant. P.").FontSize(9).AlignLeft();
+                                    header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total").FontSize(9).AlignRight();
                                 });
                                 foreach (var g in _data.BonoLiderazgo)
                                 {
-                                    table.Cell().Element(BodyCellStyle).Text($"{g?.Cantidad ?? 0}").FontSize(7).AlignLeft();
-                                    table.Cell().Element(BodyCellStyle).Text(g?.Comision.ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"{g?.Cantidad ?? 0}").FontSize(7).AlignLeft();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(g?.Comision.ToString("N2")).FontSize(7).AlignRight();
                                 }
                             });    
                         });
@@ -305,19 +306,19 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                     columns.RelativeColumn(1);
                                 });
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Total Vta. Personal: ").FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text( _data.Comisiones.ComisionVentaPersonal .ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Total Vta. Personal: ").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text( _data.Comisiones.ComisionVentaPersonal .ToString("N2")).FontSize(7).AlignRight();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Total Vta. Grupo: ").FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text(_data.Comisiones.ComisionVentaGrupo.ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Total Vta. Grupo: ").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(_data.Comisiones.ComisionVentaGrupo.ToString("N2")).FontSize(7).AlignRight();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Total Bono Residual: ").FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text(_data.Comisiones.ComisionResidual.ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Total Bono Residual: ").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(_data.Comisiones.ComisionResidual.ToString("N2")).FontSize(7).AlignRight();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Total Bono Liderazgo: ").FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text(_data.Comisiones.ComisionLiderazgo.ToString("N2")).FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Total Bono Liderazgo: ").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text(_data.Comisiones.ComisionLiderazgo.ToString("N2")).FontSize(7).AlignRight();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Total Comisiones Mensual: ").FontSize(7).AlignRight().Bold();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Total Comisiones Mensual: ").FontSize(7).AlignRight().Bold();
                                     table.Cell().Element(TotalCellStyle).Text((
                                         _data.Comisiones.ComisionVentaPersonal + 
                                         _data.Comisiones.ComisionVentaGrupo+ 
@@ -325,18 +326,18 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                         _data.Comisiones.ComisionLiderazgo
                                     ).ToString("N2")).FontSize(7).AlignRight().Bold();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Retencion ({_data.Comisiones.PorcentajeRetencion.ToString("N2")}%): ").FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text($"-{_data.Comisiones.Retencion.ToString("N2")}").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Retencion ({_data.Comisiones.PorcentajeRetencion.ToString("N2")}%): ").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"-{_data.Comisiones.Retencion.ToString("N2")}").FontSize(7).AlignRight();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Total Final: ").FontSize(7).AlignRight().Bold();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Total Final: ").FontSize(7).AlignRight().Bold();
                                     table.Cell().Element(TotalCellStyle).Text(
                                         (_data.Comisiones.ComisionVentaPersonal + _data.Comisiones.ComisionVentaGrupo+  _data.Comisiones.ComisionResidual +  _data.Comisiones.ComisionLiderazgo - _data.Comisiones.Retencion).ToString("N2")
                                     ).FontSize(7).AlignRight().Bold();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Descuento Lote: ").FontSize(7).AlignRight();
-                                    table.Cell().Element(BodyCellStyle).Text($"-{_data.Comisiones.DescuentoLote.ToString("N2")}").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Descuento Lote: ").FontSize(7).AlignRight();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"-{_data.Comisiones.DescuentoLote.ToString("N2")}").FontSize(7).AlignRight();
 
-                                    table.Cell().Element(BodyCellStyle).Text($"Tota a Pagar: ").FontSize(7).AlignRight().Bold();
+                                    table.Cell().Element(EstiloReporte.BodyCellStyle).Text($"Tota a Pagar: ").FontSize(7).AlignRight().Bold();
                                     table.Cell().Element(TotalCellStyle).Text(
                                         (_data.Comisiones.ComisionVentaPersonal + _data.Comisiones.ComisionVentaGrupo+  _data.Comisiones.ComisionResidual +  _data.Comisiones.ComisionLiderazgo - _data.Comisiones.Retencion - _data.Comisiones.DescuentoLote).ToString("N2")
                                     ).FontSize(7).AlignRight().Bold();
@@ -348,27 +349,6 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                 });
 
             });
-        }
-
-        // ESTILOS DE CELDA
-        private static IContainer HeaderCellStyle(IContainer container)
-        {
-            return container
-                .DefaultTextStyle(x => x.SemiBold())
-                .Background(Colors.Grey.Lighten3)
-                .PaddingVertical(2)
-                .PaddingHorizontal(3)
-                //.BorderBottom(1)
-                .BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private static IContainer BodyCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .BorderColor(Colors.Grey.Lighten3);
         }
         private static IContainer TotalCellStyle(IContainer container)
         {

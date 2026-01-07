@@ -15,11 +15,6 @@ public class RptPagarComision
     public decimal Retencion { get; set; }
     public string? Ciclo { get; set; }
 }
-public class ProrrateoHorizontalDto
-{
-    public int LContactoId { get; set; }
-    public Dictionary<int, decimal> ValoresPorEmpresa { get; set; } = new();
-}
 public class EmpresaHeaderPagarComision
 {
     public string? SEmpresa { get; set; }

@@ -4,6 +4,8 @@ public class RptFacturacion
     public string? SCodigo { get; set; }
     public string? SCedulaIdentidad { get; set; }
     public string? SNombreCompleto { get; set; }
+    public string? Pais { get; set; }
+    public string? Ciudad { get; set; }
     public int LEmpresaId { get; set; }
     public string? Empresa { get; set; }
     public decimal TotalComisionVtaGrupoResidual { get; set; }

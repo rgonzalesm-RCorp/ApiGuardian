@@ -2,6 +2,7 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Reportes.Estilos;
 
 namespace ApiGuardian.Infrastructure.Services.Pdf
 {
@@ -139,38 +140,38 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("COD.").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("ASESOR").FontSize(5).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("COMISION $").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("SERVICIO $").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("TOTAL COM. $").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("13%").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("87%").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("RET. %").FontSize(5).AlignCenter();
-                            header.Cell().Element(HeaderCellStyle).Text("RET. $").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("TOTAL $").FontSize(5).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("TOTAL PAGAR $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("COD.").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("ASESOR").FontSize(5).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("COMISION $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("SERVICIO $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TOTAL COM. $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("13%").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("87%").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("RET. %").FontSize(5).AlignCenter();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("RET. $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TOTAL $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TOTAL PAGAR $").FontSize(5).AlignRight();
                         });
 
                         // Filas
                         foreach (var v in _data)
                         {
                             decimal trece = (v.Comision + v.Servicio )*Convert.ToDecimal( 0.13);
-                            table.Cell().Element(BodyCellStyle).Text(v.SCodigo).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.Comision.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.Servicio.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text((v.Comision + v.Servicio).ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SCodigo).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Comision.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Servicio.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text((v.Comision + v.Servicio).ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
                                 ((v.PorcentajeRetencion <= 0 )? ((v.Comision + v.Servicio)* Convert.ToDecimal(0.13)) : 0).ToString("N2")
                             ).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
                                 ((v.PorcentajeRetencion <= 0 )? ((v.Comision + v.Servicio)* Convert.ToDecimal(0.87)) : 0).ToString("N2")
                             ).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.PorcentajeRetencion.ToString("N2")).FontSize(6).AlignCenter();
-                            table.Cell().Element(BodyCellStyle).Text(v.MontoRetencion.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text((v.Comision + v.Servicio).ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.PorcentajeRetencion.ToString("N2")).FontSize(6).AlignCenter();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.MontoRetencion.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text((v.Comision + v.Servicio).ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
                                 (v.Comision + v.Servicio - v.MontoRetencion).ToString("N2")
                             ).FontSize(6).AlignRight();
 
@@ -188,54 +189,22 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal total = totalComision + totalServicio ; 
                             decimal totalPagar = totalComision + totalServicio - totalRetencion ; 
 
-                            table.Cell().ColumnSpan(2).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalServicio.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(TtotalComision.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalTrece.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalOchoSiete.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text("").FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalRetencion.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(total.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalPagar.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().ColumnSpan(2).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalServicio.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(TtotalComision.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalTrece.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalOchoSiete.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalRetencion.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(total.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalPagar.ToString("N2")).FontSize(6).AlignRight();
 
                         });
                         
                     });
                 });
             });
-        }
-
- 
-        // ESTILOS DE CELDA
-        private static IContainer HeaderCellStyle(IContainer container)
-        {
-            return container
-                .DefaultTextStyle(x => x.SemiBold())
-                .Background(Colors.Grey.Lighten3)
-                .PaddingVertical(4)
-                .PaddingHorizontal(3)
-                .AlignMiddle()
-                .BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private static IContainer BodyCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .BorderColor(Colors.Grey.Lighten3);
-        }
-        private static IContainer TotalCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .Border(0.3f)
-                
-                .BorderColor(Colors.Black);
         }
     }
 }

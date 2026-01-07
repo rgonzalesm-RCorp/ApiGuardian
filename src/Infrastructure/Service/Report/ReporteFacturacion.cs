@@ -2,6 +2,7 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Reportes.Estilos;
 
 namespace ApiGuardian.Infrastructure.Services.Pdf
 {
@@ -10,10 +11,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
         private readonly List<RptFacturacion> _data;
         private readonly byte[] _logo;
         private readonly Utils Ut = new Utils();
-        public ReporteFacturacion(List<RptFacturacion> data, byte[] logo)
+        private readonly List<ItemAdministracionDetalleFactura> _detalleFactura;
+        public ReporteFacturacion(List<RptFacturacion> data, byte[] logo, List<ItemAdministracionDetalleFactura> detalleFactura)
         {
-            _data = data.ToList();
+            _data = data;
             _logo = logo;
+            _detalleFactura = detalleFactura;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
         
@@ -125,12 +128,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("RAZON SOCIAL").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("NIT").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("DETALLE DE LA FACTURA").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("MONTO SUS").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("MONTO BS").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("LITERAL").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("RAZON SOCIAL").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("NIT").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("DETALLE DE LA FACTURA").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MONTO SUS").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MONTO BS").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("LITERAL").FontSize(6).AlignLeft();
                         });
 
                         // Filas
@@ -139,12 +142,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             //if (v.TotalComisionVtaPersonal <= 0) return;
                             if (v.TotalComisionVtaPersonal > 0)
                             {
-                                table.Cell().Element(BodyCellStyle).Text(v.RazonSocial).FontSize(6).AlignLeft();
-                                table.Cell().Element(BodyCellStyle).Text(v.Nit).FontSize(6).AlignLeft();
-                                table.Cell().Element(BodyCellStyle).Text("COMISION POR VENTAS").FontSize(6).AlignLeft();
-                                table.Cell().Element(BodyCellStyle).Text(v.TotalComisionVtaPersonal.ToString("N2")).FontSize(6).AlignRight();
-                                table.Cell().Element(BodyCellStyle).Text(v.TotalComisionVtaPersonalBs.ToString("N2")).FontSize(6).AlignRight();
-                                table.Cell().Element(BodyCellStyle).Text(Ut.NumeroALiteral(v.TotalComisionVtaPersonalBs)).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.RazonSocial).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Nit).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(_detalleFactura.Where(x=> x.LTipoComisionId == 1).ToList()[0].SDetalle).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.TotalComisionVtaPersonal.ToString("N2")).FontSize(6).AlignRight();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.TotalComisionVtaPersonalBs.ToString("N2")).FontSize(6).AlignRight();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(Ut.NumeroALiteral(v.TotalComisionVtaPersonalBs)).FontSize(6).AlignLeft();
                             }
 
                             
@@ -155,10 +158,10 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal totalVP = _data?.Sum(x => x.TotalComisionVtaPersonal) ?? 0;
                             decimal totalVPBS = _data?.Sum(x => x.TotalComisionVtaPersonalBs) ?? 0;
 
-                            table.Cell().ColumnSpan(3).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalVPBS.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text("").FontSize(6).AlignRight();
+                            table.Cell().ColumnSpan(3).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalVPBS.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(6).AlignRight();
 
                         });
                         
@@ -183,26 +186,25 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("RAZON SOCIAL").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("NIT").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("DETALLE DE LA FACTURA").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("MONTO SUS").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("MONTO BS").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("LITERAL").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("RAZON SOCIAL").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("NIT").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("DETALLE DE LA FACTURA").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MONTO SUS").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MONTO BS").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("LITERAL").FontSize(6).AlignLeft();
                         });
-
+                        
                         // Filas
                         foreach (var v in _data)
                         {
-                            //if (v.TotalComisionVtaPersonal <= 0) return;
                             if (v.TotalComisionVtaGrupoResidual > 0)
                             {
-                                table.Cell().Element(BodyCellStyle).Text(v.RazonSocial).FontSize(6).AlignLeft();
-                                table.Cell().Element(BodyCellStyle).Text(v.Nit).FontSize(6).AlignLeft();
-                                table.Cell().Element(BodyCellStyle).Text("SERVICIO POR GESTION DE MECADEO").FontSize(6).AlignLeft();
-                                table.Cell().Element(BodyCellStyle).Text(v.TotalComisionVtaGrupoResidual.ToString("N2")).FontSize(6).AlignRight();
-                                table.Cell().Element(BodyCellStyle).Text(v.TotalComisionVtaGrupoResidualBs.ToString("N2")).FontSize(6).AlignRight();
-                                table.Cell().Element(BodyCellStyle).Text(Ut.NumeroALiteral(v.TotalComisionVtaGrupoResidualBs)).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.RazonSocial).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Nit).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(_detalleFactura.Where(x=> x.LTipoComisionId == 2).ToList()[0].SDetalle).FontSize(6).AlignLeft();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.TotalComisionVtaGrupoResidual.ToString("N2")).FontSize(6).AlignRight();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.TotalComisionVtaGrupoResidualBs.ToString("N2")).FontSize(6).AlignRight();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(Ut.NumeroALiteral(v.TotalComisionVtaGrupoResidualBs)).FontSize(6).AlignLeft();
                             }
                         }
                         table.Footer(footer =>
@@ -210,38 +212,16 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal totalVP = _data?.Sum(x => x.TotalComisionVtaGrupoResidual) ?? 0;
                             decimal totalVPBS = _data?.Sum(x => x.TotalComisionVtaGrupoResidualBs) ?? 0;
 
-                            table.Cell().ColumnSpan(3).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(totalVPBS.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text("").FontSize(6).AlignRight();
+                            table.Cell().ColumnSpan(3).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalVPBS.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(6).AlignRight();
 
                         });
                         
                     });
                 });
             });
-        }
-
- 
-        // ESTILOS DE CELDA
-        private static IContainer HeaderCellStyle(IContainer container)
-        {
-            return container
-                .DefaultTextStyle(x => x.SemiBold())
-                .Background(Colors.Grey.Lighten2)
-                .PaddingVertical(4)
-                .PaddingHorizontal(3)
-                .AlignMiddle()
-                .BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private static IContainer BodyCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .BorderColor(Colors.Grey.Lighten3);
         }
     }
 }

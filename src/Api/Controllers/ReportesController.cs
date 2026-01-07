@@ -14,20 +14,18 @@ namespace ApiGuardian.Controllers
         private readonly ILogService _log;
         private readonly IReportesRepository _repo;
         private readonly IAdministracionDescuentoComisionRepository _comision;
+        private readonly IAdministracionDetalleFacturaRepository _detaFact;
         private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
-        public ReportesController(IReportesRepository repo, ILogService log, IAdministracionDescuentoComisionRepository comision)
+        public ReportesController(IReportesRepository repo, ILogService log, IAdministracionDescuentoComisionRepository comision, IAdministracionDetalleFacturaRepository detaFact)
         {
             _repo = repo;
             _log = log;
             _comision = comision;
+            _detaFact = detaFact;
         }
         [HttpGet("comisiones")]
-        public async Task<IActionResult> ReporteComisiones(
-            [FromHeader] int lCicloId,
-            [FromHeader] int lContactoId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReporteComisiones([FromHeader] int lCicloId, [FromHeader] int lContactoId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteComisiones()";
@@ -83,11 +81,7 @@ namespace ApiGuardian.Controllers
             }
         }
             [HttpGet("aplicaciones")]
-        public async Task<IActionResult> ReporteAplicaciones(
-            [FromHeader] int lCicloId,
-            [FromHeader] int lContactoId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReporteAplicaciones([FromHeader] int lCicloId, [FromHeader] int lContactoId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteAplicaciones()";
@@ -153,11 +147,7 @@ namespace ApiGuardian.Controllers
             }
         }
         [HttpGet("descuento/empresa")]
-        public async Task<IActionResult> ReporteDescuentoEmpresa(
-            [FromHeader] int lCicloId,
-            [FromHeader] int empresaId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReporteDescuentoEmpresa([FromHeader] int lCicloId, [FromHeader] int empresaId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteDescuentoEmpresa()";
@@ -227,11 +217,7 @@ namespace ApiGuardian.Controllers
             }
         }
         [HttpGet("facturacion")]
-        public async Task<IActionResult> ReporteFacturacion(
-            [FromHeader] int lCicloId,
-            [FromHeader] int lContactoId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReporteFacturacion([FromHeader] int lCicloId, [FromHeader] int lContactoId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteFacturacion()";
@@ -241,6 +227,7 @@ namespace ApiGuardian.Controllers
             try
             {
                 var facturacion = await _repo.GetReporteFacturacion(logId.ToString(), lCicloId, lContactoId);
+                var detalleFactura = await _detaFact.GetDetalleFacturaPagination(logId.ToString(), 0, 10);
 
                 if(facturacion.Data == null || facturacion.Data.Count()<= 0)
                 {
@@ -258,10 +245,11 @@ namespace ApiGuardian.Controllers
                     });
                 }
                 var listaFacturacion = facturacion.Data.ToList();
+                List<ItemAdministracionDetalleFactura> listaDetalleFactura = [.. detalleFactura.Data];
                 var logoPath = Path.Combine(Directory.GetCurrentDirectory(),"Assets","Logokalomai.png");
 
                 byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
-                var documento = new ReporteFacturacion(listaFacturacion, logoBytes);
+                var documento = new ReporteFacturacion(listaFacturacion, logoBytes, listaDetalleFactura);
 
 
                 byte[] pdfBytes = documento.GeneratePdf();
@@ -301,10 +289,7 @@ namespace ApiGuardian.Controllers
             }
         }
         [HttpGet("prorrateo")]
-        public async Task<IActionResult> ReporteProrrateo(
-            [FromHeader] int lCicloId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReporteProrrateo([FromHeader] int lCicloId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteFacturacion()";
@@ -374,11 +359,7 @@ namespace ApiGuardian.Controllers
             }
         }
         [HttpGet("comision/servicio")]
-        public async Task<IActionResult> ReporteComisionServicio(
-            [FromHeader] int lCicloId,
-            [FromHeader] int empresaId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReporteComisionServicio([FromHeader] int lCicloId,[FromHeader] int empresaId,[FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReporteComisionServicio()";
@@ -449,10 +430,7 @@ namespace ApiGuardian.Controllers
         }
 
         [HttpGet("pagar/comision")]
-        public async Task<IActionResult> ReportePagarComision(
-            [FromHeader] int lCicloId,
-            [FromHeader] string? usuario
-        )
+        public async Task<IActionResult> ReportePagarComision([FromHeader] int lCicloId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string metodo = "ReportePagarComision()";
@@ -536,6 +514,151 @@ namespace ApiGuardian.Controllers
             }
         }
 
+        [HttpGet("plan/carrera")]
+        public async Task<IActionResult> ReportePlanCarrera([FromHeader] int lCicloId, [FromHeader] string? usuario)
+        {
+            long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string metodo = "ReportePlanCarrera()";
+
+            _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, $"Inicio ReportePlanCarrera - lCicloId={lCicloId}, usuario={usuario}");
+
+            try
+            {
+                var planCarrera = await _repo.GetReportePlanCarrera(logId.ToString(), lCicloId);
+                List<ItemPlanCarrera> listaPlanCarrera = planCarrera.Data.ToList();
+
+                if(planCarrera.Data == null || planCarrera.Data.Count()<= 0)
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = "No existe datos para el ciclo seleccionado",
+                        data = new
+                        {
+                            FileName = "",
+                            FileBase64 = "",
+                            ContentType = "",
+                            
+                        }
+                    });
+                }
+ 
+                var documento = new ReportePlanCarrera(listaPlanCarrera);
+
+
+                byte[] pdfBytes = documento.GeneratePdf();
+                string base64Pdf = Convert.ToBase64String(pdfBytes);
+
+                _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
+
+                PlanCarreraXls _ins = new PlanCarreraXls();
+                var reponseXLS = await _ins.GetPlanCarreraXls (listaPlanCarrera);
+
+                return Ok(new
+                {
+                    status = true,
+                    mensaje = "Reporte generado correctamente.",
+                    data = new
+                    {
+                        FileName = $"REPORTE DE PLAN DE CARRERA - {listaPlanCarrera[0].Ciclo}.pdf",
+                        FileNameXls = $"REPORTE DE PLAN DE CARRERA - {listaPlanCarrera[0].Ciclo}.xlsx",
+                        FileBase64 = base64Pdf,
+                        ContentType = "application/pdf",
+                        base64Xls = reponseXLS.base64
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _log.Error(
+                    logId.ToString(),
+                    NOMBREARCHIVO,
+                    metodo,
+                    "Error al generar reporte de comisiones",
+                    ex
+                );
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ex.Message,
+                    data =""
+                });
+            }
+        }
+
+        [HttpGet("ascenso/rango")]
+        public async Task<IActionResult> ReporteAscensoRango([FromHeader] int lCicloId, [FromHeader] string? usuario)
+        {
+            long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string metodo = "ReporteAscensoRango()";
+
+            _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, $"Inicio ReporteAscensoRango - lCicloId={lCicloId}, usuario={usuario}");
+
+            try
+            {
+                var planCarrera = await _repo.GetReporteAscensoRango(logId.ToString(), lCicloId);
+                List<ItemAscensoRango> listaAscensoRango = planCarrera.Data.ToList();
+
+                if(planCarrera.Data == null || planCarrera.Data.Count()<= 0)
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = "No existe datos para el ciclo seleccionado",
+                        data = new
+                        {
+                            FileName = "",
+                            FileBase64 = "",
+                            ContentType = "",
+                            
+                        }
+                    });
+                }
+ 
+                var documento = new ReporteAscensoRango(listaAscensoRango);
+
+
+                byte[] pdfBytes = documento.GeneratePdf();
+                string base64Pdf = Convert.ToBase64String(pdfBytes);
+
+                _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
+
+                AscensoRangoXls _ins = new AscensoRangoXls();
+                var reponseXLS = await _ins.GetAscensoRangoXls (listaAscensoRango);
+
+                return Ok(new
+                {
+                    status = true,
+                    mensaje = "Reporte generado correctamente.",
+                    data = new
+                    {
+                        FileName = $"REPORTE DE ASCENSO DE RANGO - {listaAscensoRango[0].Mes}.pdf",
+                        FileNameXls = $"REPORTE DE ASCENSO DE RANGO - {listaAscensoRango[0].Mes}.xlsx",
+                        FileBase64 = base64Pdf,
+                        ContentType = "application/pdf",
+                        base64Xls = reponseXLS.base64
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _log.Error(
+                    logId.ToString(),
+                    NOMBREARCHIVO,
+                    metodo,
+                    "Error al generar reporte de comisiones",
+                    ex
+                );
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ex.Message,
+                    data =""
+                });
+            }
+        }
 
 
     }
