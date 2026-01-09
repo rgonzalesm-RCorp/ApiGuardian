@@ -17,7 +17,7 @@ CREATE TABLE administracionmoneda(
 insert into administracionmoneda (snombre) values 
 ('SUS'), ('BOB');
 
-alter table administracioncontacto add lbanco_id INT DEFAULT 0;
+alter table administracioncontacto add lbanco_id INT DEFAULT 0; -- not
 
  CREATE TABLE administracionestadocontrato (
     lestadocontrato_id INT PRIMARY KEY,

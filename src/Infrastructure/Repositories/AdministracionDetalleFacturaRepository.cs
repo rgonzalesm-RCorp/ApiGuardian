@@ -101,7 +101,7 @@ public class AdministracionDetalleFacturaRepository : IAdministracionDetalleFact
 
         const string nextIdQuery = "SELECT IFNULL(MAX(ldetallefactura_id),0)+1 FROM administraciondetallefactura;";
 
-        string queryBuscar = @"select COUNT(*) from administraciondetallefactura where estado = 1 and ltipocomision_id = 1";
+        string queryBuscar = @"select COUNT(*) from administraciondetallefactura where estado = 1 and ltipocomision_id = @LTipoComisionId";
 
         const string insertQuery = @"
             INSERT INTO administraciondetallefactura
@@ -115,7 +115,10 @@ public class AdministracionDetalleFacturaRepository : IAdministracionDetalleFact
         try
         {
             using var con = _context.CreateConnection();
-            int existeRegistro = await con.ExecuteScalarAsync<int>(queryBuscar);
+            int existeRegistro = await con.ExecuteScalarAsync<int>(queryBuscar, new
+            {
+                data.LTipoComisionId
+            });
             if (existeRegistro > 0)
             {
                 return (false, "Ya existe un detalle con el tipo seleccionada.");
