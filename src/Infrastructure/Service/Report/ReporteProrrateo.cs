@@ -2,6 +2,7 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Reportes.Estilos;
 
 namespace ApiGuardian.Infrastructure.Services.Pdf
 {
@@ -101,31 +102,31 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         // Encabezado
                         table.Header(header =>
                         {
-                            header.Cell().Element(HeaderCellStyle).Text("Cod. Cliente").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Nro. Cuenta").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Asesor").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Carnet").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Empresa").FontSize(6).AlignLeft();
-                            header.Cell().Element(HeaderCellStyle).Text("Importe $").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("Retencion $").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("Liquido $").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("Desc. $").FontSize(6).AlignRight();
-                            header.Cell().Element(HeaderCellStyle).Text("Prorrateo $").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cod. Cliente").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Nro. Cuenta").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Asesor").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Carnet").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Empresa").FontSize(6).AlignLeft();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Importe $").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Retencion $").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Liquido $").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Desc. $").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Prorrateo $").FontSize(6).AlignRight();
                         });
 
                         // Filas
                         foreach (var v in _data)
                         {
-                            table.Cell().Element(BodyCellStyle).Text(v.LCodigoBanco).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.LCuentaBanco).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.SCedulaIdentidad).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.SEmpresa).FontSize(6).AlignLeft();
-                            table.Cell().Element(BodyCellStyle).Text(v.Importe.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.Retencion.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.Liquido.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.Descuento.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(BodyCellStyle).Text(v.Prorrateo.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.LCodigoBanco).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.LCuentaBanco).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SCedulaIdentidad).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SEmpresa).FontSize(6).AlignLeft();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Importe.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Retencion.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Liquido.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Descuento.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Prorrateo.ToString("N2")).FontSize(6).AlignRight();
 
                         }
                         table.Footer(footer =>
@@ -136,49 +137,17 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal descuento = _data?.Sum(x => x.Descuento) ?? 0;
                             decimal prorrateo = _data?.Sum(x => x.Prorrateo) ?? 0;
 
-                            table.Cell().ColumnSpan(5).Element(HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
-                            table.Cell().Element(HeaderCellStyle).Text(importe.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(retencion.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(liquido.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(descuento.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(HeaderCellStyle).Text(prorrateo.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().ColumnSpan(5).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(importe.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(retencion.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(liquido.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(descuento.ToString("N2")).FontSize(6).AlignRight();
+                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(prorrateo.ToString("N2")).FontSize(6).AlignRight();
                         });
                         
                     });
                 });
             });
-        }
-
- 
-        // ESTILOS DE CELDA
-        private static IContainer HeaderCellStyle(IContainer container)
-        {
-            return container
-                .DefaultTextStyle(x => x.SemiBold())
-                .Background(Colors.Grey.Lighten3)
-                .PaddingVertical(4)
-                .PaddingHorizontal(3)
-                .AlignMiddle()
-                .BorderColor(Colors.Grey.Lighten1);
-        }
-
-        private static IContainer BodyCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .BorderColor(Colors.Grey.Lighten3);
-        }
-        private static IContainer TotalCellStyle(IContainer container)
-        {
-            return container
-                .PaddingVertical(1)
-                .PaddingHorizontal(3)
-                //.BorderBottom(0.5f)
-                .Border(0.3f)
-                
-                .BorderColor(Colors.Black);
         }
     }
 }

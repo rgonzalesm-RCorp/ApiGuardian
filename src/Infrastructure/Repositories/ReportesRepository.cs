@@ -48,7 +48,7 @@ public class ReportesRepository : IReportesRepository
 
             WHERE 
                 vp.lCiclo_id = @lCicloId
-                AND vp.lContacto_id = @lCotactoId
+                AND vp.lContacto_id = @lContactoId
                 AND (
                     (vp.lciclo_id >= 55 AND 
                         vp.lcontacto_id <> ( SELECT lcontacto_id FROM administracioncontacto WHERE scedulaidentidad = '4823437')
@@ -65,7 +65,7 @@ public class ReportesRepository : IReportesRepository
             SELECT CONCAT('CUOTA # ', a.nro_cuotas) AS Cuotas, a.Monto_Pagar AS t, vp.lContacto_id, vp.lContrato_id
             FROM tbl_promocion_pagados a
             JOIN administracionventapersonal vp ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
-            WHERE vp.lciclo_id >= 56 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lCotactoId
+            WHERE vp.lciclo_id >= 56 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
         ) AS b ON b.lContacto_id = c.lContacto_id AND b.lContrato_id = c.lContrato_id
 
         /* Cuota inicial por promo */
@@ -73,7 +73,7 @@ public class ReportesRepository : IReportesRepository
             SELECT 'Cuota Inicial' AS Inicial, vp.dpreciolote AS m, vp.lContacto_id, vp.lContrato_id
             FROM administracionganadorespromo4semana a
             JOIN administracionventapersonal vp  ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
-            WHERE vp.lciclo_id >= 56 AND vp.dcomision <> 0 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lCotactoId
+            WHERE vp.lciclo_id >= 56 AND vp.dcomision <> 0 AND vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
         ) AS d ON d.lContacto_id = c.lContacto_id AND d.lContrato_id = c.lContrato_id
 
         /* Cuota residual */
@@ -81,12 +81,11 @@ public class ReportesRepository : IReportesRepository
             SELECT  'Cuo. Residual' AS Inicial, vp.dpreciolote AS m, vp.lContacto_id, vp.lContrato_id
             FROM t_productos_detalle_cuotas a
             JOIN administracionventapersonal vp ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
-            WHERE vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lCotactoId
+            WHERE vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
             GROUP BY vp.lcontrato_id, vp.lciclo_id
         ) AS ty ON ty.lContacto_id = c.lContacto_id AND ty.lContrato_id = c.lContrato_id
 
     ";
-
     private const string QUERY_VENTA_GRUPO = @"
         SELECT 
             c.*,
@@ -112,14 +111,13 @@ public class ReportesRepository : IReportesRepository
             FROM AdministracionVentaGrupo vg
             JOIN AdministracionContacto ct ON vg.lAsesor_id = ct.lContacto_id
             JOIN AdministracionContrato cr ON cr.lContrato_id = vg.lContrato_id
-            WHERE vg.lciclo_id =  @lCicloId AND vg.lcontacto_id = @lCotactoId
+            WHERE vg.lciclo_id =  @lCicloId AND vg.lcontacto_id = @lContactoId
         ) AS c
         INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
 
         ORDER BY c.Generacion;
 
     ";
-
     private const string QUERY_BONO_RESIDUAL = @"
         SELECT 
             ltipobono Tipo,
@@ -128,42 +126,38 @@ public class ReportesRepository : IReportesRepository
             ltotalterrenossinmora Terrenos,
             dtotalbono Total
         FROM administracionbonoresidual ABR
-        WHERE ABR.lcontacto_id = @lCotactoId AND lciclo_id = @lCicloId
+        WHERE ABR.lcontacto_id = @lContactoId AND lciclo_id = @lCicloId
     ";
-
     private const string QUERY_BONO_LIDERAZGO = @"
         SELECT 
             COUNT(*) Cantidad,
             SUM(pagar) Comision
         FROM t_bono_liderazgo 
-        WHERE vendedores_id = @lCotactoId AND lciclo_id = @lCicloId
+        WHERE vendedores_id = @lContactoId AND lciclo_id = @lCicloId
     ";
-
     private const string QUERY_ENCABEZADO = @"
         SELECT 
             (SELECT CONCAT(RTRIM(snombrecompleto), ' (', SCodigo, ')') 
                 FROM administracioncontacto 
-                WHERE lcontacto_id = @lCotactoId) NombreCompleto,
+                WHERE lcontacto_id = @lContactoId) NombreCompleto,
             UPPER(SNombre) Ciclo,
             dtfechainicio Inicio,
             dtfechafin Fin,
             PERIOD_DIFF(
                 DATE_FORMAT(CURDATE(), '%Y%m'),
-                DATE_FORMAT( (SELECT MIN(crr.dtfecha) FROM administracioncontrato crr WHERE crr.lasesor_id = @lCotactoId), '%Y%m')
+                DATE_FORMAT( (SELECT MIN(crr.dtfecha) FROM administracioncontrato crr WHERE crr.lasesor_id = @lContactoId), '%Y%m')
             ) AS MesActividad
         FROM administracionciclo 
         WHERE lciclo_id = @lCicloId
     ";
-
     private const string QUERY_BONO_CARRERA = @"
         SELECT 
             AN.snombre NivelCiclo,
             ABC.dbonoporlote CantidadVentas
         FROM administracionbonocarrera ABC
         INNER JOIN administracionnivel AN ON AN.lnivel_id = ABC.lnivel_id
-        WHERE ABC.lcontacto_id = @lCotactoId AND ABC.lciclo_id = @lCicloId
+        WHERE ABC.lcontacto_id = @lContactoId AND ABC.lciclo_id = @lCicloId
     ";
-
     #endregion
     #region "SCRIPT_REPORTE_APLICACIONES"
     private const string QUERY_APLICACIONES = @"
@@ -261,6 +255,8 @@ public class ReportesRepository : IReportesRepository
                                                         contacto.scodigo SCodigo,
                                                         contacto.scedulaidentidad SCedulaIdentidad,
                                                         contacto.snombrecompleto SNombreCompleto,
+                                                        UPPER(P.snombre) Pais,
+                                                        UPPER(contacto.sciudad) Ciudad,
                                                         dat.lempresa_id LEmpresaId,
                                                         dat.empresa Empresa,
                                                         SUM(dat.comision_vta_grupo_residual) AS TotalComisionVtaGrupoResidual,
@@ -366,6 +362,7 @@ public class ReportesRepository : IReportesRepository
                                                     ) dat
                                                         INNER JOIN administracioncontacto contacto 
                                                             ON dat.lcontacto_id = contacto.lcontacto_id
+                                                        LEFT JOIN basepais P ON P.lpais_id = contacto.lpais_id
                                                     GROUP BY dat.lcontacto_id, dat.lempresa_id
                                                 ) dat
                                                 LEFT OUTER JOIN (
@@ -409,7 +406,7 @@ public class ReportesRepository : IReportesRepository
                                                     , IFNULL(VtaPersonal.ComisionPersonal, 0) + IFNULL(VtaGrupo.ComisionGrupo, 0)+IFNULL(BonoResidual.ComisionResidual, 0) + IFNULL(BonoLiderago.ComisionLiderazgo, 0)  - IFNULL(Retencion.Retencion, 0) Liquido
                                                     , IFNULL(Descuento.Descuento, 0) Descuento
                                                     , ACPR.dmonto Prorrateo
-                                                    , Retencion.empresa_id EmpresaId
+                                                    , CE.lempresa_id  EmpresaId
                                                     , ACPR.lprorrateo_id LProrrateoId
                                                     , ACT.lcontacto_id LContactoId
                                                     , ACI.snombre Ciclo
@@ -621,6 +618,7 @@ public class ReportesRepository : IReportesRepository
                                                 , SUM(COMISION.Grupo) Grupo, SUM(COMISION.Descuento) Descuento, SUM(COMISION.Retencion) Retencion
                                                 , (SELECT UPPER(ACL.snombre) FROM administracionciclo ACL WHERE ACL.Lciclo_id = @LCicloId LIMIT 1) Ciclo
                                                 , ACT.scedulaidentidad CedulaIdentidad
+                                                , ACT.lcontacto_id LContactold
                                             FROM (
                                                 SELECT AVP.lcontacto_id, SUM(AVP.dcomision) Personal, 0 Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
                                                 FROM administracionventapersonal AVP
@@ -655,6 +653,136 @@ public class ReportesRepository : IReportesRepository
                                             INNER JOIN administracioncontacto ACT ON ACT.lcontacto_id = COMISION.lcontacto_id
                                             WHERE ACT.cbaja = 0
                                             GROUP BY COMISION.lcontacto_id";
+    #endregion
+    #region "SCRIPT_PLAN_CARRERA"
+    private const string QUERY_PLAN_CARRERA = @"SELECT 
+                                                    a.id_nro Nro,
+                                                    vp.snombre Ciclo,
+                                                    CASE 
+                                                        WHEN ac.ctienecuenta = 1 THEN 'CUENTA DE BANCO $US'
+                                                        WHEN ac.ctienecuenta = 2 THEN 'CUENTA DE BANCO BS'
+                                                        WHEN ac.ctienecuenta = 3 THEN 'SION PAY'
+                                                        WHEN ac.ctienecuenta = 4 THEN 'PAGOS A TERCEROS'
+                                                        ELSE 0 
+                                                    END Tipo,
+                                                    COALESCE(ac.lcuentabanco,0) Cuenta,
+                                                    COALESCE(ac.lcodigobanco,0) CodigoBanco,
+                                                    ac.snombrecompleto Nombre,
+                                                    ac.scedulaidentidad Carnet,
+                                                    ac.sciudad Ciudad,
+                                                    CASE WHEN vp.lciclo_id>=105 THEN a.Produccion ELSE a.lpuntosmesrango END PuntosR,
+                                                    a.Monto Monto,
+                                                    c.snombre NivelAlcanzadoCiclo,
+                                                    e.snombre NivelConsolidado, 
+                                                    a.niveles_escalados Escalados,
+
+                                                    ac.scodigo Codigo,
+                                                    ac.lpais_id,d.sNombre Pais,
+                                                    CASE WHEN vp.lciclo_id>=105 THEN a.Monto ELSE a.puntosacumulados END PuntosAc,
+                                                    a.nivel_ciclo,
+                                                    vp.lciclo_id sciclo, 
+                                                    a.subieron_nivel ,
+                                                    a.Produccion Produccion
+                                                FROM reportesmontesion a
+                                                INNER JOIN  administracioncontacto ac ON a.lcontacto_id=ac.lcontacto_id 
+                                                INNER JOIN administracionnivel c ON a.nivel_ciclo =c.lnivel_id
+                                                INNER JOIN basepais d ON d.lPais_id=ac.lpais_id 
+                                                INNER JOIN administracionnivel e ON e.lnivel_id=a.nivel_consolidado_mes
+                                                INNER JOIN  administracionciclo vp ON a.lciclo_id=vp.lciclo_id 
+                                                WHERE vp.lCiclo_id = @LCicloId ORDER BY a.id_nro";
+    #endregion
+    #region "SCRIPT_ASCENSO_RANGO"
+    private const string QUERY_ASCENSO_RANGO = @"select 
+                                                    a.nroascensos Nro
+                                                    , ab.snombre Mes
+                                                    , b.snombrecompleto Nombre 
+                                                    , b.scedulaidentidad CI
+                                                    , b.stelefonomovil Telefono
+                                                    , b.sciudad Ciudad
+                                                    , d.sNombre Pais 
+                                                    , a.lpuntosmesrango PuntosAlcanzado
+                                                    , c.rango NivelAlcanzado
+                                                    , CASE 
+                                                        WHEN a.niveles_escalados=1 THEN c.monto_incentivo
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=3) THEN (160.00+470.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=4) THEN (470.00+470.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=5) THEN (470.00+1570.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=6) THEN (1570.00+3130.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=7) THEN (3130.00+0.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=8) THEN (0.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=9) THEN (25000.00+0.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=10) THEN (0.00+313000.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=11) THEN (313000.00+62500.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=4) THEN (160.00+470.00+470.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=5) THEN (470.00+470.00+1570.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=6) THEN (470.00+1570.00+3130.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=7) THEN (1570.00+3130.00+0.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=8) THEN (3130.00+0.00+25000.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=9) THEN (0.00+25000.00+0.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=10) THEN (25000.00+0.00+313000.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=11) THEN (0.00+313000.00+62500.00)
+                                                        WHEN (a.niveles_escalados >=4 AND a.nivel_ciclo=5) THEN (160.00+470.00+470.00+1570.00)
+                                                        ELSE 0
+                                                    END IncentivoDolares
+                                                    , CASE 
+                                                        WHEN a.niveles_escalados=1 THEN c.incentivo_especie
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=3) THEN convert( 'pin + pin ' using latin1) 
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=4) THEN convert( 'pin + computadora+pin ' using latin1)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=5) THEN convert( 'computadora+pin + iphone7+pin ' using latin1)
+                                                        when (a.niveles_escalados =2 AND a.nivel_ciclo=6) then convert( 'iphone7+pin  + viaje en crucero con acompañante+pin ' using latin1)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=7) THEN convert( 'VIAJE EN CRUCERO CON ACOMPAÑANTE+PIN+VEHICULO+PIN 'using latin1)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=8) THEN convert(  'VEHICULO + PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=9) THEN convert( 'VIAJE A DUBAI+ACOMPAÑANTE+PIN + MERCEDES C180+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=10) THEN convert( 'MERCEDES C180+PIN + VIAJE A BORA-BORA + 1 ACOMPAÑANTE +ANILLO EMBAJADOR INTERCONTINENTAL+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=11) THEN convert( '1 ACOMPAÑANTE +ANILLO EMBAJADOR INTERCONTINENTAL+PIN + UN INMUEBLE+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=4) THEN convert( 'PIN + PIN + COMPUTADORA+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=5) THEN convert( 'PIN + COMPUTADORA+PIN + IPHONE7+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=6) THEN convert( 'COMPUTADORA+PIN + IPHONE7+PIN + VIAJE EN CRUCERO CON ACOMPAÑANTE+PIN  ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=7) THEN convert( 'IPHONE7+PIN + VIAJE EN CRUCERO CON ACOMPAÑANTE+PIN + VEHICULO+PIN  ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=8) THEN convert( 'VIAJE EN CRUCERO CON ACOMPAÑANTE+PIN + VEHICULO+PIN + VIAJE A DUBAI+ACOMPAÑANTE+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=9) THEN convert( ' VEHICULO+PIN + VIAJE A DUBAI+ACOMPAÑANTE+PIN + MERCEDES C180+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=10) THEN convert( 'VIAJE A DUBAI+ACOMPAÑANTE+PIN + MERCEDES C180+PIN + VIAJE A BORA-BORA + 1 ACOMPAÑANTE + ANILLO EMBAJADOR INTERCONTINENTAL+PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=11) THEN convert( 'MERCEDES C180+PIN + VIAJE A BORA-BORA + 1 ACOMPAÑANTE + ANILLO EMBAJADOR INTERCONTINENTAL+PIN + UN INMUEBLE +PIN ' using latin1)
+                                                        WHEN (a.niveles_escalados >=4 AND a.nivel_ciclo=5) THEN convert( 'PIN + PIN + COMPUTADORA+PIN + IPHONE7+PIN ' using latin1)
+                                                        ELSE 0
+                                                    END Incentivo
+                                                    , CASE 
+                                                        WHEN a.niveles_escalados=1 THEN c.valor_especie
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=3) THEN (0.00+0.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=4) THEN (0.00+500.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=5) THEN (500.00+750.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=6) THEN (750.00+3600.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=7) THEN (3600.00+18750.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=8) THEN (18750.00+4200.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=9) THEN (4200.00+700000.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=10) THEN (700000.00+128000.00)
+                                                        WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=11) THEN (128000.00+625000.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=4) THEN (0.00+0.00+500.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=5) THEN (0.00+500.00+750.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=6) THEN (500.00+750.00+3600.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=7) THEN (750.00+3600.00+18750.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=8) THEN (3600.00+18750.00+4200.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=9) THEN (18750.00+4200.00+700000.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=10) THEN (4200.00+700000.00+128000.00)
+                                                        WHEN (a.niveles_escalados =3 AND a.nivel_ciclo=11) THEN (700000.00+128000.00+625000.00)
+                                                        WHEN (a.niveles_escalados >=4 AND a.nivel_ciclo=5) THEN (0.00+0.00+500.00+750.00)
+                                                        ELSE 0
+                                                    END  ValorEspecie
+                                                    , b.scodigo Codigo 
+                                                    , b.lpais_id PaisId
+                                                    , a.puntosacumulados PuntosAcumulados
+                                                    , e.snombre NivelConsolidado
+                                                    , a.niveles_escalados NivelesEscalados
+                                                    , a.nivel_ciclo NivelCicloId
+                                                    , CASE WHEN a.Observacion='NO ASCENDIO O NO LLEGO' THEN '' ELSE A.OBSERVACION END Observ
+                                                FROM reportesmontesion a
+                                                INNER JOIN  administracioncontacto b ON a.lcontacto_id=b.lcontacto_id 
+                                                INNER JOIN administracionciclo ab ON ab.lciclo_id=a.lciclo_id 
+                                                INNER JOIN nuevospremiosmontesion c ON a.nivel_ciclo =c.lpremiosmonte_id 
+                                                INNER JOIN basepais d ON d.lPais_id=b.lpais_id 
+                                                INNER JOIN administracionnivel e ON e.lnivel_id=a.nivel_consolidado_mes
+                                                WHERE a.subieron_nivel=1 AND ab.lCiclo_id = @LCicloId 
+                                                ORDER BY a.nroascensos";
     #endregion
     public ReportesRepository(DapperContext context, ILogService log)
     {
@@ -783,7 +911,7 @@ public class ReportesRepository : IReportesRepository
     }
     public async Task<(IEnumerable<RptComisionServicio> Data , bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId)
     {
-        const string NombreMetodo = "GetReporteProrrateo()";
+        const string NombreMetodo = "GetReporteComisionServicio()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script prorrateo: {QUERY_COMISION_SERVICIO}]");
         try
         {
@@ -804,7 +932,7 @@ public class ReportesRepository : IReportesRepository
     }
     public async Task<(IEnumerable<RptPagarComision> Data , bool Success, string Mensaje)> GetReportePagarComision(string LogTransaccionId, int LCicloId)
     {
-        const string NombreMetodo = "GetReporteProrrateo()";
+        const string NombreMetodo = "GetReportePagarComision()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script pagar comision: {QUERY_PAGAR_COMISION}]");
         try
         {
@@ -823,5 +951,46 @@ public class ReportesRepository : IReportesRepository
             return (Enumerable.Empty<RptPagarComision>(), false,  $"Error al obtener la pagar de comision: {ex.Message}");
         }
     }
+    public async Task<(IEnumerable<ItemPlanCarrera> Data , bool Success, string Mensaje)> GetReportePlanCarrera(string LogTransaccionId, int LCicloId)
+    {
+        const string NombreMetodo = "GetReportePlanCarrera()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script plan carrera: {QUERY_PLAN_CARRERA}]");
+        try
+        {
+            using var connection = _context.CreateConnection();
 
+            var planCarrera = await connection.QueryAsync<ItemPlanCarrera>(
+                QUERY_PLAN_CARRERA,
+                new { LCicloId }
+            );
+
+            return (planCarrera, true, "listado de plan de carrera obtenidos correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ItemPlanCarrera>(), false,  $"Error al obtener de el listado del plan de carrera: {ex.Message}");
+        }
+    }
+    public async Task<(IEnumerable<ItemAscensoRango> Data , bool Success, string Mensaje)> GetReporteAscensoRango(string LogTransaccionId, int LCicloId)
+    {
+        const string NombreMetodo = "GetReporteAscensoRango()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script ascenso rango: {QUERY_ASCENSO_RANGO}]");
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var ascesoRango = await connection.QueryAsync<ItemAscensoRango>(
+                QUERY_ASCENSO_RANGO,
+                new { LCicloId }
+            );
+
+            return (ascesoRango, true, "listado de plan de carrera obtenidos correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ItemAscensoRango>(), false,  $"Error al obtener de el listado de ascenso de rango: {ex.Message}");
+        }
+    }
 }

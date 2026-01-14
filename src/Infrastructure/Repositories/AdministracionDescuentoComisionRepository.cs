@@ -58,7 +58,14 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
 
                 (SELECT IFNULL(MAX(ldescuentociclo_id),0) 
                 FROM administraciondescuentociclo 
-                WHERE lcontacto_id = @LContactoId AND lciclo_id = @LCicloId) AS LDescuentoId;
+                WHERE lcontacto_id = @LContactoId AND lciclo_id = @LCicloId) AS LDescuentoId,
+                
+                (SELECT
+                    PERIOD_DIFF(DATE_FORMAT(CURDATE(), '%Y%m'), DATE_FORMAT(MIN(dtfecha), '%Y%m'))
+                FROM administracioncontrato where lasesor_id = @LContactoId) AS LTiempoActividad,
+
+                (select sotro from administracioncontacto where lcontacto_id = @LContactoId) sOtro
+                ;
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");

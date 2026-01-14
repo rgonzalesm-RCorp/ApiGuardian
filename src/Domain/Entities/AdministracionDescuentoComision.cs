@@ -10,7 +10,10 @@ public class DataComision
     public decimal TotalComision { get; set; }
     public decimal TotalFinal { get; set; }
     public int LDescuentoId { get; set; }
+    public int LTiempoActividad { get; set; }
     public string? Detalle { get; set; }
+    public string? sOtro { get; set; }
+    
 
 }
 public class ListaAdministracionDescuentoCiclo

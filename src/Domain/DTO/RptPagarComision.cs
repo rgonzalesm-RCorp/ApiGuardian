@@ -15,3 +15,8 @@ public class RptPagarComision
     public decimal Retencion { get; set; }
     public string? Ciclo { get; set; }
 }
+public class EmpresaHeaderPagarComision
+{
+    public string? SEmpresa { get; set; }
+    public int EmpresaId { get; set; }
+}
