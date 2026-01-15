@@ -25,12 +25,54 @@ public class PagarComisionxls
 
         // DETALLE
         int currentRow = firstDataRow;
-        var prorrateoLookup = prorrateo
-                            .GroupBy(x => new { x.LContactoId, x.EmpresaId })
-                            .ToDictionary(
-                                g => (g.Key.LContactoId, g.Key.EmpresaId),
-                                g => g.Sum(x => x.Prorrateo)
-                            );
+        var grupos = prorrateo
+        .GroupBy(x => new { x.LContactoId, x.EmpresaId })
+        .Select(g => new
+        {
+            g.Key.LContactoId,
+            g.Key.EmpresaId,
+            Prorrateo = g.Sum(x => x.Prorrateo)
+        })
+        .ToList();
+
+        var retencionPorContacto = prorrateo
+        .GroupBy(x => x.LContactoId)
+        .ToDictionary(
+            g => g.Key,
+            g => g.Sum(x => x.Retencion)
+        );
+
+        var prorrateoLookup = new Dictionary<(int LContactoId, int EmpresaId), decimal>();
+
+        foreach (var contacto in grupos.GroupBy(x => x.LContactoId))
+        {
+            var lContactoId = contacto.Key;
+            var retencionTotal = retencionPorContacto.GetValueOrDefault(lContactoId);
+
+            var empresa21 = contacto.FirstOrDefault(x => x.EmpresaId == 21);
+            var empresa2 = contacto.FirstOrDefault(x => x.EmpresaId == 2);
+
+            foreach (var item in contacto)
+            {
+                prorrateoLookup[(item.LContactoId, item.EmpresaId)] = item.Prorrateo;
+            }
+
+            if (retencionTotal <= 0 && empresa21 != null)
+            {
+                prorrateoLookup[(lContactoId, 21)] = 0m;
+                if (empresa2 != null)
+                {
+                    prorrateoLookup[(lContactoId, 2)] = empresa2.Prorrateo + empresa21.Prorrateo;
+                }
+                else
+                {
+                    prorrateoLookup[(lContactoId, 2)] = empresa21.Prorrateo;
+                }
+            }
+        }
+
+
+
 
         foreach (var item in listado)
         {
@@ -150,6 +192,8 @@ public class PagarComisionxls
 
         int rowAux = 8;
         decimal totalGeneral = 0;
+
+        
 
         foreach(var item in headerEmpresa)
         {

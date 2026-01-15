@@ -234,8 +234,7 @@ public class ReportesRepository : IReportesRepository
                                 cicloDesc.lcontacto_id in
                                     (select lcontacto_id from administraciondescuentociclo where lciclo_id = cicloDesc.lciclo_id)
                         end
-                    
-                    AND empresa.lempresa_id = @Empresaid
+                    AND CASE WHEN @Empresaid > 0 THEN  empresa.lempresa_id ELSE @Empresaid END = @Empresaid
                 order by contacto.snombrecompleto";
     #endregion
     #region "SCRIPT_FACTURACION"
