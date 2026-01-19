@@ -26,21 +26,21 @@ public class PagarComisionxls
         // DETALLE
         int currentRow = firstDataRow;
         var grupos = prorrateo
-        .GroupBy(x => new { x.LContactoId, x.EmpresaId })
-        .Select(g => new
-        {
-            g.Key.LContactoId,
-            g.Key.EmpresaId,
-            Prorrateo = g.Sum(x => x.Prorrateo)
-        })
-        .ToList();
+            .GroupBy(x => new { x.LContactoId, x.EmpresaId })
+            .Select(g => new
+            {
+                g.Key.LContactoId,
+                g.Key.EmpresaId,
+                Prorrateo = g.Sum(x => x.Prorrateo)
+            })
+            .ToList();
 
         var retencionPorContacto = prorrateo
-        .GroupBy(x => x.LContactoId)
-        .ToDictionary(
-            g => g.Key,
-            g => g.Sum(x => x.Retencion)
-        );
+            .GroupBy(x => x.LContactoId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(x => x.Retencion)
+            );
 
         var prorrateoLookup = new Dictionary<(int LContactoId, int EmpresaId), decimal>();
 
@@ -50,23 +50,27 @@ public class PagarComisionxls
             var retencionTotal = retencionPorContacto.GetValueOrDefault(lContactoId);
 
             var empresa21 = contacto.FirstOrDefault(x => x.EmpresaId == 21);
-            var empresa2 = contacto.FirstOrDefault(x => x.EmpresaId == 2);
+            var empresa2  = contacto.FirstOrDefault(x => x.EmpresaId == 2);
 
             foreach (var item in contacto)
             {
                 prorrateoLookup[(item.LContactoId, item.EmpresaId)] = item.Prorrateo;
             }
 
-            if (retencionTotal <= 0 && empresa21 != null)
+            if (retencionTotal > 0 && empresa21 != null)
             {
+                var montoEmpresa21 = empresa21.Prorrateo;
+
                 prorrateoLookup[(lContactoId, 21)] = 0m;
+
                 if (empresa2 != null)
                 {
-                    prorrateoLookup[(lContactoId, 2)] = empresa2.Prorrateo + empresa21.Prorrateo;
+                    prorrateoLookup[(lContactoId, 2)] =
+                        prorrateoLookup[(lContactoId, 2)] + montoEmpresa21;
                 }
                 else
                 {
-                    prorrateoLookup[(lContactoId, 2)] = empresa21.Prorrateo;
+                    prorrateoLookup[(lContactoId, 2)] = montoEmpresa21;
                 }
             }
         }

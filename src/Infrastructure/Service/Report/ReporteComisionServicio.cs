@@ -9,10 +9,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
     public class ReporteComisionServicio : IDocument
     {
         private readonly List<RptComisionServicio> _data;
+        private readonly int _empresaId = 0;
 
-        public ReporteComisionServicio(List<RptComisionServicio> data)
+        public ReporteComisionServicio(List<RptComisionServicio> data, int empresaId)
         {
             _data = data.ToList();
+            _empresaId = empresaId;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -87,7 +89,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             colRight.Item().Text(text =>
                             {
                                 text.Span("EMPRESA: ").FontSize(6).Bold();
-                                text.Span(_data[0].Empresa).FontSize(6);
+                                text.Span( _empresaId == -1? "TODAS": _data[0].Empresa).FontSize(6);
                             });
 
                             colRight.Item().Text(text =>
@@ -126,6 +128,11 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         {
                             columns.RelativeColumn(1.5f);
                             columns.RelativeColumn(5f);
+
+                            if(_empresaId == -1)
+                            {
+                                columns.RelativeColumn(2.5f);
+                            }
                             columns.RelativeColumn(1.5F);
                             columns.RelativeColumn(1.5F);
                             columns.RelativeColumn(1.5f);
@@ -142,9 +149,13 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                         {
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("COD.").FontSize(5).AlignLeft();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("ASESOR").FontSize(5).AlignLeft();
+                            if(_empresaId == -1)
+                            {
+                                header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("EMPRESA").FontSize(5).AlignLeft();
+                            }
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("COMISION $").FontSize(5).AlignRight();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("SERVICIO $").FontSize(5).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TOTAL COM. $").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TOTAL COM. $").FontSize(4).AlignRight();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("13%").FontSize(5).AlignRight();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("87%").FontSize(5).AlignRight();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("RET. %").FontSize(5).AlignCenter();
@@ -159,6 +170,15 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal trece = (v.Comision + v.Servicio )*Convert.ToDecimal( 0.13);
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SCodigo).FontSize(6).AlignLeft();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
+                            if(_empresaId == -1)
+                            {
+                                string nombre = v.Empresa;
+                                nombre = nombre.Replace("S.R.L.", "");
+                                nombre = nombre.Replace("S.R.L", "");
+                                nombre = nombre.Replace("INMOBILIARIA", "");
+                                nombre = nombre.TrimEnd().TrimStart();
+                                table.Cell().Element(EstiloReporte.BodyCellStyle).Text(nombre).FontSize(6).AlignLeft();
+                            }
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Comision.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Servicio.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text((v.Comision + v.Servicio).ToString("N2")).FontSize(6).AlignRight();
@@ -188,8 +208,10 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal totalRetencion = _data?.Sum(x => x.MontoRetencion) ?? 0; 
                             decimal total = totalComision + totalServicio ; 
                             decimal totalPagar = totalComision + totalServicio - totalRetencion ; 
+                            int colSpam = _empresaId == -1 ? 3:2;
+                             
+                            table.Cell().ColumnSpan(Convert.ToUInt32(colSpam)).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
 
-                            table.Cell().ColumnSpan(2).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalComision.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalServicio.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(TtotalComision.ToString("N2")).FontSize(6).AlignRight();

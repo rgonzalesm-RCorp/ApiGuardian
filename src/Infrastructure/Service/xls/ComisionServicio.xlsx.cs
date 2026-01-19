@@ -1,9 +1,10 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
 
 public class ComisionServicioXls
 {
     public async Task<(bool success, string base64)> GetComisionServicioXls(
-        List<RptComisionServicio> listado)
+        List<RptComisionServicio> listado, int empresaId)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
@@ -14,79 +15,118 @@ public class ComisionServicioXls
         const int headerRow = 2;
         const int firstDataRow = headerRow + 1;
 
-        ConfigurarColumnas(worksheet);
-        CrearEncabezados(worksheet, headerRow);
+        ConfigurarColumnas(worksheet, empresaId);
+        CrearEncabezados(worksheet, headerRow, empresaId);
 
         int currentRow = firstDataRow;
 
         foreach (var item in listado)
         {
-            EscribirFilaDetalle(worksheet, currentRow, item);
+            EscribirFilaDetalle(worksheet, currentRow, item, empresaId);
             currentRow++;
         }
 
-        EscribirTotalizador(worksheet, currentRow, listado);
-        AplicarBordes(worksheet, headerRow, currentRow - 1);
+        EscribirTotalizador(worksheet, currentRow, listado, empresaId);
+        AplicarBordes(worksheet, headerRow, currentRow - 1,empresaId);
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
 
         return (true, Convert.ToBase64String(stream.ToArray()));
     }
-        private static void EscribirFilaDetalle(
-        IXLWorksheet ws,
-        int row,
-        RptComisionServicio v)
+    private static void EscribirFilaDetalle(IXLWorksheet ws, int row, RptComisionServicio v , int empresaId)
     {
         decimal totalComision = v.Comision + v.Servicio;
+        int fila = 2;
 
-        ws.Cell(row, 2).Value = v.SCodigo;
-        ws.Cell(row, 3).Value = v.SNombreCompleto;
-        ws.Cell(row, 4).Value = v.Comision;
-        ws.Cell(row, 5).Value = v.Servicio;
-        ws.Cell(row, 6).Value = totalComision;
+        ws.Cell(row, fila).Value = v.SCodigo;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = v.SNombreCompleto;
+        if (empresaId == -1)
+        {
+            fila = fila + 1;
+            ws.Cell(row, fila).Value = v.Empresa;
+            
+        }
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = v.Comision;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = v.Servicio;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalComision;
+        fila = fila + 1;
 
         // 13%
-        ws.Cell(row, 7).Value =
+        ws.Cell(row, fila).Value =
             v.PorcentajeRetencion <= 0
                 ? totalComision * 0.13m
                 : 0;
+        fila = fila + 1;
 
         // 87%
-        ws.Cell(row, 8).Value =
+        ws.Cell(row, fila).Value =
             v.PorcentajeRetencion <= 0
                 ? totalComision * 0.87m
                 : 0;
-
-        ws.Cell(row, 9).Value = v.PorcentajeRetencion;
-        ws.Cell(row,10).Value = v.MontoRetencion;
-        ws.Cell(row,11).Value = totalComision;
-        ws.Cell(row,12).Value = totalComision - v.MontoRetencion;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = v.PorcentajeRetencion;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = v.MontoRetencion;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalComision;
+        fila = fila + 1;
+        ws.Cell(row,fila).Value = totalComision - v.MontoRetencion;
     }
-    private static void ConfigurarColumnas(IXLWorksheet ws)
+    private static void ConfigurarColumnas(IXLWorksheet ws, int empresaId)
     {
-        ws.Column(2).Width = 10;   // COD
-        ws.Column(3).Width = 35;   // ASESOR
-        ws.Column(4).Width = 14;
-        ws.Column(5).Width = 14;
-        ws.Column(6).Width = 16;
-        ws.Column(7).Width = 14;
-        ws.Column(8).Width = 14;
-        ws.Column(9).Width = 10;
-        ws.Column(10).Width = 14;
-        ws.Column(11).Width = 14;
-        ws.Column(12).Width = 16;
-
-        ws.Columns(4, 12).Style.NumberFormat.Format = "#,##0.00";
-        ws.Columns(4, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-    }
-    private static void CrearEncabezados(IXLWorksheet ws, int row)
-    {
-        string[] headers =
+        int fila = 2;
+        ws.Column(fila).Width = 10;   // COD
+        fila = fila + 1;
+        ws.Column(fila).Width = 35;   // ASESOR
+        if(empresaId == -1)
         {
-            "COD.", "ASESOR", "COMISION $", "SERVICIO $", "TOTAL COM. $",
-            "13%", "87%", "RET. %", "RET. $", "TOTAL $", "TOTAL PAGAR $"
-        };
+            fila = fila + 1;
+            ws.Column(fila).Width = 20;   // ASESOR
+        }
+        fila = fila + 1;
+        ws.Column(fila).Width = 14;
+        fila = fila + 1;
+        ws.Column(fila).Width = 14;
+        fila = fila + 1;
+        ws.Column(fila).Width = 16;
+        fila = fila + 1;
+        ws.Column(fila).Width = 14;
+        fila = fila + 1;
+        ws.Column(fila).Width = 14;
+        fila = fila + 1;
+        ws.Column(fila).Width = 10;
+        fila = fila + 1;
+        ws.Column(fila).Width = 14;
+        fila = fila + 1;
+        ws.Column(fila).Width = 14;
+        fila = fila + 1;
+        ws.Column(fila).Width = 16;
+
+        ws.Columns(4, fila).Style.NumberFormat.Format = "#,##0.00";
+        ws.Columns(4, fila).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+    }
+    private static void CrearEncabezados(IXLWorksheet ws, int row, int empresaId)
+    {
+        string[] headers = {};
+        if(empresaId == -1)  
+        {
+            headers = new string[] {
+            "COD.", "ASESOR","EMPRESA", "COMISION $", "SERVICIO $", "TOTAL COM. $",
+            "13%", "87%", "RET. %", "RET. $", "TOTAL $", "TOTAL PAGAR $"};
+        } else {
+            headers = new string[]
+            {
+                "COD.", "ASESOR", "COMISION $", "SERVICIO $", "TOTAL COM. $",
+                "13%", "87%", "RET. %", "RET. $", "TOTAL $", "TOTAL PAGAR $"
+            };
+            
+        }
+        ;
 
         for (int i = 0; i < headers.Length; i++)
             ws.Cell(row, i + 2).Value = headers[i];
@@ -98,19 +138,13 @@ public class ComisionServicioXls
         range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
         range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }
-    private static void AplicarBordes(
-        IXLWorksheet ws,
-        int headerRow,
-        int lastDataRow)
+    private static void AplicarBordes(IXLWorksheet ws,int headerRow,int lastDataRow, int empresaId)
     {
-        var range = ws.Range(headerRow, 2, lastDataRow, 12);
+        var range = ws.Range(headerRow, 2, lastDataRow, empresaId == -1 ? 13 : 12);
         range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
         range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }
-    private static void EscribirTotalizador(
-        IXLWorksheet ws,
-        int row,
-        List<RptComisionServicio> data)
+    private static void EscribirTotalizador(IXLWorksheet ws, int row, List<RptComisionServicio> data, int empresaId)
     {
         decimal totalComision = data?.Sum(x => x.Comision) ?? 0;
         decimal totalServicio = data?.Sum(x => x.Servicio) ?? 0;
@@ -136,28 +170,37 @@ public class ComisionServicioXls
         // TEXTO TOTAL
         // ===============================
         ws.Cell(row, 2).Value = "TOTAL:";
-        ws.Range(row, 2, row, 3).Merge();
+        ws.Range(row, 2, row, empresaId == -1 ? 4 : 3).Merge();
         ws.Cell(row, 2).Style.Font.Bold = true;
         ws.Cell(row, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
         // ===============================
         // VALORES
         // ===============================
-        ws.Cell(row, 4).Value = totalComision;
-        ws.Cell(row, 5).Value = totalServicio;
-        ws.Cell(row, 6).Value = totalTotalComision;
-        ws.Cell(row, 7).Value = totalTrece;
-        ws.Cell(row, 8).Value = totalOchoSiete;
+        int fila = empresaId == -1 ? 5 : 4;
+        ws.Cell(row, fila).Value = totalComision;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalServicio;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalTotalComision;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalTrece;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalOchoSiete;
 
-        ws.Cell(row, 9).Value = ""; // RET % (vacío como en el footer)
-        ws.Cell(row,10).Value = totalRetencion;
-        ws.Cell(row,11).Value = total;
-        ws.Cell(row,12).Value = totalPagar;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = ""; // RET % (vacío como en el footer)
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalRetencion;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = total;
+        fila = fila + 1;
+        ws.Cell(row, fila).Value = totalPagar;
 
         // ===============================
         // ESTILO
         // ===============================
-        var range = ws.Range(row, 2, row, 12);
+        var range = ws.Range(row, 2, row, empresaId == -1 ? 13: 12);
 
         range.Style.Font.Bold = true;
         range.Style.NumberFormat.Format = "#,##0.00";

@@ -386,7 +386,7 @@ namespace ApiGuardian.Controllers
                     });
                 }
                 var listaComisionServicio= comisionServicio.Data.ToList();
-                var documento = new ReporteComisionServicio(listaComisionServicio);
+                var documento = new ReporteComisionServicio(listaComisionServicio, empresaId);
 
 
                 byte[] pdfBytes = documento.GeneratePdf();
@@ -394,7 +394,7 @@ namespace ApiGuardian.Controllers
 
                 _log.Info(logId.ToString(), NOMBREARCHIVO, metodo, "PDF generado correctamente.");
                 ComisionServicioXls _ins = new ComisionServicioXls();
-                var responseXls = await _ins.GetComisionServicioXls(listaComisionServicio);
+                var responseXls = await _ins.GetComisionServicioXls(listaComisionServicio, empresaId);
 
                 return Ok(new
                 {
@@ -402,10 +402,10 @@ namespace ApiGuardian.Controllers
                     mensaje = "Reporte generado correctamente.",
                     data = new
                     {
-                        FileName = $"REPORTE DE COMISION - SERVICIO  {listaComisionServicio[0].Empresa}.pdf",
+                        FileName = $"REPORTE DE COMISION - SERVICIO  {(empresaId == -1 ? "TODAS" : listaComisionServicio[0].Empresa)}.pdf",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
-                        FileNameXls = $"REPORTE DE COMISION - SERVICIO  {listaComisionServicio[0].Empresa}.xlsx",
+                        FileNameXls = $"REPORTE DE COMISION - SERVICIO  {(empresaId == -1 ? "TODAS" : listaComisionServicio[0].Empresa)}.xlsx",
                         base64Xls = responseXls.base64
                     }
                 });
