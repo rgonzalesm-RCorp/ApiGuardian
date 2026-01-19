@@ -505,7 +505,7 @@ public class ReportesRepository : IReportesRepository
                                                 inner join (
                                                     SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                     INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
-                                                ) CE on CE.lcomplejo_id = AC.lcomplejo_id and CE.empresa_id=@EmpresaId
+                                                ) CE on CE.lcomplejo_id = AC.lcomplejo_id and CASE WHEN @Empresaid > 0 THEN CE.empresa_id ELSE @Empresaid END = @Empresaid
                                                 where AVP.lciclo_id = @LCicloId and AVP.lcontacto_Id > 3  
                                                 GROUP BY AVP.lcontacto_id, CE.empresa_id
 
@@ -527,7 +527,7 @@ public class ReportesRepository : IReportesRepository
                                                 inner join (
                                                     SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                     INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
-                                                ) CE on CE.lcomplejo_id = AC.lcomplejo_id and CE.empresa_id = @EmpresaId
+                                                ) CE on CE.lcomplejo_id = AC.lcomplejo_id and CASE WHEN @Empresaid > 0 THEN CE.empresa_id ELSE @Empresaid END = @Empresaid
                                                 where AVG.lciclo_id = @LCicloId and AVG.lcontacto_id > 3  
                                                 GROUP BY AVG.lcontacto_id, CE.empresa_id 
 
@@ -548,7 +548,7 @@ public class ReportesRepository : IReportesRepository
                                                 inner join (
                                                     SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                     INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
-                                                ) CE on CE.lcomplejo_id = ABR.lcomplejo_id and CE.empresa_id = @EmpresaId
+                                                ) CE on CE.lcomplejo_id = ABR.lcomplejo_id and CASE WHEN @Empresaid > 0 THEN CE.empresa_id ELSE @Empresaid END = @Empresaid
                                                 where ABR.lciclo_id = @LCicloId and ABR.lcontacto_id > 3
                                                 GROUP BY ABR.lcontacto_id, CE.empresa_id 
 
@@ -570,7 +570,7 @@ public class ReportesRepository : IReportesRepository
                                                     SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                     INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
                                                 ) CE on CE.lcomplejo_id = BL.lcomplejo_id
-                                                WHERE BL.lciclo_id = @LCicloId and bl.lcontacto_id > 3 and CE.empresa_id = @EmpresaId
+                                                WHERE BL.lciclo_id = @LCicloId and bl.lcontacto_id > 3 and CASE WHEN @Empresaid > 0 THEN CE.empresa_id ELSE @Empresaid END = @Empresaid
                                                 group by BL.vendedores_id, CE.empresa_id 
                                                 union all
                                                 SELECT 
@@ -580,18 +580,18 @@ public class ReportesRepository : IReportesRepository
                                                 , 0 Servicio
                                                 , sum(RET.montoretencion) 
                                                 , RET.porcentajeret
-                                                , CE. lempresa_id
+                                                , CE.lempresa_id
                                                 , ACT.lcontacto_id
                                                 , RET.lciclo_id
                                                 FROM tbl_retencionempresa RET
                                                 inner join administracioncontacto ACT on ACT.lcontacto_id = RET.lcontacto_id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
-                                                inner join administracionempresa CE on CE.lempresa_id = RET.idempresa and RET.idempresa = @EmpresaId
+                                                inner join administracionempresa CE on CE.lempresa_id = RET.idempresa and CASE WHEN @Empresaid > 0 THEN CE.lempresa_id ELSE @Empresaid END = @Empresaid
                                                 WHERE RET.lciclo_id = @LCicloId and RET.lcontacto_id > 3 and CE.lempresa_id = @EmpresaId
                                                 group by RET.lcontacto_id, CE.lempresa_id 
                                             ) DAT
                                             inner join administracionempresa AE on AE.lempresa_id = DAT.empresa_id 
                                             inner join administracionciclo ACI on ACI.lciclo_id = DAT.lciclo_id
-                                            where empresa_id = @EmpresaId
+                                            where CASE WHEN @Empresaid > 0 THEN empresa_id ELSE @Empresaid END = @Empresaid
                                             group by scodigo 
                                             , snombrecompleto 
                                             , empresa_id 
