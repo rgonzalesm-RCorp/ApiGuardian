@@ -103,54 +103,14 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
 
         const string query = @"
             INSERT INTO administracioncontrato (
-                lcontrato_id,
-                dtfecha,
-                lcontacto_id,
-                lcomplejo_id,
-                smanzano,
-                slote,
-                suv,
-                dprecioinicial,
-                dcuota_inicial,
-                dprecio,
-                lestado,
-                ltipocontrato_id,
-                lciudad,
-                cespecial,
-                lasesor_id,
-                susuarioadd,
-                susuariomod,
-                dtfechaadd,
-                dtfechamod,
-                snroventa,
-                latencion_id,
-                ltramite_id,
-                lreferido_id
+                lcontrato_id, dtfecha, lcontacto_id, lcomplejo_id, smanzano, slote, suv, dprecioinicial, dcuota_inicial, dprecio,
+                lestado, ltipocontrato_id, lciudad, cespecial, lasesor_id, susuarioadd, susuariomod, dtfechaadd, dtfechamod, snroventa,
+                latencion_id, ltramite_id, lreferido_id
             )
             SELECT
-                IFNULL(MAX_ID, 0) + 1,
-                @Fecha,
-                @LPropietarioId,
-                @LComplejoId,
-                @Mzno,
-                @Lote,
-                @Uv,
-                @PrecioInicial,
-                @CuotaInicial,
-                @PrecioFinal,
-                @LEstadoContratoId,
-                @LTipoContratoId,
-                @LCiudadId,
-                @ContratoEspecial,
-                @LAsesorId,
-                @Usuario,
-                @Usuario,
-                NOW(),
-                NOW(),
-                @NroVenta,
-                0,
-                0,
-                0
+                IFNULL(MAX_ID, 0) + 1, @Fecha, @LPropietarioId, @LComplejoId, @Mzno, @Lote, @Uv, @PrecioInicial, @CuotaInicial, @PrecioFinal,
+                @LEstadoContratoId, @LTipoContratoId, @LCiudadId, @ContratoEspecial, @LAsesorId, @Usuario, @Usuario, NOW(), NOW(), @NroVenta,
+                0, 0, 0
             FROM (
                 SELECT MAX(lcontrato_id) AS MAX_ID FROM administracioncontrato
             ) AS sub;

@@ -16,6 +16,48 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
         _context = context;
         _log = log;
     }
+    public async Task<(ListaAdministracionContacto Data, bool Success, string Mensaje)> GetAdministracionContactoByDocId(string LogTransaccionId, string docId)
+    {
+        string NombreMetodo = "GetAllAdministracionContactoByDocId()";
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var query = @"
+                SELECT  
+                    A.lcontacto_id AS lContactoId,
+                    A.snombrecompleto,
+                    A.scedulaidentidad,
+                    A.lnit AS lNit,
+                    A.stelefonofijo,
+                    A.stelefonomovil,
+                    A.stelefonooficina,
+                    A.sciudad,
+                    A.lpatrocinante_id AS lPatrocinanteId,
+                    A.lnivel_id AS nNivelId,
+                    A.lpais_id AS lPaisId,
+                    A.sotro AS Comentario,
+                    A.scorreoelectronico SCorreo,
+                    A.sdireccion SDireccion,
+                    A.dtfechanacimiento FechaNacimiento,
+                    A.dtfecharegistro FechaRegistro,
+                    A.scodigo SCodigo
+                FROM administracioncontacto A
+                WHERE   A.scedulaidentidad = @docId
+                ORDER BY A.lcontacto_id DESC;
+            ";
+
+            var data = await connection.QueryFirstOrDefaultAsync<ListaAdministracionContacto>(query, new {docId});
+
+            return (data, true, "Consulta realizada correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            ListaAdministracionContacto  d =  new ListaAdministracionContacto();
+            return (d, false, "Error al consultar contactos.");
+        }
+    }
     public async Task<(IEnumerable<ListaAdministracionContacto> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContacto(string LogTransaccionId, int page, int pageSize, string? search)
     {
         string NombreMetodo = "GetAllAdministracionContacto()";
