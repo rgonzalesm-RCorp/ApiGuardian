@@ -1,4 +1,5 @@
 using ApiGuardian.Application.Interfaces;
+using Newtonsoft.Json;
 using Quartz;
 
 public class MiCronJob : IJob
@@ -7,12 +8,14 @@ public class MiCronJob : IJob
     private readonly IVentasCnxRepository _ventasCnxRepository;
     private readonly IAdministracionContactoRepository _administracionContactoRepository;
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
-    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository)
+    private readonly IProcesoComisionesRepository _procesoComisionesRepository;
+    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository)
     {
         _logger = logger;
         _ventasCnxRepository = ventasCnxRepository;
         _administracionContactoRepository = administracionContactoRepository;
         _administracionContratoRepository = administracionContratoRepository;
+        _procesoComisionesRepository = procesoComisionesRepository;
     }
     private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante)
     {
@@ -111,7 +114,8 @@ public class MiCronJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
-        var  vtaCnx = await _ventasCnxRepository.GetVentaCnx("","","");
+        /*var  vtaCnx = await _ventasCnxRepository.GetVentaCnx("","","");
+        int counter = 0;
 
         foreach (var item in vtaCnx.Data)
         {
@@ -149,16 +153,92 @@ public class MiCronJob : IJob
                 LAsesorId = (int)vendedorId,
                 Usuario = ".Net"
             };
-            var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);
-            Console.WriteLine(item.Lote);
-        }
-        _logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);
+            var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta("", $"{item.IdVenta}-{item.Lote}", "", "");
 
+            if(responseExistContrato.Data == null || responseExistContrato.Data.Count()<= 0)
+            {
+                var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);   
+            }
+            counter = counter+ 1;
+
+            //var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);
+            Console.WriteLine(item.Lote);
+            var t = vtaCnx.Data.ToList();
+            Console.WriteLine( JsonConvert.SerializeObject(t[counter], Formatting.Indented));
+        }
+        _logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);*/
+       
+        var t = await Proceso();
         await Procesar();
     }
 
     private Task Procesar()
     {
         return Task.CompletedTask;
+    }
+
+    public async Task<bool> Proceso()
+    {
+        var responseProceso = await _procesoComisionesRepository.GetProceso("", "VENTAS");
+        if (responseProceso.Data == null)
+            return true;
+
+        string inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
+        string fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
+
+        var  vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin);
+        int counter = 0;
+
+        foreach (var item in vtaCnx.Data)
+        {
+            // 🔹 Asegurar vendedor (árbol completo)
+            var vendedorId = await EnsureContactoExisteAsync("", item.SCedulaIdentidadVendedor ?? "", item);
+
+            // 🔹 Asegurar cliente (depende del vendedor)
+            var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
+
+            if (string.IsNullOrEmpty(responseCliente.Data?.SCedulaIdentidad))
+            {
+                AdministracionContacto cliente = await objCliennte(item, vendedorId);
+
+                await _administracionContactoRepository.InsertContacto("", cliente);
+                responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
+
+            }
+            AdministracionContrato data = new AdministracionContrato
+            {
+                LContratoId = 0,
+                Fecha = item.DFecha,
+                NroVenta = $"{item.IdVenta}-{item.Lote}",
+                LPropietarioId = (int)responseCliente.Data.LContactoId,
+                LCopmlejoId = 29, //Obtener la equivalecia
+                Mzno = item.SManzano,
+                Lote = $"{item.IdVenta}-{item.Lote}" ,
+                Uv = item.SUV,
+                PrecioInicial = item.PrecioInicial,
+                CuotaInicial = item.SCuotaInicial,
+                PrecioFinal = item.DPrecio,
+                LEstadoContratoId = 0,
+                LTipoContratoId = 1, //revisas
+                LCiudadId =  0, //item.SCiudad,
+                ContratoEspecial = 0, // revisar 
+                LAsesorId = (int)vendedorId,
+                Usuario = ".Net"
+            };
+            var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta("", $"{item.IdVenta}-{item.Lote}", "", "");
+
+            if(responseExistContrato.Data == null || responseExistContrato.Data.Count()<= 0)
+            {
+                var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);   
+            }
+            counter = counter+ 1;
+
+            //var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);
+            Console.WriteLine(item.Lote);
+            var t = vtaCnx.Data.ToList();
+            //Console.WriteLine( JsonConvert.SerializeObject(t[counter], Formatting.Indented));
+        }
+        //_logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);
+        return true;
     }
 }

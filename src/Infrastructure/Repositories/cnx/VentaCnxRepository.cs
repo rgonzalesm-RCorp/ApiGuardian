@@ -32,7 +32,7 @@ public class VentaCnxRepository : IVentasCnxRepository
         {
             using var connection = _context.CreateConnection();
 
-            var data = await connection.QueryAsync<ItemVentaCnx>(query.ToString());
+            var data = await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new{inicio, fin});
 
             bool success = data != null && data.Any();
             string mensaje = success ? "Datos obtenidos correctamente." : "No se encontraron registros.";

@@ -37,7 +37,7 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("MiCronJob-trigger")
-        .WithCronSchedule("0 0/2 * * * ?") // cada 5 minutos
+        .WithCronSchedule("0 0/5 * * * ?") // cada 5 minutos
     );
 });
 
@@ -77,7 +77,10 @@ builder.Services.AddScoped<IAdministracionSemanaCicloRepository, AdministracionS
 builder.Services.AddScoped<IAdministracionDetalleFacturaRepository, AdministracionDetalleFacturaRepository>();
 builder.Services.AddScoped<IReportesRepository, ReportesRepository>();
 builder.Services.AddScoped<IVentasCnxRepository, VentaCnxRepository>();
+builder.Services.AddScoped<IProcesoComisionesRepository, ProcesoComisionesRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
+
+builder.Services.AddScoped<MiCronJob>();
 
 var app = builder.Build();
 // 2. Usar CORS

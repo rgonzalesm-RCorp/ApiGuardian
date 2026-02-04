@@ -27,7 +27,7 @@ namespace Query.Cnx
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
-                    WHERE V.FECHA BETWEEN '20260101' AND '20260131' AND V.IDESTADO <> 2 and VC.IDESTADO_VENTA <>2 
+                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2 and VC.IDESTADO_VENTA <>2 
                     and (v.NRODOC !='' or V.GLOSA like '%upgrade%') UNION ALL";
                 
             }
@@ -62,9 +62,7 @@ namespace Query.Cnx
                         FROM BDComisiones.dbo.grlCLIENTE C
                         INNER JOIN BDComisiones.dbo.grlCLIENTE_CCN CC ON CC.IDCLIENTE = C.IDCLIENTE
                         LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDCIUDAD_RESIDENCIA
-                    ) V ON V.IDCLIENTE = SDAT.VendedorId
-
-            ";
+                    ) V ON V.IDCLIENTE = SDAT.VendedorId ";
         }
 
         public static string QueryCllienteDocId()
@@ -96,7 +94,7 @@ namespace Query.Cnx
                 INNER JOIN BDComisiones.dbo.grlCLIENTE_CCN CC ON CC.IDCLIENTE = C.IDCLIENTE
                 LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDCIUDAD_RESIDENCIA
             ) V ON V.IDCLIENTE = SDAT.IDVENDEDOR
-            where cl.SCedulaIdentidad = @docId";
+            where cl.SCedulaIdentidad = @docId ORDER by v.IDCLIENTE ";
         }
     }
 }
