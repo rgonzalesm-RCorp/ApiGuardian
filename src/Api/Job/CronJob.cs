@@ -9,13 +9,15 @@ public class MiCronJob : IJob
     private readonly IAdministracionContactoRepository _administracionContactoRepository;
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IProcesoComisionesRepository _procesoComisionesRepository;
-    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository)
+    private readonly IAdministracionComplejoRepository _administracionComplejoRepository;
+    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionComplejoRepository administracionComplejoRepository)
     {
         _logger = logger;
         _ventasCnxRepository = ventasCnxRepository;
         _administracionContactoRepository = administracionContactoRepository;
         _administracionContratoRepository = administracionContratoRepository;
         _procesoComisionesRepository = procesoComisionesRepository;
+        _administracionComplejoRepository = administracionComplejoRepository;
     }
     private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante)
     {
@@ -27,7 +29,7 @@ public class MiCronJob : IJob
                         TelefonoFijo = vtaCnx.TelefonoFijoVendedor,
                         TelefonoMovil = vtaCnx.TelefonoMovilVendedor,
                         CorreoElectronico = vtaCnx.CorreoVendedor,
-                        Ciudad = "",
+                        Ciudad = vtaCnx.SCiudad,
                         PaisId = vtaCnx.IdPaisResidenciaVendedor,
                         PatrocinanteId = lPatrocinante,
                         NivelId = 0,
@@ -51,7 +53,7 @@ public class MiCronJob : IJob
                     TelefonoFijo = vtaCnx.TelefonoFijo,
                     TelefonoMovil = vtaCnx.TelefonoMovil,
                     CorreoElectronico = vtaCnx.Correo,
-                    Ciudad = "",
+                    Ciudad = vtaCnx.SCiudad,
                     PaisId = vtaCnx.IdPaisResidencia,
                     PatrocinanteId = lPatrocinante,
                     NivelId = 0,
@@ -180,6 +182,7 @@ public class MiCronJob : IJob
     public async Task<bool> Proceso()
     {
         var responseProceso = await _procesoComisionesRepository.GetProceso("", "VENTAS");
+        var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx("");
         if (responseProceso.Data == null)
             return true;
 
@@ -211,19 +214,20 @@ public class MiCronJob : IJob
                 Fecha = item.DFecha,
                 NroVenta = $"{item.IdVenta}-{item.Lote}",
                 LPropietarioId = (int)responseCliente.Data.LContactoId,
-                LCopmlejoId = 29, //Obtener la equivalecia
+                LCopmlejoId = responseHomologacion.Data.FirstOrDefault(x => x.LComplejoIdCX == item.LComplejoId).LComplejoId, //Obtener la equivalecia
                 Mzno = item.SManzano,
-                Lote = $"{item.IdVenta}-{item.Lote}" ,
+                Lote = $"{item.SLote}" ,
                 Uv = item.SUV,
                 PrecioInicial = item.PrecioInicial,
                 CuotaInicial = item.SCuotaInicial,
                 PrecioFinal = item.DPrecio,
-                LEstadoContratoId = 0,
-                LTipoContratoId = 1, //revisas
-                LCiudadId =  0, //item.SCiudad,
-                ContratoEspecial = 0, // revisar 
+                LEstadoContratoId = 1,
+                LTipoContratoId = item.TipoVenta == 2 ? 1 : 2,
+                LCiudadId =  0,
+                ContratoEspecial = 0,
                 LAsesorId = (int)vendedorId,
-                Usuario = ".Net"
+                Usuario = ".Net",
+                PorcentajeCuotaInicial = item.PorcentajeCuotaInicial 
             };
             var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta("", $"{item.IdVenta}-{item.Lote}", "", "");
 

@@ -105,12 +105,12 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INSERT INTO administracioncontrato (
                 lcontrato_id, dtfecha, lcontacto_id, lcomplejo_id, smanzano, slote, suv, dprecioinicial, dcuota_inicial, dprecio,
                 lestado, ltipocontrato_id, lciudad, cespecial, lasesor_id, susuarioadd, susuariomod, dtfechaadd, dtfechamod, snroventa,
-                latencion_id, ltramite_id, lreferido_id
+                latencion_id, ltramite_id, lreferido_id, porcentaje_inicial
             )
             SELECT
                 IFNULL(MAX_ID, 0) + 1, @Fecha, @LPropietarioId, @LComplejoId, @Mzno, @Lote, @Uv, @PrecioInicial, @CuotaInicial, @PrecioFinal,
                 @LEstadoContratoId, @LTipoContratoId, @LCiudadId, @ContratoEspecial, @LAsesorId, @Usuario, @Usuario, NOW(), NOW(), @NroVenta,
-                0, 0, 0
+                0, 0, 0, @PorcentajeCuotaInicial
             FROM (
                 SELECT MAX(lcontrato_id) AS MAX_ID FROM administracioncontrato
             ) AS sub;
@@ -139,7 +139,8 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 data.ContratoEspecial,
                 data.LAsesorId,
                 Usuario = data.Usuario,
-                data.NroVenta
+                data.NroVenta,
+                data.PorcentajeCuotaInicial
             });
 
             bool success = rows > 0;
@@ -259,7 +260,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
             INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
-            WHERE c.slote = @sLote and c.dtfecha BETWEEN '20260101' and '20260222';
+            WHERE c.snroventa = @sLote and c.dtfecha BETWEEN '20260101' and '20260222';
             ";
 
             var data = await connection.QueryAsync<ListaAdministracionContrato>(query, new {sLote});

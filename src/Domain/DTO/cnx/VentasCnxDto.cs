@@ -43,5 +43,6 @@ public class ItemVentaCnx
     public string? SCiudadVendedor { get; set; }
 
     public string? Complejo { get; set; }
-
+    public int TipoVenta { get; set; }
+    public decimal PorcentajeCuotaInicial { get; set; }
 }

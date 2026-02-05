@@ -41,4 +41,5 @@ public class AdministracionContrato
     public int ContratoEspecial { get; set; }
     public int LAsesorId { get; set; }
     public string? Usuario { get; set; }
+    public decimal PorcentajeCuotaInicial { get; set; }
 }

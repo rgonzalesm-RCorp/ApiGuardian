@@ -17,16 +17,21 @@ namespace Query.Cnx
             foreach (var item in empresas)
             {
                 query += @$"
-                    SELECT {item.EmpresaId} EmpresaId,'{item.Nombre}' Nombre,  V.FECHA DFecha
-                        , PC.NROMANZANO SManzano, RTRIM(P.CODFABRICA) SLote, V.TOTALVENTA DPrecio
+                    SELECT {item.EmpresaId} EmpresaId,'{item.Nombre}' Nombre, V.FECHA DFecha
+                        , PC.NROMANZANO SManzano, RTRIM(P.CODFABRICA) SLote
                         , V.IDALMACEN LComplejoId, V.IDVENTA IdVenta, RTRIM(VC.LOTES) Lote , PC.UV SUV
                         , ISNULL(VC.PRECIO_LISTA, V.TOTALVENTA) PrecioInicial
-                        , V.CUOTAINICIAL SCuotaInicial, V.IDCLIENTE IdCliente, RTRIM(A.DESCRIPCION) Complejo, V.IDVENDEDOR VendedorId
+                        , V.IDCLIENTE IdCliente, RTRIM(A.DESCRIPCION) Complejo, V.IDVENDEDOR VendedorId
+                        , V.IDTIPOVENTA TipoVenta
+                        , V.TOTALVENTA DPrecio
+                        , CASE WHEN V.IDTIPOVENTA = 1 THEN PC.CUOTAINICIAL ELSE V.CUOTAINICIAL END SCuotaInicial
+                        , CR.PORC_INICIAL PorcentajeCuotaInicial
                     FROM {item.DataBase}.dbo.INVENTA V
                     INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
+                    LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED
                     WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2 and VC.IDESTADO_VENTA <>2 
                     and (v.NRODOC !='' or V.GLOSA like '%upgrade%') UNION ALL";
                 
@@ -41,27 +46,29 @@ namespace Query.Cnx
                         SELECT
                             c.FAX TelefonoFijo, c.TELEFONO TelefonoMovil, RTRIM(C.EMAIL) Correo
                             , C.FECHANACIMIENTO FechaNacimiento
-                            , RTRIM(C.DIRECCION) Direccion, ISNULL(P.idPaisGuardian, 2) IdPaisResidencia, '' SCiudad
+                            , RTRIM(C.DIRECCION) Direccion, ISNULL(P.idPaisGuardian, 2) IdPaisResidencia, RTRIM(CIU.DESCRIPCION) SCiudad
                             , c.DOCID SCedulaIdentidad
                             , GETDATE() FechaRegistro, RTRIM(C.NOMBRE) SNombreCompleto
                             , C.FAX STelefonoOficina, C.DOCID SContrasena
                             , C.IDCLIENTE
                         FROM BDComisiones.dbo.grlCLIENTE C
                         INNER JOIN BDComisiones.dbo.grlCLIENTE_CCN CC ON CC.IDCLIENTE = C.IDCLIENTE
-                        LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDCIUDAD_RESIDENCIA
+                        LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDPAIS_RESIDENCIA
+                        LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
                     ) CL ON CL.IDCLIENTE = SDAT.IdCliente
                     INNER JOIN (
                         SELECT
                             c.FAX TelefonoFijoVendedor, c.TELEFONO TelefonoMovilVendedor, RTRIM(C.EMAIL) CorreoVendedor
                             , C.FECHANACIMIENTO FechaNacimientoVendedor
-                            , RTRIM(C.DIRECCION) DireccionVendedor, ISNULL(P.idPaisGuardian, 2) IdPaisResidenciaVendedor, '' SCiudadVendedor
+                            , RTRIM(C.DIRECCION) DireccionVendedor, ISNULL(P.idPaisGuardian, 2) IdPaisResidenciaVendedor, RTRIM(CIU.DESCRIPCION) SCiudadVendedor
                             , c.DOCID SCedulaIdentidadVendedor
                             , GETDATE() FechaReistro, RTRIM(C.NOMBRE) SNombreCompletoVendedor
                             , C.FAX STelefonoOficinaVendedor, C.DOCID SContrasenaVendedor
                             , C.IDCLIENTE
                         FROM BDComisiones.dbo.grlCLIENTE C
                         INNER JOIN BDComisiones.dbo.grlCLIENTE_CCN CC ON CC.IDCLIENTE = C.IDCLIENTE
-                        LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDCIUDAD_RESIDENCIA
+                        LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDPAIS_RESIDENCIA
+                        LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
                     ) V ON V.IDCLIENTE = SDAT.VendedorId ";
         }
 
@@ -72,27 +79,29 @@ namespace Query.Cnx
                 SELECT
                     c.FAX TelefonoFijo, c.TELEFONO TelefonoMovil, RTRIM(C.EMAIL) Correo
                     , C.FECHANACIMIENTO FechaNacimiento
-                    , RTRIM(C.DIRECCION) Direccion, ISNULL(P.idPaisGuardian, 2) IdPaisResidencia, '' SCiudad
+                    , RTRIM(C.DIRECCION) Direccion, ISNULL(P.idPaisGuardian, 2) IdPaisResidencia, RTRIM(CIU.DESCRIPCION) SCiudad
                     , c.DOCID SCedulaIdentidad
                     , GETDATE() FechaRegistro, RTRIM(C.NOMBRE) SNombreCompleto
                     , C.FAX STelefonoOficina, C.DOCID SContrasena
                     , C.IDCLIENTE
                 FROM BDComisiones.dbo.grlCLIENTE C
                 INNER JOIN BDComisiones.dbo.grlCLIENTE_CCN CC ON CC.IDCLIENTE = C.IDCLIENTE
-                LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDCIUDAD_RESIDENCIA
+                LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDPAIS_RESIDENCIA
+                LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
             ) CL ON CL.IDCLIENTE = SDAT.IdCliente
             INNER JOIN (
                 SELECT
                     c.FAX TelefonoFijoVendedor, c.TELEFONO TelefonoMovilVendedor, RTRIM(C.EMAIL) CorreoVendedor
                     , C.FECHANACIMIENTO FechaNacimientoVendedor
-                    , RTRIM(C.DIRECCION) DireccionVendedor, ISNULL(P.idPaisGuardian, 2) IdPaisResidenciaVendedor, '' SCiudadVendedor
+                    , RTRIM(C.DIRECCION) DireccionVendedor, ISNULL(P.idPaisGuardian, 2) IdPaisResidenciaVendedor, RTRIM(CIU.DESCRIPCION) SCiudadVendedor
                     , c.DOCID SCedulaIdentidadVendedor
                     , GETDATE() FechaReistro, RTRIM(C.NOMBRE) SNombreCompletoVendedor
                     , C.FAX STelefonoOficinaVendedor, C.DOCID SContrasenaVendedor
                     , C.IDCLIENTE
                 FROM BDComisiones.dbo.grlCLIENTE C
                 INNER JOIN BDComisiones.dbo.grlCLIENTE_CCN CC ON CC.IDCLIENTE = C.IDCLIENTE
-                LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDCIUDAD_RESIDENCIA
+                LEFT JOIN BDComisiones.DBO.PAISCONEXIONGUARDIAN P ON P.idPaisConexion = CC.IDPAIS_RESIDENCIA
+                LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
             ) V ON V.IDCLIENTE = SDAT.IDVENDEDOR
             where cl.SCedulaIdentidad = @docId ORDER by v.IDCLIENTE ";
         }

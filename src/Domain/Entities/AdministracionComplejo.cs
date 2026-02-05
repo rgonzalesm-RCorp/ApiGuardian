@@ -16,3 +16,8 @@ public class AdministracionComplejoABM
     public string? Usuario { get; set; }
     public string? Empresa { get; set; }
 }
+public class HomologacionComplejoGrdCnx
+{
+    public int LComplejoId { get; set; }
+    public int LComplejoIdCX { get; set; }
+}
