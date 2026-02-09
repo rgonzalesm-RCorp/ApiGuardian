@@ -79,14 +79,6 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                     t.Span("EMPRENDEDOR: ").Bold();
                     t.Span(_data[0].SNombreCompleto);
                 });
-
-                col.Item()
-                .DefaultTextStyle(x => x.FontSize(6))
-                .Text(t =>
-                {
-                    t.Span("C - P: ").Bold();
-                    t.Span("CBBA - BOL");
-                });
             });
         
         });

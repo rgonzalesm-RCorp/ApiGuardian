@@ -234,4 +234,33 @@ public class AdministracionComplejoRepository : IAdministracionComplejoRepositor
             return (false, ex.Message);
         }
     }
+    public async Task<(bool Success, string Mensaje, List<HomologacionComplejoGrdCnx> Data)> GetHomologacionComplejoGrdCnx(string LogTransaccionId)
+    {
+        string nombreMetodo = "GetHomologacionComplejoGrdCnx()";
+
+        const string query = @"
+            SELECT 
+                complejo_id LComplejoId
+                , id_almacen_conexion LComplejoIdCX
+            FROM empresa_complejo WHERE estado  = 1
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio script: {query}");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var result = await connection.QueryAsync<HomologacionComplejoGrdCnx>(query);
+
+            bool success = result != null && result.Any();
+            string mensaje = success ? "Datos obtenidos correctamente." : "No se encontraron registros.";
+
+            return (success, mensaje, result?.ToList() ?? new List<HomologacionComplejoGrdCnx>());
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de método", ex);
+            return (false, ex.Message, new List<HomologacionComplejoGrdCnx>());
+        }
+    }
 }

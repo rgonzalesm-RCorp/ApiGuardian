@@ -103,54 +103,14 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
 
         const string query = @"
             INSERT INTO administracioncontrato (
-                lcontrato_id,
-                dtfecha,
-                lcontacto_id,
-                lcomplejo_id,
-                smanzano,
-                slote,
-                suv,
-                dprecioinicial,
-                dcuota_inicial,
-                dprecio,
-                lestado,
-                ltipocontrato_id,
-                lciudad,
-                cespecial,
-                lasesor_id,
-                susuarioadd,
-                susuariomod,
-                dtfechaadd,
-                dtfechamod,
-                snroventa,
-                latencion_id,
-                ltramite_id,
-                lreferido_id
+                lcontrato_id, dtfecha, lcontacto_id, lcomplejo_id, smanzano, slote, suv, dprecioinicial, dcuota_inicial, dprecio,
+                lestado, ltipocontrato_id, lciudad, cespecial, lasesor_id, susuarioadd, susuariomod, dtfechaadd, dtfechamod, snroventa,
+                latencion_id, ltramite_id, lreferido_id, porcentaje_inicial
             )
             SELECT
-                IFNULL(MAX_ID, 0) + 1,
-                @Fecha,
-                @LPropietarioId,
-                @LComplejoId,
-                @Mzno,
-                @Lote,
-                @Uv,
-                @PrecioInicial,
-                @CuotaInicial,
-                @PrecioFinal,
-                @LEstadoContratoId,
-                @LTipoContratoId,
-                @LCiudadId,
-                @ContratoEspecial,
-                @LAsesorId,
-                @Usuario,
-                @Usuario,
-                NOW(),
-                NOW(),
-                @NroVenta,
-                0,
-                0,
-                0
+                IFNULL(MAX_ID, 0) + 1, @Fecha, @LPropietarioId, @LComplejoId, @Mzno, @Lote, @Uv, @PrecioInicial, @CuotaInicial, @PrecioFinal,
+                @LEstadoContratoId, @LTipoContratoId, @LCiudadId, @ContratoEspecial, @LAsesorId, @Usuario, @Usuario, NOW(), NOW(), @NroVenta,
+                0, 0, 0, @PorcentajeCuotaInicial
             FROM (
                 SELECT MAX(lcontrato_id) AS MAX_ID FROM administracioncontrato
             ) AS sub;
@@ -179,7 +139,8 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 data.ContratoEspecial,
                 data.LAsesorId,
                 Usuario = data.Usuario,
-                data.NroVenta
+                data.NroVenta,
+                data.PorcentajeCuotaInicial
             });
 
             bool success = rows > 0;
@@ -264,4 +225,53 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             return (false, $"Error al actualizar contrato: {ex.Message}");
         }
     }
+    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje)> GetContratoXNroVenta(string LogTransaccionId, string sLote, string inicio, string fin)
+    {
+        string NombreMetodo = "GetContratoXNroVenta()";
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var query = @"SELECT 
+                C.lcontrato_id AS LContratoId,
+                C.dtfechaadd AS FechaRegistro,
+                C.dtfecha AS Fecha,
+                C.snroventa AS NroVenta,
+                P.snombrecompleto AS Propietario,
+                AC.snombre AS Complejo,
+                C.suv AS Uv,
+                C.smanzano AS NroMnzo,
+                C.slote AS NroLote,
+                C.dprecio AS Precio,
+                C.dcuota_inicial AS CuotaInicial,
+                C.lestado AS Estado,
+                ATC.snombre AS TipoContrato,
+                A.snombrecompleto AS Asesor,
+                ATC.ltipocontrato_id AS LTipoContratoId,
+                A.lcontacto_id AS LAsesorId,
+                P.lcontacto_id AS LPropietarioId,
+                AC.lcomplejo_id AS LComplejoId,
+                C.dprecioinicial AS DPrecioInicial,
+                AEC.snombre AS EstadoContrato,
+                C.cespecial AS CEspecial
+            FROM administracioncontrato C
+            INNER JOIN administracioncontacto P ON P.lcontacto_id = C.lcontacto_id
+            INNER JOIN administracioncontacto A ON A.lcontacto_id = C.lasesor_id
+            INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
+            INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
+            INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
+            WHERE c.snroventa = @sLote and c.dtfecha BETWEEN '20260101' and '20260222';
+            ";
+
+            var data = await connection.QueryAsync<ListaAdministracionContrato>(query, new {sLote});
+
+            return (data, true, "Consulta realizada correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ListaAdministracionContrato>(), false, "Error al consultar contactos.");
+        }
+    }
+    
 }

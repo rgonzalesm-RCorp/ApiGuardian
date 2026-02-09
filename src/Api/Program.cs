@@ -1,9 +1,10 @@
 
 
-using ApiGuardian.Application.Interfaces; // 👈 debe coincidir con tu namespace real
+using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Repositories;
 using ApiGuardian.Infrastructure.Persistence;
 using ApiGuardian.Infrastructure.Services;
+using Quartz;
 
 
 
@@ -26,14 +27,35 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+/*
+builder.Services.AddQuartz(q =>
+{
+    var jobKey = new JobKey("MiCronJob");
+
+    q.AddJob<MiCronJob>(opts => opts.WithIdentity(jobKey));
+
+    q.AddTrigger(opts => opts
+        .ForJob(jobKey)
+        .WithIdentity("MiCronJob-trigger")
+        .WithCronSchedule("0 0/5 * * * ?") // cada 5 minutos
+    );
+});
+
+builder.Services.AddQuartzHostedService(q =>
+{
+    q.WaitForJobsToComplete = true;
+});
+*/
 
 
 // Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+//builder.Services.AddHostedService<MiCronJob>();
 
 builder.Services.AddSingleton<DapperContext>();
+builder.Services.AddSingleton<DapperContextSqlServer>();
 builder.Services.AddScoped<IAdministracionContactoRepository, AdministracionContactoRepository>();
 builder.Services.AddScoped<IUtilsRepository, UtilsRepository>();
 builder.Services.AddScoped<IAdministracionContratoRepository, AdministracionContratoRepository>();
@@ -54,7 +76,11 @@ builder.Services.AddScoped<IAdministracionTipoContactoRepository, Administracion
 builder.Services.AddScoped<IAdministracionSemanaCicloRepository, AdministracionSemanaCicloRepository>();
 builder.Services.AddScoped<IAdministracionDetalleFacturaRepository, AdministracionDetalleFacturaRepository>();
 builder.Services.AddScoped<IReportesRepository, ReportesRepository>();
+builder.Services.AddScoped<IVentasCnxRepository, VentaCnxRepository>();
+builder.Services.AddScoped<IProcesoComisionesRepository, ProcesoComisionesRepository>();
 builder.Services.AddSingleton<ILogService, LogService>();
+
+builder.Services.AddScoped<MiCronJob>();
 
 var app = builder.Build();
 // 2. Usar CORS

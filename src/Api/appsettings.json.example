@@ -1,7 +1,8 @@
 {
   "ConnectionStrings": {
     "DefaultConnection?": "Server=10.2.10.14;Database=BDTest;User Id=sa;Password=Passw0rd;TrustServerCertificate=True;",
-    "DefaultConnection": "Server=10.2.10.40;Database=grdsion;User ID=root;Password=Passw0rd;SslMode=Disabled;AllowPublicKeyRetrieval=True;"
+    "DefaultConnection": "Server=10.2.10.40;Database=grdsion;User ID=root;Password=Passw0rd;SslMode=Disabled;AllowPublicKeyRetrieval=True;",
+    "DefaultConnectionSqlServer": "Server=192.168.4.12;Database=BDComisiones;User Id=UsrTempDesa;Password=b63A0*fe75;TrustServerCertificate=True;"
   },
   "Logging": {
     "LogLevel": {
@@ -9,5 +10,11 @@
       "Microsoft.AspNetCore": "Warning"
     }
   },
-  "AllowedHosts": "*"
+  "AllowedHosts": "*",
+  "EmpresaCalculoComisiones" :[
+    {"empresaId": 8, "nombre" :"ADVEL", "dataBase":"BDConexionADVEL"},
+    {"empresaId": 12, "nombre" :"JAYIL", "dataBase":"BDConexionJAYIL"},
+    {"empresaId": 2, "nombre" :"KINTAS", "dataBase":"BDConexionQUINTAS"},
+    {"empresaId": 3, "nombre" :"ZURIEL", "dataBase":"BDConexionZURIEL"}
+  ]
 }

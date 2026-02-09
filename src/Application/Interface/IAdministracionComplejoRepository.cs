@@ -12,4 +12,5 @@ public interface IAdministracionComplejoRepository
     Task<(bool Success, string Mensaje)> GuardarComplejo(string LogTransaccionId, AdministracionComplejoABM data);
     Task<(bool Success, string Mensaje)> ModificarComplejo(string LogTransaccionId, AdministracionComplejoABM data);
     Task<(bool Success, string Mensaje)> EliminarComplejo(string LogTransaccionId, int LComplejoId);
+    Task<(bool Success, string Mensaje, List<HomologacionComplejoGrdCnx> Data)> GetHomologacionComplejoGrdCnx(string LogTransaccionId);
 }

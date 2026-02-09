@@ -49,8 +49,13 @@ public class Utils
             return centenas[numero / 100] + (numero % 100 > 0 ? " " + ConvertirNumero(numero % 100) : "");
 
         if (numero < 1000000)
-            return ConvertirNumero(numero / 1000) + " mil" +
+        {
+            var miles = ConvertirNumero(numero / 1000);
+            if (miles == "uno") miles = "un";
+
+            return miles + " mil" +
                 (numero % 1000 > 0 ? " " + ConvertirNumero(numero % 1000) : "");
+        }
 
         if (numero < 1000000000)
             return ConvertirNumero(numero / 1000000) + " millones" +
@@ -58,5 +63,6 @@ public class Utils
 
         return "";
     }
+
 }
 
