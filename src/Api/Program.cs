@@ -27,7 +27,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-
+/*
 builder.Services.AddQuartz(q =>
 {
     var jobKey = new JobKey("MiCronJob");
@@ -45,7 +45,7 @@ builder.Services.AddQuartzHostedService(q =>
 {
     q.WaitForJobsToComplete = true;
 });
-
+*/
 
 
 // Services
