@@ -14,12 +14,14 @@ public class ProcesoComisionesController : ControllerBase
     private readonly ILogService _log;
     private readonly IVentasCnxRepository _ventasCnxRepository;
     private readonly MiCronJob _miCronJob;
+    private readonly IProcesoComisionesRepository _procesoComisionesRepository;
     private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
-    public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log, MiCronJob miCronJob)
+    public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log, MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository)
     {
         _ventasCnxRepository = ventasCnxRepository;
         _log = log;
+        _procesoComisionesRepository = procesoComisionesRepository;
         _miCronJob = miCronJob;
     }
     [HttpGet("vta/cnx")]
@@ -62,6 +64,16 @@ public class ProcesoComisionesController : ControllerBase
         return Ok(new
         {
             ex = true
+        });
+    }
+    [HttpGet("venta/personal")]
+    public async Task<IActionResult> GetVentaPersonal([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
+    {
+        var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaPersonal("", Usuario, Inicio, Fin, lCicloId);
+        return Ok(new{
+            status = responseVentaPersonal.Success,
+            mensaje = responseVentaPersonal.Mensaje,
+           responseVentaPersonal.Data 
         });
     }
 }

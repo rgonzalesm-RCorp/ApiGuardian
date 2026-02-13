@@ -35,7 +35,8 @@ CREATE TABLE PC_CONFIGVTAPERSONALCOMPLEJO(
 CREATE TABLE PC_CONFIGVTAPERSONALINICIAL(
     PC_ConfigVtaPersonalInicialId INT AUTO_INCREMENT PRIMARY KEY
     , PC_ConfigVtaPersonalId INT
-    , inicial decimal(18,2)
+    , inicial_desde decimal(18,2)
+    , inicial_hasta decimal(18,2)
     , comision decimal(18,2)
     , estado INT
     , fechaadd DATETIME
