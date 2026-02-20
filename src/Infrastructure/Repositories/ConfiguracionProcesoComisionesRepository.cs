@@ -86,7 +86,10 @@ public class ConfiguracionProcesoComisionesRepository : IConfiguracionProcesoCom
         string nombreMetodo = "GuardarConfiguracionComisionVentaPersonal()";
 
         string query = $@"
-            select PC_ConfigVtaPersonalId, LCiclo_id, Estado , usuarioadd Usuario from pc_configvtapersonal where estado = 1 and lciclo_id > 0;
+                        select cvp.PC_ConfigVtaPersonalId, cvp.LCiclo_id, cvp.Estado , cvp.usuarioadd Usuario, ac.snombre Ciclo
+                        from pc_configvtapersonal  cvp
+                        inner join administracionciclo ac on ac.lciclo_id = cvp.lciclo_id
+                        where cvp.estado = 1 and cvp.lciclo_id > 0;
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
@@ -99,10 +102,12 @@ public class ConfiguracionProcesoComisionesRepository : IConfiguracionProcesoCom
             foreach (var item in pc_ConfigVtaPersonal)
             {
                 string queryComplejo = $@"
-                                        SELECT PC_ConfigVtaPersonalComplejoId, PC_ConfigVtaPersonalId
-                                        , LComplejo_id, usuarioadd Usuario
-                                        FROM pc_configvtapersonalcomplejo where estado = 1 
-                                        and PC_ConfigVtaPersonalId = @PC_ConfigVtaPersonalId";
+                                        SELECT cvpc.PC_ConfigVtaPersonalComplejoId, cvpc.PC_ConfigVtaPersonalId
+                                        , cvpc.LComplejo_id, cvpc.usuarioadd Usuario, ac.snombre Complejo
+                                        FROM pc_configvtapersonalcomplejo cvpc 
+                                        inner join administracioncomplejo ac on cvpc.lcomplejo_id = ac.lcomplejo_id
+                                        where cvpc.estado = 1 
+                                        and cvpc.PC_ConfigVtaPersonalId = @PC_ConfigVtaPersonalId";
                 string queryInicial = @"SELECT 
                                             PC_ConfigVtaPersonalInicialId
                                             , PC_ConfigVtaPersonalId
@@ -138,6 +143,72 @@ public class ConfiguracionProcesoComisionesRepository : IConfiguracionProcesoCom
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (false, $"Error al obtener al guardar la configuracion de venta personal: {ex.Message}", Enumerable.Empty<PC_ConfigVtaPersonal>());
+        }
+    }
+    public async Task<(bool Success, string Mensaje)> DeleteConfiguracionComisionVentaPersonal(string LogTransaccionId, string usuario, int PC_ConfigVtaPersonalId)
+    {
+        string nombreMetodo = "DeleteConfiguracionComisionVentaPersonal()";
+        string query = @"
+            update  pc_configvtapersonal set estado = 0, usuariomod = @usuario, fechamod = now() where PC_ConfigVtaPersonalId = @PC_ConfigVtaPersonalId;
+        ";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+        try
+        {
+            
+            using var connection = _context.CreateConnection();
+
+            var rows = await connection.ExecuteAsync(query, new
+            {
+                usuario
+                , PC_ConfigVtaPersonalId
+            });
+
+            bool success = rows > 0;
+            string mensaje = success ? "Configuracion eliminada correctamente" : "No se encontró al configuracion a eliminar";
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}]");
+            
+            return (success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al eliminar la confiuracion: {ex.Message}");
+        }
+    }
+    public async Task<(bool Success, string Mensaje, IEnumerable<PC_VerificarListaComplejos> Listado)> VerificarComplejos(string LogTransaccionId, string complejosId, int LCicloId)
+    {
+        string nombreMetodo = "VerificarComplejos()";
+
+        string query = $@"SELECT 
+                            CVP.lciclo_id LCicloId
+                            , CVPC.lcomplejo_id LComplejoId
+                            , AC.SNOMBRE Complejo
+                            FROM  pc_configvtapersonal CVP 
+                            INNER JOIN pc_configvtapersonalcomplejo CVPC ON CVP.PC_ConfigVtaPersonalId = CVPC.PC_ConfigVtaPersonalId and CVP.estado = 1 and  CVPC.estado = 1
+                            INNER JOIN administracioncomplejo AC on AC.lcomplejo_id = CVPC.lcomplejo_id
+                            WHERE CVP.lciclo_id = @LCicloId and CVPC.lcomplejo_id in ({complejosId});
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var pc_ListaComplejo = await connection.QueryAsync<PC_VerificarListaComplejos>(query, new{LCicloId});
+         
+            bool success = true;
+            string mensaje = success ? "Lista obtenidas correctamente." : "no se pudo obtener la lista.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}]");
+
+            return (success, mensaje, pc_ListaComplejo );
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al obtener el listado: {ex.Message}", Enumerable.Empty<PC_VerificarListaComplejos>());
         }
     }
 }
