@@ -89,7 +89,7 @@ public class ConfiguracionProcesoComisionesRepository : IConfiguracionProcesoCom
                         select cvp.PC_ConfigVtaPersonalId, cvp.LCiclo_id, cvp.Estado , cvp.usuarioadd Usuario, ac.snombre Ciclo
                         from pc_configvtapersonal  cvp
                         inner join administracionciclo ac on ac.lciclo_id = cvp.lciclo_id
-                        where cvp.estado = 1 and cvp.lciclo_id > 0;
+                        where cvp.estado = 1 and cvp.lciclo_id > 0 order by cvp.LCiclo_id desc, cvp.PC_ConfigVtaPersonalId desc;
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");

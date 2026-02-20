@@ -91,7 +91,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
                                 INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id AND CF.LCicloId = @LCicloId
                                 INNER JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId 
-                                WHERE dtfecha BETWEEN @Inicio and @Fin";
+                                WHERE dtfecha BETWEEN @Inicio and @Fin order by c.lcontrato_id desc";
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
             using var connection = _context.CreateConnection();
 
