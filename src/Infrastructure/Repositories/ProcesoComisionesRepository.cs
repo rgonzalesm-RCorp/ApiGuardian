@@ -111,4 +111,115 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             return (Enumerable.Empty<VentaPersonalComisionDto>(), false, $"Error al obtener ventas personales: {ex.Message}");
         }
     }
+    public async Task<(bool Success, string Mensaje)> GuardarVtaRezagadas(string LogTransaccionId, List<ItemVentaCnx> Data, string Usuario)
+    {
+         string metodo = "GuardarVtaRezagadas()";
+
+        const string insertQuery = @"INSERT INTO VentaRezagadasCiclo (
+                    empresaId, lContratoId, dFecha, sManzano, sLote, dPrecio, lComplejoId, idVenta,
+                    lote,  suv, precioInicial, sCuotaInicial, idCliente, telefonoFijo,
+                    telefonoMovil, correo, fechaNacimiento, direccion,
+                    idPaisResidencia, sCedulaIdentidad, sCiudad, fechaRegistro,
+                    sNombreCompleto, sTelefonoOficina, sContrasena, vendedorId,
+                    telefonoFijoVendedor, telefonoMovilVendedor, correoVendedor, fechaNacimientoVendedor,
+                    direccionVendedor, idPaisResidenciaVendedor, sCedulaIdentidadVendedor, fechaRegistroVendedor,
+                    sNombreCompletoVendedor, sTelefonoOficinaVendedor, sContrasenaVendedor, sCiudadVendedor,
+                    complejo, tipoVenta, porcentajeCuotaInicial, EstadoVentaRezagadasCicloId, FechaRegistroGrd
+                ) VALUES (
+                    @empresaId, @lContratoId, @dFecha,  @sManzano, @sLote, @dPrecio, @lComplejoId, @idVenta,
+                    @lote,  @suv, @precioInicial, @sCuotaInicial, @idCliente, @telefonoFijo,
+                    @telefonoMovil, @correo, @fechaNacimiento, @direccion,
+                    @idPaisResidencia, @sCedulaIdentidad, @sCiudad, @fechaRegistro,
+                    @sNombreCompleto, @sTelefonoOficina, @sContrasena, @vendedorId,
+                    @telefonoFijoVendedor, @telefonoMovilVendedor, @correoVendedor, @fechaNacimientoVendedor,
+                    @direccionVendedor, @idPaisResidenciaVendedor, @sCedulaIdentidadVendedor, @fechaRegistroVendedor,
+                    @sNombreCompletoVendedor, @sTelefonoOficinaVendedor, @sContrasenaVendedor, @sCiudadVendedor,
+                    @complejo, @tipoVenta, @porcentajeCuotaInicial, @EstadoVentaRezagadasCicloId, @FechaRegistroGrd
+                );";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio inserción. Script: { insertQuery}");
+
+        try
+        {
+            using var con = _context.CreateConnection();
+
+            var rows = await con.ExecuteAsync(insertQuery, Data);
+
+            bool success = rows > 0;
+            string mensaje = success ? "Registro insertado correctamente." : "No se insertó el registro.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Fin inserción. Success={success}. Mensaje:{mensaje}");
+
+            return (success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, metodo, "Error insertando semana", ex);
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool Success, string Mensaje, IEnumerable<ItemVentaCnx> Data)> GetVtaRezada(string LogTransaccionId, string Usuario)
+    {
+        string nombreMetodo = "GetVtaRezada()";
+
+        string query = $@"select * from VentaRezagadasCiclo WHERE EstadoVentaRezagadasCicloId = 1;";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var procesoJob = await connection.QueryAsync<ItemVentaCnx>(query);
+
+            bool success = true;
+            string mensaje = success ? "Ventas rezzagadas obtenidos correctamente." : "No se encontraron las ventas rezagadas.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, VentasRezagadas:{JsonConvert.SerializeObject(procesoJob, Formatting.Indented)}]");
+
+            return (success, mensaje, procesoJob);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return ( false, $"Error al obtener las ventas rezagadas: {ex.Message}", Enumerable.Empty<ItemVentaCnx>());
+        }
+    }
+    public async Task<(bool Success, string Mensaje)> UpdateVtaRezagadas(string LogTransaccionId, ItemVentaCnx Data, string Usuario)
+    {
+        string nombreMetodo = "UpdateVtaRezagadas()";
+
+        const string query = @"
+            update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 2, FechaProceso = NOW() where idVenta = @IdVenta and lote = @Lote
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var rows = await connection.ExecuteAsync(query, new
+            {
+                Data.IdVenta,
+                Data.Lote
+            });
+
+            bool success = rows > 0;
+            string mensaje = success ? "Registro actualizado correctamente." : "No se encontró el registro o no se realizaron cambios.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}, data:{JsonConvert.SerializeObject(Data, Formatting.Indented)}]");
+
+            return (success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al actualizar banco: {ex.Message}");
+        }
+    }
+
 }

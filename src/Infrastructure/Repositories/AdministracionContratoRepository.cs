@@ -260,10 +260,10 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
             INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
-            WHERE c.snroventa = @sLote and c.dtfecha BETWEEN '20260101' and '20260222';
+            WHERE c.snroventa = @sLote;
             ";
 
-            var data = await connection.QueryAsync<ListaAdministracionContrato>(query, new {sLote});
+            var data = await connection.QueryAsync<ListaAdministracionContrato>(query, new {sLote, inicio, fin});
 
             return (data, true, "Consulta realizada correctamente.");
         }
@@ -271,6 +271,41 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ListaAdministracionContrato>(), false, "Error al consultar contactos.");
+        }
+    }
+    public async Task<(IEnumerable<ItemVentaComision> Data, bool Success, string Mensaje)> GetContratoFecha(string LogTransaccionId, string inicio, string fin)
+    {
+        string NombreMetodo = "GetContratoFecha()";
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var query = @"select 
+                    ac.dtfecha DtFecha
+                    , c.scedulaidentidad DocIdCliente
+                    , c.snombrecompleto NombreCliente
+                    , v.scedulaidentidad DocIdVendedor
+                    , v.snombrecompleto NombreVendedor
+                    , cp.snombre Complejo
+                    , ac.snroventa SNroVenta
+                    , ac.dprecio DPrecio
+                    , ac.porcentaje_inicial PorcentajeCuotaInicial
+                    , ac.dcuota_inicial DCuotaInicial
+                    from administracioncontrato ac
+                    inner join administracioncontacto c on c.lcontacto_id = ac.lcontacto_id
+                    inner join administracioncontacto v on v.lcontacto_id = ac.lasesor_id
+                    inner join administracioncomplejo cp on cp.lcomplejo_id = ac.lcomplejo_id
+                    where ac.dtfecha BETWEEN @inicio and @fin;
+            ";
+
+            var data = await connection.QueryAsync<ItemVentaComision>(query, new {inicio, fin});
+
+            return (data, true, "Consulta realizada correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ItemVentaComision>(), false, "Error al consultar contactos.");
         }
     }
     

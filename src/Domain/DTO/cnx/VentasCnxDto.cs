@@ -45,4 +45,7 @@ public class ItemVentaCnx
     public string? Complejo { get; set; }
     public int TipoVenta { get; set; }
     public decimal PorcentajeCuotaInicial { get; set; }
+
+    public int EstadoVentaRezagadasCicloId { get; set; } = 1;
+    public DateTime FechaRegistroGrd { get; set; } = DateTime.Now;
 }

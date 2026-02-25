@@ -79,6 +79,8 @@ builder.Services.AddScoped<IReportesRepository, ReportesRepository>();
 builder.Services.AddScoped<IVentasCnxRepository, VentaCnxRepository>();
 builder.Services.AddScoped<IProcesoComisionesRepository, ProcesoComisionesRepository>();
 builder.Services.AddScoped<IConfiguracionProcesoComisionesRepository, ConfiguracionProcesoComisionesRepository>();
+builder.Services.AddScoped<IAdministracionVentaPersonalRepository, AdministracionVentaPersonalRepository>();
+
 builder.Services.AddSingleton<ILogService, LogService>();
 
 builder.Services.AddScoped<MiCronJob>();
