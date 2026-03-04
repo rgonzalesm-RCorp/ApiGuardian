@@ -135,13 +135,13 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
             return (Enumerable.Empty<ListaAdministracionContacto>(), false, "Error al consultar contactos.", 0);
         }
     }
-    public async Task<(bool Success, string Mensaje)> InsertContacto(string LogTransaccionId, AdministracionContacto data)
+    public async Task<(bool Success, string Mensaje)> InsertContacto(string LogTransaccionId, AdministracionContacto data, bool autoCompra = false)
     {
         string NombreMetodo = "InsertContacto()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo");
         try
         {
-            string query = @"
+            string query = $@"
                 INSERT INTO administracioncontacto (
                     lcontacto_id,
                     susuarioadd,
@@ -181,7 +181,7 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                     @CorreoElectronico,
                     @Ciudad,
                     @PaisId,
-                    @PatrocinanteId,
+                    { (autoCompra ? " IFNULL(MAX_ID, 0) + 1": "@PatrocinanteId")},
                     @NivelId,
                     @Comentario,
                     @TelefonoOficina,

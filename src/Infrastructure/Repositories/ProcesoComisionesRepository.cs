@@ -222,4 +222,172 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
         }
     }
 
+    public async Task<(IEnumerable<ItemComisionVentaGrupoDto> Data, bool Success, string Mensaje)> GetCalculoVentaGrupo(string LogTransaccionId,string Usuario, string Inicio, string Fin, int LCicloId)
+    {
+        string nombreMetodo = "GetCalculoVentaGrupo()";
+        try
+        {
+            string query = @"select 
+                                AD.SNombreCompleto nombreVendedor, t1.*, cm.porcentaje , 
+                                CASE WHEN t1.dCuotaInicial <= 0.00 then 0 else
+                                t1.dCuotaInicial * cm.porcentaje / 100 
+                                end
+                                comision ,
+                                CASE WHEN t1.dCuotaInicial <= 0.00 then 0 else
+                                1
+                                end esCero
+
+                                from 
+                                (select DISTINCT lasesor_id from administracioncontrato where dtfecha BETWEEN @Inicio and @Fin ) t 
+                                inner join (
+                                
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombreGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    1 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_1
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                                UNION ALL
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombeGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    2 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_2
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                                UNION ALL
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombeGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    3 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_3
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                                UNION ALL
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombeGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    4 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_4
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                                UNION ALL
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombeGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    5 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_5
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                                UNION ALL
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombeGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    6 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_6
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                                UNION ALL
+
+                                SELECT 
+                                    C.lasesor_id lVendedorId,
+                                    ACT.lcontacto_id lGanadorId,
+                                    ACT.SNombreCompleto nombeGanador,
+                                    c.snroventa sNroVenta,
+                                    c.lContrato_id lContratoId,
+                                    c.dcuota_inicial dCuotaInicial,
+                                    c.dtfecha,
+                                    7 Nivel
+                                FROM administracioncontrato C 
+                                JOIN red_sion RS ON RS.lContacto_id = c.lasesor_id
+                                JOIN administracioncontacto ACT ON ACT.lcontacto_id = RS.Nivel_7
+                                WHERE c.dtfecha BETWEEN @Inicio and @Fin AND ACT.cbaja = 0
+
+                            ) t1 on t.lasesor_id = t1.lGanadorId
+                            inner join (
+                                select 1 Nivel, dporcentaje1g porcentaje from administraciontipocontacto where ltipocontacto_id = 9
+                                union ALL
+                                select 2, dporcentaje2g from administraciontipocontacto where ltipocontacto_id = 9
+                                union ALL
+                                select 3, dporcentaje3g from administraciontipocontacto where ltipocontacto_id = 9
+                                union ALL
+                                select 4, dporcentaje4g from administraciontipocontacto where ltipocontacto_id = 9
+                                union ALL
+                                select 5, dporcentaje5g from administraciontipocontacto where ltipocontacto_id = 9
+                                union ALL
+                                select 6, dporcentaje6g from administraciontipocontacto where ltipocontacto_id = 9
+                                union ALL
+                                select 7, dporcentaje7g from administraciontipocontacto where ltipocontacto_id = 9
+                            ) cm on cm.nivel = t1.nivel
+                            INNER JOIN administracioncontacto AD on AD.lcontacto_id = t1.lVendedorId
+                            where t1.dtfecha BETWEEN @Inicio and @Fin ORDER BY t1.dtfecha desc";
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
+            using var connection = _context.CreateConnection();
+
+            var ventaPersonal = await connection.QueryAsync<ItemComisionVentaGrupoDto>(query, new {Inicio, Fin});
+
+            bool success = ventaPersonal.Count() > 0 ? true : false ;
+            string mensaje = success ? "Ventas personales obtenidos correctamente." : "No se encontraron ventas personales.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}]");
+
+            return (ventaPersonal, success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ItemComisionVentaGrupoDto>(), false, $"Error al obtener ventas personales: {ex.Message}");
+        }
+    }
+
 }

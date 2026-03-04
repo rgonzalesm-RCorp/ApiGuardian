@@ -24,3 +24,30 @@ public class VentaPersonalComisionDto
     public int lnrosemana { get; set; }
 }
 
+public class ItemComisionVentaGrupoDto
+{
+    public string NombreVendedor { get; set; } = "";
+
+    public int LVendedorId { get; set; }
+
+    public int LGanadorId { get; set; }
+
+    public string nombreGanador { get; set; } = "";
+
+    public string SNroVenta { get; set; } ="";
+
+    public int LContratoId { get; set; }
+
+    public decimal DCuotaInicial { get; set; }
+
+    public DateTime DtFecha { get; set; }
+
+    public int Nivel { get; set; }
+
+    public decimal Porcentaje { get; set; }
+
+    public decimal Comision { get; set; }
+
+    public bool EsCero { get; set; }
+}
+

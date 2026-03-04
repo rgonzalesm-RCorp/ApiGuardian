@@ -19,9 +19,10 @@ public class ProcesoComisionesController : ControllerBase
     private readonly IAdministracionCicloRepository _administracionCicloRepository;
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IAdministracionVentaPersonalRepository _administracionVentaPersonalRepository;
+    private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
-    public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log, MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository, IAdministracionVentaPersonalRepository administracionVentaPersonalRepository)
+    public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log, MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository, IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository)
     {
         _ventasCnxRepository = ventasCnxRepository;
         _log = log;
@@ -30,6 +31,7 @@ public class ProcesoComisionesController : ControllerBase
         _administracionCicloRepository = administracionCicloRepository;
         _administracionContratoRepository = administracionContratoRepository;
         _administracionVentaPersonalRepository = administracionVentaPersonalRepository;
+        _controlProcesoRepository = controlProcesoRepository;
     }
     [HttpGet("vta/cnx")]
     public async Task<IActionResult> GetVentaCnx([FromHeader(Name = "lCicloId")] int lCicloId)
@@ -137,11 +139,55 @@ public class ProcesoComisionesController : ControllerBase
     [HttpPost("save/vta/proceso")]
     public async Task<IActionResult> SaveVenta(SaveVtaProceso Data)
     {
+        string paso = "GUARDAR_VTA";
         try
         {
             long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var responseControlProceso = await _controlProcesoRepository.GetControlProceso(logTransaccionId.ToString(), Data.Usuario, paso, Data.LCicloId );
+            if(responseControlProceso.Success)
+            {
+                if (responseControlProceso.Data.ControlProcesoId <= 0)
+                {
+                    ItemControlProceso item = new ItemControlProceso{
+                        Paso = paso,
+                        lciclo_id = Data.LCicloId,
+                        Inicio = DateTime.Now,
+                    };
+                    var responseGuardarControl = await _controlProcesoRepository.GuardarControlProceso(logTransaccionId.ToString(), Data.Usuario, item );
+                
+                }else
+                {
+                    if(responseControlProceso.Data.Fin == null)
+                    {
+                        return Ok(new
+                        {
+                            status = false,
+                            mensaje = "Debe esperar a que termine el proceso.",
+                            data = ""
+                        });
+                    }
+                    else
+                    {
+                        ItemControlProceso item = new ItemControlProceso{
+                            Paso = paso,
+                            lciclo_id = Data.LCicloId,
+                            Inicio = DateTime.Now,
+                        };
+                        var responseGuardarControl = await _controlProcesoRepository.GuardarControlProceso(logTransaccionId.ToString(), Data.Usuario, item );
+                    }
+                }
+            }
+            else
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Hubo un problema para obtener el control de proceso.",
+                    data = ""
+                });
+            }
             var responseVentaPersonal = await _procesoComisionesRepository.GuardarVtaRezagadas(logTransaccionId.ToString(), Data.NoListaSeleccionado, "");
-            var t = _miCronJob.ProcesoPrincipal(Data.ListaSeleccionado, "", "", "", Data.Rezagada);
+            var t = _miCronJob.ProcesoPrincipal(Data.ListaSeleccionado, "", "", "", Data.Rezagada, paso, Data.Usuario, Data.LCicloId);
             return Ok(new
             {
                 status = true,
@@ -191,10 +237,11 @@ public class ProcesoComisionesController : ControllerBase
                 dcomision = item.dcomision,
                 lcontrato_id = item.lcontrato_id,
                 lnrosemana = 1,
-                lsemana_id = 123,
+                lsemana_id = 124,
             };
             ListadoVtaPersonal.Add(row);
         }
+        
         var responseVtaPersonsal = await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal);
         return Ok(new
         {
@@ -203,6 +250,20 @@ public class ProcesoComisionesController : ControllerBase
             data = ""
         });
     }
+    
+    [HttpGet("venta/grupo")]
+    public async Task<IActionResult> GetVentaGrupo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        return Ok(new{
+            status = responseVentaPersonal.Success,
+            mensaje = responseVentaPersonal.Mensaje,
+           responseVentaPersonal.Data 
+        });
+    }
+    
     public class RequestSaveVtaPersonal
     {
         public List<VentaPersonalComisionDto> ListaComision { get; set; } = new List<VentaPersonalComisionDto>();
@@ -217,5 +278,6 @@ public class ProcesoComisionesController : ControllerBase
         public List<ItemVentaCnx> NoListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
         public string Usuario { get; set; } = string.Empty;
         public bool Rezagada { get; set; } = false;
+        public int LCicloId { get; set; } = 0;
     }
 }

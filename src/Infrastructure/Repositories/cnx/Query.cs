@@ -27,13 +27,29 @@ namespace Query.Cnx
                         , CASE WHEN V.IDTIPOVENTA = 1 THEN PC.CUOTAINICIAL ELSE V.CUOTAINICIAL END SCuotaInicial
                         , CR.PORC_INICIAL PorcentajeCuotaInicial
                     FROM {item.DataBase}.dbo.INVENTA V
-                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA
+                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE = 1
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
-                    LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED
-                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2 and VC.IDESTADO_VENTA <>2 
-                    and (v.NRODOC !='' or V.GLOSA like '%upgrade%') UNION ALL";
+                    LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED                    
+                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2
+                    AND
+                    (
+                        ( VC.IDESTADO_VENTA <> 2 AND (V.NRODOC <> '' OR V.GLOSA LIKE '%upgrade%'))
+                        OR
+                        (
+                            VC.IDESTADO_VENTA = 2
+                            AND V.IDVENTA IN (
+                                SELECT wVC.IDVENTAORIGINAL
+                                FROM BDConexionADVEL.dbo.INVENTA wV
+                                INNER JOIN BDConexionADVEL.dbo.INVENTA_CCN wVC ON wV.IDVENTA = wVC.IDVENTA
+                                INNER JOIN BDConexionADVEL.dbo.INVENTA wV_1 ON wVC.IDVENTAORIGINAL = wV_1.IDVENTA
+                                WHERE wV.GLOSA LIKE '%upgrade%' AND wV.FECHA BETWEEN @inicio AND @fin AND wV_1.FECHA BETWEEN @inicio AND @fin
+                            )
+                        )
+                    )
+                    
+                    UNION ALL";
                 
             }
 

@@ -124,3 +124,18 @@ VALUES
 INSERT INTO EstadoVentaRezagadasCiclo (EstadoVentaRezagadasCicloId, Descripcion, Estado)
 VALUES
 (0, 'ANULADO', 1);
+
+
+
+CREATE TABLE ControlProceso(
+    controlProcesoId INT AUTO_INCREMENT PRIMARY KEY
+    , lciclo_id INT
+    , paso varchar(150)
+    , inicio datetime
+    , fin datetime
+    , estado INT
+    , fechaadd DATETIME
+    , usuarioadd VARCHAR(50)
+    , fechamod DATETIME
+    , usuariomod VARCHAR(50)
+);
