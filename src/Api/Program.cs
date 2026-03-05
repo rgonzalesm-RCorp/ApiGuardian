@@ -80,6 +80,7 @@ builder.Services.AddScoped<IVentasCnxRepository, VentaCnxRepository>();
 builder.Services.AddScoped<IProcesoComisionesRepository, ProcesoComisionesRepository>();
 builder.Services.AddScoped<IConfiguracionProcesoComisionesRepository, ConfiguracionProcesoComisionesRepository>();
 builder.Services.AddScoped<IAdministracionVentaPersonalRepository, AdministracionVentaPersonalRepository>();
+builder.Services.AddScoped<IAdministracionVentaGrupoRepository, AdministracionVentaGrupoRepository>();
 builder.Services.AddScoped<IControlProcesoRepository, ControlProcesoRepository>();
 
 builder.Services.AddSingleton<ILogService, LogService>();

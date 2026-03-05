@@ -5,6 +5,8 @@ using System.Text.Json.Serialization;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Org.BouncyCastle.Ocsp;
+using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -19,10 +21,16 @@ public class ProcesoComisionesController : ControllerBase
     private readonly IAdministracionCicloRepository _administracionCicloRepository;
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IAdministracionVentaPersonalRepository _administracionVentaPersonalRepository;
+    private readonly IAdministracionVentaGrupoRepository _administracionVentaGrupoRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
+    private readonly IAdministracionSemanaCicloRepository _administracionSemanaCicloRepository;
     private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
-    public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log, MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository, IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository)
+    public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log
+        , MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository
+        , IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository
+        , IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository
+        , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository)
     {
         _ventasCnxRepository = ventasCnxRepository;
         _log = log;
@@ -32,6 +40,8 @@ public class ProcesoComisionesController : ControllerBase
         _administracionContratoRepository = administracionContratoRepository;
         _administracionVentaPersonalRepository = administracionVentaPersonalRepository;
         _controlProcesoRepository = controlProcesoRepository;
+        _administracionVentaGrupoRepository = administracionVentaGrupoRepository;
+        _administracionSemanaCicloRepository = administracionSemanaCicloRepository;
     }
     [HttpGet("vta/cnx")]
     public async Task<IActionResult> GetVentaCnx([FromHeader(Name = "lCicloId")] int lCicloId)
@@ -137,7 +147,7 @@ public class ProcesoComisionesController : ControllerBase
     }
 
     [HttpPost("save/vta/proceso")]
-    public async Task<IActionResult> SaveVenta(SaveVtaProceso Data)
+    public async Task<IActionResult> SaveVenta(RequestGuardarVentaGRD Data)
     {
         string paso = "GUARDAR_VTA";
         try
@@ -263,6 +273,53 @@ public class ProcesoComisionesController : ControllerBase
            responseVentaPersonal.Data 
         });
     }
+
+       [HttpPost("save/vta/grupo")]
+    public async Task<IActionResult> SaveVtaGrupo(RequestGuardarVentaGrupo request)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+   
+        if (responseGetVentaGrupo.Data.Count() != request.ListaComision.Count)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = "La cantidad de registro enviada no coincide con la cantidad obtenida de DB",
+                data = ""
+            });
+        }
+        var responseAdministracionSemanaciclo = await _administracionSemanaCicloRepository.GetSemanaCicloId(logTransaccionId.ToString(), request.LCicloId);
+        List<ItemVentaGrupo> ListadoVentaGrupo = new List<ItemVentaGrupo>();
+        foreach (var item in responseGetVentaGrupo.Data)
+        {
+            ItemVentaGrupo row = new ItemVentaGrupo
+            {
+                usuario = request.Usuario,
+                lciclo_id = request.LCicloId,
+                lcontacto_id = item.LGanadorId,
+                lgeneracion = item.Nivel,
+                lasesor_id = item.LVendedorId,
+                dporcentajecomision = item.Porcentaje,
+                dcomision = item.Comision,
+                dventapersonal = 0,
+                dventapersonalinicial = item.DCuotaInicial,
+                lcontrato_id = item.LContratoId,
+                lnrosemana = responseAdministracionSemanaciclo.Semanas.ToList()[0].LNroSemana,
+                lsemana_id = responseAdministracionSemanaciclo.Semanas.ToList()[0].LSemanaId,
+            };
+            ListadoVentaGrupo.Add(row);
+        }
+        
+        var responseVtaPersonsal = await _administracionVentaGrupoRepository.InsertAdministracionVentaGrupo(logTransaccionId.ToString(), ListadoVentaGrupo);
+        return Ok(new
+        {
+            status = responseVtaPersonsal.Success,
+            mensaje = responseVtaPersonsal.Mensaje,
+            data = ""
+        });
+    }
     
     public class RequestSaveVtaPersonal
     {
@@ -272,12 +329,20 @@ public class ProcesoComisionesController : ControllerBase
         public string Fin { get; set; } = string.Empty; 
         public string Usuario { get; set; } = string.Empty; 
     }
-    public class SaveVtaProceso
+    public class RequestGuardarVentaGRD
     {
         public List<ItemVentaCnx> ListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
         public List<ItemVentaCnx> NoListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
         public string Usuario { get; set; } = string.Empty;
         public bool Rezagada { get; set; } = false;
         public int LCicloId { get; set; } = 0;
+    }
+    public class RequestGuardarVentaGrupo
+    {
+        public List<ItemComisionVentaGrupoDto> ListaComision { get; set; } = new List<ItemComisionVentaGrupoDto>();
+        public int LCicloId { get; set; }
+        public string Inicio { get; set; } = string.Empty; 
+        public string Fin { get; set; } = string.Empty; 
+        public string Usuario { get; set; } = string.Empty; 
     }
 }

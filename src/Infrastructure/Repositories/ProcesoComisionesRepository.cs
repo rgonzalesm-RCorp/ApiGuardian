@@ -373,15 +373,15 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
             using var connection = _context.CreateConnection();
 
-            var ventaPersonal = await connection.QueryAsync<ItemComisionVentaGrupoDto>(query, new {Inicio, Fin});
+            var ventaGrupo = await connection.QueryAsync<ItemComisionVentaGrupoDto>(query, new {Inicio, Fin});
 
-            bool success = ventaPersonal.Count() > 0 ? true : false ;
+            bool success = ventaGrupo.Count() > 0 ? true : false ;
             string mensaje = success ? "Ventas personales obtenidos correctamente." : "No se encontraron ventas personales.";
 
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
                 $"Fin de metodo [mensaje: {mensaje}]");
 
-            return (ventaPersonal, success, mensaje);
+            return (ventaGrupo, success, mensaje);
         }
         catch (Exception ex)
         {
