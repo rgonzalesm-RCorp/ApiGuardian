@@ -53,7 +53,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             return (new ItemProcesoJon(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<VentaPersonalComisionDto> Data, bool Success, string Mensaje)> GetCalculoVentaPersonal(string LogTransaccionId,string Usuario, string Inicio, string Fin, int LCicloId)
+    public async Task<(IEnumerable<VentaPersonalComisionDto> Data, IEnumerable<VentaPersonalComisionDto> ListaVtaPersonal, bool Success, string Mensaje)> GetCalculoVentaPersonal(string LogTransaccionId,string Usuario, string Inicio, string Fin, int LCicloId)
     {
         string nombreMetodo = "CalcularVentaPersonal()";
         try
@@ -61,6 +61,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             string query = @"SELECT 
                                     c.lcontrato_id
                                     , c.lasesor_id lcontacta_id
+                                    , c.dtfecha fechaVenta
                                     , ac.scedulaidentidad
                                     , ac.snombrecompleto
                                     , cp.snombre proyecto
@@ -92,10 +93,35 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                 INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id AND CF.LCicloId = @LCicloId
                                 INNER JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId 
                                 WHERE dtfecha BETWEEN @Inicio and @Fin order by c.lcontrato_id desc";
+            string queryVtaPersonl = @"SELECT 
+                                    c.lcontrato_id
+                                    , c.lasesor_id lcontacta_id
+                                    , c.dtfecha fechaVenta
+                                    , vp.dtfechaadd fechaCalculo
+                                    , ac.scedulaidentidad
+                                    , ac.snombrecompleto
+                                    , cp.snombre proyecto
+                                    , c.snroventa
+                                    , c.dprecio 
+                                    , c.porcentaje_inicial PorcentajeInicial
+                                    , c.dcuota_inicial inicial
+                                    , VP.dporcentajecomision dporcentajecomision
+                                    , VP.dcomision dcomision
+                                    , VP.lciclo_id lciclo_id
+                                    , ASCC.lsemana_id
+                                    , ASCC.lnrosemana
+                                FROM administracioncontrato C
+                                INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
+                                INNER JOIN administracioncomplejo CP on cp.lcomplejo_id = c.lcomplejo_id 
+                                INNER JOIN administracionventapersonal VP ON VP.lcontrato_id = C.lcontrato_id AND VP.lciclo_id = @LCicloId
+                                INNER JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = @LCicloId 
+                                order by c.lcontrato_id desc
+            ";
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
             using var connection = _context.CreateConnection();
 
             var ventaPersonal = await connection.QueryAsync<VentaPersonalComisionDto>(query, new {Inicio, Fin, LCicloId});
+            var ventaPersonalCalulada = await connection.QueryAsync<VentaPersonalComisionDto>(queryVtaPersonl, new {LCicloId});
 
             bool success = ventaPersonal.Count() > 0 ? true : false ;
             string mensaje = success ? "Ventas personales obtenidos correctamente." : "No se encontraron ventas personales.";
@@ -103,12 +129,12 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
                 $"Fin de metodo [mensaje: {mensaje}]");
 
-            return (ventaPersonal, success, mensaje);
+            return (ventaPersonal,ventaPersonalCalulada, success, mensaje);
         }
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<VentaPersonalComisionDto>(), false, $"Error al obtener ventas personales: {ex.Message}");
+            return (Enumerable.Empty<VentaPersonalComisionDto>(), Enumerable.Empty<VentaPersonalComisionDto>(), false, $"Error al obtener ventas personales: {ex.Message}");
         }
     }
     public async Task<(bool Success, string Mensaje)> GuardarVtaRezagadas(string LogTransaccionId, List<ItemVentaCnx> Data, string Usuario)
@@ -228,20 +254,18 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
         try
         {
             string query = @"select 
-                                AD.SNombreCompleto nombreVendedor, t1.*, cm.porcentaje , 
-                                CASE WHEN t1.dCuotaInicial <= 0.00 then 0 else
-                                t1.dCuotaInicial * cm.porcentaje / 100 
-                                end
-                                comision ,
-                                CASE WHEN t1.dCuotaInicial <= 0.00 then 0 else
-                                1
-                                end esCero
-
+                                    AD.SNombreCompleto nombreVendedor, t1.*, cm.porcentaje , 
+                                    CASE WHEN t1.dCuotaInicial <= 0.00 then 0 else
+                                    t1.dCuotaInicial * cm.porcentaje / 100 
+                                    end
+                                    comision ,
+                                    CASE WHEN t1.dCuotaInicial <= 0.00 then 0 else
+                                    1
+                                    end esCero
                                 from 
                                 (select DISTINCT lasesor_id from administracioncontrato where dtfecha BETWEEN @Inicio and @Fin ) t 
                                 inner join (
                                 
-
                                 SELECT 
                                     C.lasesor_id lVendedorId,
                                     ACT.lcontacto_id lGanadorId,

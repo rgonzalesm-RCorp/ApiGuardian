@@ -10,6 +10,8 @@ public class VentaPersonalComisionDto
 {
     public long lcontrato_id { get; set; }
     public long lcontacta_id { get; set; }
+    public DateTime fechaVenta { get; set; } = DateTime.Now;
+    public DateTime fechaCalculo { get; set; } = DateTime.Now;
     public string scedulaidentidad { get; set; } = string.Empty;
     public string snombrecompleto { get; set; } = string.Empty;
     public string proyecto { get; set; } = string.Empty;

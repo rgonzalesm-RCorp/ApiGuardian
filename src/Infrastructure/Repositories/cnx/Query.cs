@@ -24,7 +24,7 @@ namespace Query.Cnx
                         , V.IDCLIENTE IdCliente, RTRIM(A.DESCRIPCION) Complejo, V.IDVENDEDOR VendedorId
                         , V.IDTIPOVENTA TipoVenta
                         , V.TOTALVENTA DPrecio
-                        , CASE WHEN V.IDTIPOVENTA = 1 THEN PC.CUOTAINICIAL ELSE V.CUOTAINICIAL END SCuotaInicial
+                        , CASE WHEN V.IDTIPOVENTA = 1 THEN V.TOTALVENTA * 0.1 ELSE V.CUOTAINICIAL END SCuotaInicial
                         , CR.PORC_INICIAL PorcentajeCuotaInicial
                     FROM {item.DataBase}.dbo.INVENTA V
                     INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE = 1
@@ -41,9 +41,9 @@ namespace Query.Cnx
                             VC.IDESTADO_VENTA = 2
                             AND V.IDVENTA IN (
                                 SELECT wVC.IDVENTAORIGINAL
-                                FROM BDConexionADVEL.dbo.INVENTA wV
-                                INNER JOIN BDConexionADVEL.dbo.INVENTA_CCN wVC ON wV.IDVENTA = wVC.IDVENTA
-                                INNER JOIN BDConexionADVEL.dbo.INVENTA wV_1 ON wVC.IDVENTAORIGINAL = wV_1.IDVENTA
+                                FROM {item.DataBase}.dbo.INVENTA wV
+                                INNER JOIN {item.DataBase}.dbo.INVENTA_CCN wVC ON wV.IDVENTA = wVC.IDVENTA
+                                INNER JOIN {item.DataBase}.dbo.INVENTA wV_1 ON wVC.IDVENTAORIGINAL = wV_1.IDVENTA
                                 WHERE wV.GLOSA LIKE '%upgrade%' AND wV.FECHA BETWEEN @inicio AND @fin AND wV_1.FECHA BETWEEN @inicio AND @fin
                             )
                         )
@@ -120,6 +120,58 @@ namespace Query.Cnx
                 LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
             ) V ON V.IDCLIENTE = SDAT.IDVENDEDOR
             where cl.SCedulaIdentidad = @docId ORDER by v.IDCLIENTE ";
+        }
+    
+        public static string QueryObetnerCuotas(IConfiguration configuration)
+        {
+            try
+            {
+                List<EmpresaCalculoComision> empresas = configuration.GetSection("EmpresaCalculoComisiones").Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
+                string query = @"";
+                foreach (var item in empresas)
+                {
+                    var proyectosExcluidos = item.migracionCuota.proyectosExcluir;
+                    string proyectos = proyectosExcluidos == null ? "" : string.Join(",", proyectosExcluidos);
+                    var productosExcluidos = item.migracionCuota.productosExcluir;
+                    string pr = productosExcluidos == null ? "" : string.Join(", ", productosExcluidos.Select(x => $"'{x}'"));
+                    query += $@"SELECT
+                                    RTRIM(VD.IDPRODUCTO) IDPRODUCTO, V.IDALMACEN AS IDPROYECTO, AL.DESCRIPCION AS PROYECTO,
+                                    R.IDRECIBO, R.IDVENTA, TP.IDTIPOPAGO,
+                                    RTRIM(TP.DESCRIPCION) DESCRIPCION, CLI.IDCLIENTE, RTRIM(CLI.NOMBRE) AS CLIENTE,
+                                    CLI.DOCID AS DOCIDCLI, V.IDVENDEDOR, RTRIM(VEN.NOMBRE) AS VENDEDOR,
+                                    VEN.DOCID AS DOCIDVEN,
+                                    R.MONTO - R.INCREMENTO - R.SEGURO - R.EXPENSA - R.MULTA - ISNULL(PC.MONTO, 0) + R.PAGADOACUENTA AS BONO,
+                                    R.AMORTIZACION,
+                                    R.MONTO - R.INCREMENTO - R.SEGURO - R.EXPENSA - R.MULTA - ISNULL(PC.MONTO, 0) + R.PAGADOACUENTA AS CAPITAL,
+                                    R.INCREMENTO AS INTERES, R.SEGURO, R.EXPENSA,
+                                    R.MULTA, V.FECHA AS FECHA_VENTA, R.FECHA AS FECHA_PAGO,
+                                    ISNULL(PC.MONTO, 0) AS ACUENTA, R.MONTO AS TOTALPAGO, 0 AS MONTODEUDA,
+                                    R.PAGADOACUENTA AS PAGOSACUENTA, R.NROCUOTA
+                                FROM {item.DataBase}.dbo.INRECIBO AS R
+                                INNER JOIN {item.DataBase}.dbo.INRECIBOTIPOPAGO AS RTP ON RTP.IDRECIBO = R.IDRECIBO AND RTP.NROITEM = 1 AND RTP.IDTIPOPAGO NOT IN (4,5,10,12,15,16,17,18,19)
+                                INNER JOIN {item.DataBase}.dbo.INVENTA AS V ON V.IDVENTA = R.IDVENTA
+                                INNER JOIN {item.DataBase}.dbo.INVENTADETALLE AS VD ON VD.IDVENTA = V.IDVENTA
+                                INNER JOIN {item.DataBase}.dbo.INALMACEN AS AL ON AL.IDALMACEN = V.IDALMACEN
+                                INNER JOIN {item.DataBase}.dbo.INTIPOPAGO AS TP ON TP.IDTIPOPAGO = RTP.IDTIPOPAGO
+                                INNER JOIN {item.DataBase}.dbo.INCLIENTE AS CLI ON CLI.IDCLIENTE = V.IDCLIENTE
+                                INNER JOIN {item.DataBase}.dbo.INCLIENTE AS VEN ON VEN.IDCLIENTE = V.IDVENDEDOR
+                                LEFT JOIN {item.DataBase}.dbo.INPAGOACUENTA AS PC ON PC.IDRECIBO = R.IDRECIBO
+                                WHERE R.FECHA BETWEEN @inicio AND @fin AND R.IDESTADO <> 2 AND V.IDESTADO <> 2 AND V.IDTIPOVENTA = 2
+                                    AND (R.MONTO - R.INCREMENTO - R.SEGURO - R.EXPENSA - R.MULTA - ISNULL(PC.MONTO, 0) + R.PAGADOACUENTA) > 0
+                                    AND V.FECHA >= '2016-04-01' AND V.NRODOC <> ''
+                                    AND R.IDRECIBO NOT IN (SELECT idRecibo FROM {item.DataBase}.dbo.INRECIBO_UPG AS RG)
+                                    {(proyectos.Length > 0 ? $"AND V.IDALMACEN NOT IN ({proyectos})": "")}
+                                UNION ALL ";
+                }
+                query =  query.Substring(0, query.Length - 10);
+
+                return query;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+
         }
     }
 }

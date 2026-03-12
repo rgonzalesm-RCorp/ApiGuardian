@@ -142,7 +142,10 @@ public class ProcesoComisionesController : ControllerBase
         return Ok(new{
             status = responseVentaPersonal.Success,
             mensaje = responseVentaPersonal.Mensaje,
-           responseVentaPersonal.Data 
+            data = new {
+                ventaPersonal = responseVentaPersonal.Data, 
+                ventaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal 
+            }
         });
     }
 
@@ -274,7 +277,7 @@ public class ProcesoComisionesController : ControllerBase
         });
     }
 
-       [HttpPost("save/vta/grupo")]
+    [HttpPost("save/vta/grupo")]
     public async Task<IActionResult> SaveVtaGrupo(RequestGuardarVentaGrupo request)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -303,7 +306,7 @@ public class ProcesoComisionesController : ControllerBase
                 lasesor_id = item.LVendedorId,
                 dporcentajecomision = item.Porcentaje,
                 dcomision = item.Comision,
-                dventapersonal = 0,
+                dventapersonal = item.DCuotaInicial,
                 dventapersonalinicial = item.DCuotaInicial,
                 lcontrato_id = item.LContratoId,
                 lnrosemana = responseAdministracionSemanaciclo.Semanas.ToList()[0].LNroSemana,
