@@ -107,8 +107,8 @@ public class BonoResidualController : ControllerBase
         string nombreArchivo = "GetCuota()";
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-            var responseCuota = await _bonoResidualRepository.GetCuota(logTransaccionId.ToString(), Usuario, 1, 1, inicio, fin);
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
+            var responseCuota = await _bonoResidualRepository.GetCuota(logTransaccionId.ToString(), Usuario, inicio, fin);
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
             if (!responseCuota.Success)
             {
@@ -138,9 +138,8 @@ public class BonoResidualController : ControllerBase
                 status = responseCuota.Success ? true : false,
                 mensaje = responseCuota.Mensaje,
                 data = new {
-                    responseCuota.counter,
                     resumen,
-                    base64 = xlsCuota.base64,
+                    xlsCuota.base64,
                     fileNameXls = $"Reporte de cuotas del {inicio} al {fin}"
                 }
             });
@@ -156,4 +155,45 @@ public class BonoResidualController : ControllerBase
             });
         }
     }
+    [HttpPost("save/cuota")]
+    public async Task<IActionResult> GuardarCuota([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetCuota()";
+        try
+        {
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
+            var responseCuota = await _bonoResidualRepository.GetCuota(logTransaccionId.ToString(), Usuario, inicio, fin);
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+            if (!responseCuota.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseCuota.Mensaje,
+                    data = ""
+                });
+            }
+            var responseSaveCuota = _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, responseCuota.ListaCuota.ToList());
+
+
+            return Ok(new
+            {
+                status = true,
+                mensaje = "Se estan guardando las cuotas en segundo plano.",
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+    }
+
 }
