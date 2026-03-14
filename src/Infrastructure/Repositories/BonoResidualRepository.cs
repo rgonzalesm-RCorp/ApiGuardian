@@ -195,36 +195,11 @@ public class BonoResidualRepository : IBonoResidualRepository
     }
 
 
-    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje, int counter)> GetCuota(string LogTransaccionId,string Usuario, int page, int pageSize, string inicio, string fin)
+    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuota(string LogTransaccionId,string Usuario,  string inicio, string fin)
     {
         string nombreMetodo = "GetCuota()";
         var query = ScriptCnx.QueryObetnerCuotas(_configuration);
 
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
-
-        try
-        {
-            using var connection = _contextSql.CreateConnection();
-
-            var ListaCuota = await connection.QueryAsync<TCuota>(query, new{ inicio, fin});
-
-            bool success = true;
-            string mensaje = success ? "Cuota obtenidos correctamente." : "No se encontraron lista de Cuota.";
-
-            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
-                $"Fin de metodo [mensaje: {mensaje}, total registro:{ListaCuota.Count()}]");
-
-            return (ListaCuota, success, mensaje, ListaCuota.Count());
-        }
-        catch (Exception ex)
-        {
-            return(Enumerable.Empty<TCuota>(), false, $"Error al obtener los tipos de descuento: {ex.Message}", 0);
-        }
-    }
-    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuotaAll(string LogTransaccionId,string Usuario, string inicio, string fin)
-    {
-        string nombreMetodo = "GetCuotaAll()";
-        string query = "EXEC BDQishur.dbo.SP_OBTENER_CUOTAS_FOR_RESIDUAL @inicio, @fin";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
         try
@@ -246,5 +221,36 @@ public class BonoResidualRepository : IBonoResidualRepository
             return(Enumerable.Empty<TCuota>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
+    public async Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota)
+    {
+        string nombreMetodo = "GuardarCuota()";
+        string query = $@"insert into T_ACCIONESCUOTASGRL (
+                                IDPRODUCTO,	IDPROYECTO,	PROYECTO, IDRECIBO,	IDVENTA, IDTIPOPAGO, DESCRIPCION, IDCLIENTE, CLIENTE
+                                , DOCIDCLI, IDVENDEDOR, VENDEDOR, DOCIDVEN, BONO, AMORTIZACION, CAPITAL, INTERES, SEGURO, EXPENSA
+                                , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA) 
+                            values (
+                                @IDPRODUCTO, @IDPROYECTO, @PROYECTO, @IDRECIBO, @IDVENTA, @IDTIPOPAGO, @DESCRIPCION, @IDCLIENTE, @CLIENTE
+                                , @DOCIDCLI, @IDVENDEDOR, @VENDEDOR, @DOCIDVEN, @BONO, @AMORTIZACION, @CAPITAL, @INTERES, @SEGURO, @EXPENSA
+                                , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA)";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+        try
+        {
+            using var connection = _contextSql64.CreateConnection();
+            var rows = await connection.ExecuteAsync(query, ListaCuota);
 
+            bool success = rows > 0;
+            string mensaje = success ? "Se registro correctamente la cuota" : "No se realizó el guardado.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}, data count:{ListaCuota.Count}]");
+
+            return (success, mensaje);
+
+        }
+        catch (System.Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return(false, $"Error: {ex.Message}");
+        }
+    }
 }
