@@ -1,10 +1,11 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection?": "Server=10.2.10.14;Database=BDTest;User Id=sa;Password=Passw0rd;TrustServerCertificate=True;",
     "DefaultConnection": "Server=10.2.10.40;Database=grdsion;User ID=root;Password=Passw0rd;SslMode=Disabled;AllowPublicKeyRetrieval=True;",
-    "DefaultConnectionSqlServer_dev": "Server=192.168.4.12;Database=BDComisiones;User Id=UsrTempDesa;Password=b63A0*fe75;TrustServerCertificate=True;",
-    "DefaultConnectionSqlServer": "Server=10.1.30.12;Database=BDComisiones;User Id=gestion;Password=Passw0rd;TrustServerCertificate=True;",
-    "DefaultConnectionSqlServer64": "Server=10.1.30.12;Database=BDComisiones;User Id=gestion;Password=Passw0rd;TrustServerCertificate=True;"
+    "DefaultConnectionSqlServer": "Server=192.168.4.12;Database=BDComisiones;User Id=UsrTempDesa;Password=b63A0*fe75;TrustServerCertificate=True;",
+    "DefaultConnectionSqlServer64": "Server=10.1.30.12;Database=BDComisiones;User Id=gestion;Password=Passw0rd;TrustServerCertificate=True;",
+
+    "DefaultConnection?": "Server=10.2.10.14;Database=BDTest;User Id=sa;Password=Passw0rd;TrustServerCertificate=True;",
+    "DefaultConnectionSqlServer_dev": "Server=192.168.4.12;Database=BDComisiones;User Id=UsrTempDesa;Password=b63A0*fe75;TrustServerCertificate=True;"
   },
   "Logging": {
     "LogLevel": {
@@ -14,11 +15,43 @@
   },
   "AllowedHosts": "*",
   "EmpresaCalculoComisiones" :[
-    {"empresaId": 8, "nombre" :"ADVEL", "dataBase":"BDConexionADVEL"},
-    {"empresaId": 12, "nombre" :"JAYIL", "dataBase":"BDConexionJAYIL"},
-    {"empresaId": 2, "nombre" :"KINTAS", "dataBase":"BDConexionQUINTAS"},
-    {"empresaId": 3, "nombre" :"ZURIEL", "dataBase":"BDConexionZURIEL"}
-  ],
+    {
+        "empresaId": 8,
+        "nombre": "ADVEL",
+        "dataBase": "BDConexionADVEL",
+        "migracionCuota": {
+            "proyectosExcluir": [46,49, 51,56],
+            "productosExcluir": []
+        }
+    },
+    {
+        "empresaId": 12,
+        "nombre": "JAYIL",
+        "dataBase": "BDConexionJAYIL",
+        "migracionCuota": {
+            "proyectosExcluir": [],
+            "productosExcluir": ["N-CRU-C-M1-L25","N-CRU-D-M11-L9","N-CRU-D-M19-L9","N-RDE-M17-L12","N-RDE-M26-L40","N-RDE-M28-L31","N-RDE-M32-L2","N-RDE-M34-L13","N-RDE-M39-L3","N-RDE-M40-L39"]
+        }
+    },
+    {
+        "empresaId": 2,
+        "nombre": "KINTAS",
+        "dataBase": "BDConexionQUINTAS",
+        "migracionCuota": {
+            "proyectosExcluir": [],
+            "productosExcluir": []
+        }
+    },
+    {
+        "empresaId": 3,
+        "nombre": "ZURIEL",
+        "dataBase": "BDConexionZURIEL",
+        "migracionCuota": {
+            "proyectosExcluir": [64],
+            "productosExcluir": []
+        }
+    }
+],
   "ControlProceso":{
     "PasoValidar": "VentaPersonal"
   }
