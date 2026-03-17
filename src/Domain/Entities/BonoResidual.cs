@@ -135,18 +135,8 @@ public class TCartera
     public decimal MontoInteresVenc { get; set; }
     public decimal MontoMulta { get; set; }
     public decimal MontoExpensa { get; set; }
-    private string _fVencMasAnt = string.Empty;
-    public string FVencMasAnt
-    {
-        get => _fVencMasAnt;
-        set => _fVencMasAnt = value?.TrimEnd() ?? string.Empty;
-    }
-    private string _fUltimoVenc = string.Empty;
-    public string FUltimoVenc
-    {
-        get => _fUltimoVenc;
-        set => _fUltimoVenc = value?.TrimEnd() ?? string.Empty;
-    }
+    public string? FVencMasAnt { get; set; } = null;
+    public string? FUltimoVenc {get; set;} = null;
 }
 
 public class TCuota
@@ -164,21 +154,52 @@ public class TCuota
     public int Idvendedor { get; set; }
     public string Vendedor { get; set; } = string.Empty;
     public string Docidven { get; set; } = string.Empty;
-    public Decimal Bono { get; set; }
-    public Decimal Amortizacion { get; set; }
-    public Decimal Capital { get; set; }
-    public Decimal Interes { get; set; }
-    public Decimal Seguro { get; set; }
-    public Decimal Expensa { get; set; }
-    public Decimal Multa { get; set; }
+    public decimal Bono { get; set; }
+    public decimal Amortizacion { get; set; }
+    public decimal Capital { get; set; }
+    public decimal Interes { get; set; }
+    public decimal Seguro { get; set; }
+    public decimal Expensa { get; set; }
+    public decimal Multa { get; set; }
     public DateTime Fecha_Venta { get; set; }
     public DateTime Fecha_Pago { get; set; }
-    public Decimal Acuenta { get; set; }
-    public Decimal Totalpago { get; set; }
-    public Decimal Montodeuda { get; set; }
-    public Decimal Pagosacuenta { get; set; }
+    public decimal Acuenta { get; set; }
+    public decimal Totalpago { get; set; }
+    public decimal Montodeuda { get; set; }
+    public decimal Pagosacuenta { get; set; }
     public int Nrocuota { get; set; }
 }
 
+ public class Excedente
+    {
+        public string Empresa { get; set; } = string.Empty;
+        public int Idalmacen { get; set; }
+        public int Idventa { get; set; }
+        public DateTime Fechaventa { get; set; }
+        public string Idproducto { get; set; }= string.Empty;
+        public int Idcliente { get; set; }
+        public string Ci_Cliente { get; set; }= string.Empty;
+        public string Nombre_Cliente { get; set; }= string.Empty;
+        public int Idvendedor { get; set; }
+        public string Ci_Vendedor { get; set; }= string.Empty;
+        public string Nombre_Vendedor { get; set; }= string.Empty;
+        public int Idtipoventa { get; set; }
+        public decimal Precioventa { get; set; }
+        public decimal Cuotainicial { get; set; }
+        public decimal Valor_Ci { get; set; }
+        public decimal Montoabonado { get; set; }
+        public decimal Totaldeuda { get; set; }
+        public string Tipoventa { get; set; }= string.Empty;
+        public int Idestado_Venta { get; set; }
+        public int Idestado { get; set; }
+        public string Glosa { get; set; }= string.Empty;
+        public string Nrodoc { get; set; }= string.Empty;
+        public int Kit { get; set; }
+        public int Comisionable { get; set; }
+        public DateTime Modfecha { get; set; }
+        public string Modhora { get; set; }= string.Empty;
+        public decimal Bono { set; get; }
+        public int IdProyecto_Guardian { set; get; }
+    }
 
 

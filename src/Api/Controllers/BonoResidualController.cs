@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection.Repositories;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
+using DocumentFormat.OpenXml.Drawing.Charts;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -16,10 +17,12 @@ public class BonoResidualController : ControllerBase
 {
     private readonly ILogService _log;
     private readonly IBonoResidualRepository _bonoResidualRepository;
+    private readonly IVentasCnxRepository _ventasCnxRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
-    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository)
+    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository, IVentasCnxRepository ventasCnxRepository)
     {
         _bonoResidualRepository = bonoResidualRepository;
+        _ventasCnxRepository = ventasCnxRepository;
         _log = log;
     }
     [HttpGet("get/cartera")]
@@ -182,6 +185,53 @@ public class BonoResidualController : ControllerBase
                 status = true,
                 mensaje = "Se estan guardando las cuotas en segundo plano.",
                 data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+    }
+
+
+    [HttpGet("get/excedente")]
+    public async Task<IActionResult> GetExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GetExcedente()";
+        try
+        {
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
+            var responseVentaCnx = await _ventasCnxRepository.GetVentaCnx(logTransaccionId.ToString(), inicio, fin);
+            List<ItemVentaCnx> dataVentasCnx = responseVentaCnx.Data.ToList();
+            List<ItemVentaCnx> listaFiltrada = dataVentasCnx.Where(x => (x.SCuotaInicialOriginal - x.ValorCi) > Convert.ToDecimal(0.05) && !x.Glosa.Contains("UPGRADE")).ToList();
+
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+            if (!responseVentaCnx.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseVentaCnx.Mensaje,
+                    data = ""
+                });
+            }
+             
+
+            return Ok(new
+            {
+                status = true,
+                mensaje = "Se estan guardando las cuotas en segundo plano.",
+                data = new{
+                    listaExcedente = listaFiltrada
+                }
             });
         }
         catch (Exception ex)

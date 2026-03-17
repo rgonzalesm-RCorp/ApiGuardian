@@ -25,9 +25,21 @@ namespace Query.Cnx
                         , V.IDTIPOVENTA TipoVenta
                         , V.TOTALVENTA DPrecio
                         , CASE WHEN V.IDTIPOVENTA = 1 THEN V.TOTALVENTA * 0.1 ELSE V.CUOTAINICIAL END SCuotaInicial
+                        , V.CUOTAINICIAL  SCuotaInicialOriginal
                         , CR.PORC_INICIAL PorcentajeCuotaInicial
+                        , CASE WHEN V.IDTIPOVENTA=1 THEN ROUND(VD.PRECIOVENTA * (0.1), 3)
+                            WHEN (V.CUOTAINICIAL / VD.PRECIOVENTA)>=0.099 THEN CEILING(ROUND(VD.PRECIOVENTA * (0.1), 2))
+                            WHEN (V.CUOTAINICIAL / VD.PRECIOVENTA)>=0.069 and (V.CUOTAINICIAL / VD.PRECIOVENTA)<0.1 THEN ROUND(VD.PRECIOVENTA * (0.07), 0) 
+                            WHEN (V.CUOTAINICIAL / VD.PRECIOVENTA)>=0.059 and (V.CUOTAINICIAL / VD.PRECIOVENTA)<0.069 THEN ROUND(VD.PRECIOVENTA * (0.06), 0)
+                            WHEN (V.CUOTAINICIAL / VD.PRECIOVENTA)>=0.049 and (V.CUOTAINICIAL / VD.PRECIOVENTA)<0.059 THEN CEILING(ROUND(VD.PRECIOVENTA *(0.05), 2))
+                            WHEN (V.CUOTAINICIAL / VD.PRECIOVENTA)>=0.029 and (V.CUOTAINICIAL / VD.PRECIOVENTA)<0.049  THEN CEILING(ROUND(VD.PRECIOVENTA * (0.03),2))       
+                            ELSE ROUND(VD.PRECIOVENTA * (0.07), 0) 
+                        END AS ValorCi
+                        , RTRIM(P.IDSECCION_PROD) SeccionId
+                        , RTRIM(V.GLOSA) Glosa
                     FROM {item.DataBase}.dbo.INVENTA V
                     INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE = 1
+                    INNER JOIN {item.DataBase}.dbo.INVENTADETALLE AS VD ON V.IDVENTA = VD.IDVENTA
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
@@ -164,6 +176,20 @@ namespace Query.Cnx
                                 UNION ALL ";
                 }
                 query =  query.Substring(0, query.Length - 10);
+
+                query = $@"SELECT 
+                            T.*
+                        FROM
+                        ({query})T
+                        LEFT JOIN BDBPMSION.dbo.SolicitudReprogramacion D ON D.IDVENTA =T.IDVENTA AND D.IdEstadoSolicitud IN (2,3,4,5)
+                        WHERE
+                            T.FECHA_PAGO >= @inicio 
+                            AND T.FECHA_PAGO <= @fin 
+                            AND T.IDPRODUCTO NOT IN(SELECT 
+                                                        E.IDPRODUCTO 
+                                                    FROM bdcomisiones.dbo.REPROGRAMACION_ADENDA E 
+                                                    WHERE T.IDVENTA=e.IDVENTA and E.fecharepro<'20201001')
+                        AND D.IdProducto IS NULL ";
 
                 return query;
             }

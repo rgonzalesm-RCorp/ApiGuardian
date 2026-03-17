@@ -16,6 +16,11 @@ public class BonoResidualRepository : IBonoResidualRepository
     private readonly IConfiguration _configuration;
     private readonly ILogService _log;
     private string NOMBREARCHIVO = "BonoResidualRepository.CS";
+
+    #region "Script"
+    private readonly string SCRIPT_CLEAR_CUOTAS = "TRUNCATE TABLE T_ACCIONESCUOTASGRL64";
+    private readonly string SCRIPT_CLEAR_CARTERA = "TRUNCATE TABLE T_CARTERA64";
+    #endregion
     public BonoResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSql, DapperContextSqlServer64 contextSql64, IConfiguration configuration)
     {
         _context = context;
@@ -175,14 +180,21 @@ public class BonoResidualRepository : IBonoResidualRepository
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
         try
         {
+            foreach (var item in ListadoCartera)
+            {
+                item.Fecha = item.Fecha.Replace("-", "");
+                item.UltimoPago = item.UltimoPago.Replace("-", "");
+                item.FUltimoVenc = item.FUltimoVenc == null ? null: item.FUltimoVenc.Replace("-", "");
+                item.FVencMasAnt = item.FVencMasAnt == null ? null: item.FVencMasAnt.Replace("-", "");
+            }
+            
             using var connection = _contextSql64.CreateConnection();
+            await connection.ExecuteAsync(SCRIPT_CLEAR_CARTERA);
             var rows = await connection.ExecuteAsync(query, ListadoCartera);
-
             bool success = rows > 0;
             string mensaje = success ? "Se registro correctamente la cartera" : "No se realizó el guardado.";
 
-            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
-                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}, data count:{ListadoCartera.Count}]");
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,$"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}, data count:{ListadoCartera.Count}]");
 
             return (success, mensaje);
 
@@ -224,7 +236,7 @@ public class BonoResidualRepository : IBonoResidualRepository
     public async Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota)
     {
         string nombreMetodo = "GuardarCuota()";
-        string query = $@"insert into T_ACCIONESCUOTASGRL (
+        string query = $@"insert into T_ACCIONESCUOTASGRL64 (
                                 IDPRODUCTO,	IDPROYECTO,	PROYECTO, IDRECIBO,	IDVENTA, IDTIPOPAGO, DESCRIPCION, IDCLIENTE, CLIENTE
                                 , DOCIDCLI, IDVENDEDOR, VENDEDOR, DOCIDVEN, BONO, AMORTIZACION, CAPITAL, INTERES, SEGURO, EXPENSA
                                 , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA) 
@@ -236,6 +248,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         try
         {
             using var connection = _contextSql64.CreateConnection();
+            await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
             var rows = await connection.ExecuteAsync(query, ListaCuota);
 
             bool success = rows > 0;
@@ -253,4 +266,35 @@ public class BonoResidualRepository : IBonoResidualRepository
             return(false, $"Error: {ex.Message}");
         }
     }
+
+
+    public async Task<(IEnumerable<Excedente> ListaCuota, bool Success, string Mensaje)> GetExcedente(string LogTransaccionId,string Usuario, string inicio, string fin)
+    {
+        
+        string nombreMetodo = "GetExcedente()";
+        var query = ScriptCnx.QueryVentaCnx(_configuration);
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, usuario: {Usuario}]");
+
+        try
+        {
+            using var connection = _contextSql.CreateConnection();
+
+            var ListaCuota = await connection.QueryAsync<Excedente>(query, new{ inicio, fin});
+
+            bool success = true;
+            string mensaje = success ? "Excedentes obtenidos correctamente." : "No se encontraron lista de excedentes.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, total registro:{ListaCuota.Count()}]");
+
+            return (ListaCuota, success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            return(Enumerable.Empty<Excedente>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
+        }
+    }
+    
+
 }
