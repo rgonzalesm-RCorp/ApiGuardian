@@ -18,8 +18,8 @@ public class BonoResidualRepository : IBonoResidualRepository
     private string NOMBREARCHIVO = "BonoResidualRepository.CS";
 
     #region "Script"
-    private readonly string SCRIPT_CLEAR_CUOTAS = "TRUNCATE TABLE T_ACCIONESCUOTASGRL64";
-    private readonly string SCRIPT_CLEAR_CARTERA = "TRUNCATE TABLE T_CARTERA64";
+    private readonly string SCRIPT_CLEAR_CUOTAS = "TRUNCATE TABLE T_ACCIONESCUOTASGRL";
+    private readonly string SCRIPT_CLEAR_CARTERA = "TRUNCATE TABLE Cartera";
     #endregion
     public BonoResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSql, DapperContextSqlServer64 contextSql64, IConfiguration configuration)
     {
@@ -161,7 +161,7 @@ public class BonoResidualRepository : IBonoResidualRepository
     public async Task<(bool Success, string Mensaje)> GuardarCartera(string LogTransaccionId,string Usuario, List<TCartera> ListadoCartera)
     {
         string nombreMetodo = "GuardarCartera()";
-        string query = $@"insert into T_CARTERA64 
+        string query = $@"insert into Cartera 
                             (
                                 EMPRESA, LOTE, DOCID, CLIENTE, DOCID_VENDEDOR, NOMBRE, IDTIPOVENTA, IDPROYECTO,
                                 IDVENTA, CUOTAINICIAL, TOTALVENTA, TOTALDEUDA, FECHA, PROYECTO, CUOTAS_LOTES_VENCIDAS,
@@ -188,7 +188,7 @@ public class BonoResidualRepository : IBonoResidualRepository
                 item.FVencMasAnt = item.FVencMasAnt == null ? null: item.FVencMasAnt.Replace("-", "");
             }
             
-            using var connection = _contextSql64.CreateConnection();
+            using var connection = _context.CreateConnection();
             await connection.ExecuteAsync(SCRIPT_CLEAR_CARTERA);
             var rows = await connection.ExecuteAsync(query, ListadoCartera);
             bool success = rows > 0;
@@ -233,10 +233,10 @@ public class BonoResidualRepository : IBonoResidualRepository
             return(Enumerable.Empty<TCuota>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
-    public async Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota)
+    public async Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota, bool excedente = false)
     {
         string nombreMetodo = "GuardarCuota()";
-        string query = $@"insert into T_ACCIONESCUOTASGRL64 (
+        string query = $@"insert into T_ACCIONESCUOTASGRL (
                                 IDPRODUCTO,	IDPROYECTO,	PROYECTO, IDRECIBO,	IDVENTA, IDTIPOPAGO, DESCRIPCION, IDCLIENTE, CLIENTE
                                 , DOCIDCLI, IDVENDEDOR, VENDEDOR, DOCIDVEN, BONO, AMORTIZACION, CAPITAL, INTERES, SEGURO, EXPENSA
                                 , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA) 
@@ -244,11 +244,13 @@ public class BonoResidualRepository : IBonoResidualRepository
                                 @IDPRODUCTO, @IDPROYECTO, @PROYECTO, @IDRECIBO, @IDVENTA, @IDTIPOPAGO, @DESCRIPCION, @IDCLIENTE, @CLIENTE
                                 , @DOCIDCLI, @IDVENDEDOR, @VENDEDOR, @DOCIDVEN, @BONO, @AMORTIZACION, @CAPITAL, @INTERES, @SEGURO, @EXPENSA
                                 , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA)";
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, usuario = {Usuario}]");
         try
         {
-            using var connection = _contextSql64.CreateConnection();
-            await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
+            using var connection = _context.CreateConnection();
+            if (!excedente)
+                await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
+            
             var rows = await connection.ExecuteAsync(query, ListaCuota);
 
             bool success = rows > 0;
@@ -295,6 +297,6 @@ public class BonoResidualRepository : IBonoResidualRepository
             return(Enumerable.Empty<Excedente>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
-    
+
 
 }

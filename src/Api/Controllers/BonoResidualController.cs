@@ -245,5 +245,86 @@ public class BonoResidualController : ControllerBase
             });
         }
     }
+    [HttpPost("save/excedente")]
+    public async Task<IActionResult> GuardarExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string nombreArchivo = "GuardarExcedente()";
+        try
+        {
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
+            var responseVentaCnx = await _ventasCnxRepository.GetVentaCnx(logTransaccionId.ToString(), inicio, fin);
+            List<ItemVentaCnx> dataVentasCnx = responseVentaCnx.Data.ToList();
+            List<ItemVentaCnx> listaFiltrada = dataVentasCnx.Where(x => (x.SCuotaInicialOriginal - x.ValorCi) > Convert.ToDecimal(0.05) && !x.Glosa.Contains("UPGRADE")).ToList();
 
+            List<TCuota> ListaExcedente = new List<TCuota>();
+            foreach (var item in listaFiltrada)
+            {
+                TCuota row = new TCuota
+                {
+                    Idproducto = item.Lote,
+                    Idproyecto = item.LComplejoId,
+                    Proyecto =  item.Complejo ?? "",
+                    Idrecibo = 0,
+                    Idventa = item.IdVenta,
+                    Idtipopago = 0,
+                    Descripcion = "",
+                    Idcliente = item.IdCliente,
+                    Cliente = item.SNombreCompleto,
+                    Docidcli = item.SCedulaIdentidad ?? "",
+                    Idvendedor = item.VendedorId,
+                    Vendedor = item.SNombreCompletoVendedor,
+                    Docidven = item.SCedulaIdentidadVendedor ?? "",
+                    Bono = item.SCuotaInicialOriginal - item.ValorCi,
+                    Amortizacion = 0,
+                    Capital = 0,
+                    Interes = 0,
+                    Seguro = 0,
+                    Expensa = 0,
+                    Multa = 0,
+                    Fecha_Venta = item.DFecha,
+                    Fecha_Pago = DateTime.Now,
+                    Acuenta = 0,
+                    Totalpago = 0,
+                    Montodeuda = 0,
+                    Pagosacuenta = 0,
+                    Nrocuota = 0,
+
+                };
+                ListaExcedente.Add(row);
+            }
+
+            var responseGuardarExcedente = await _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, ListaExcedente, true);
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+            if (!responseVentaCnx.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseVentaCnx.Mensaje,
+                    data = ""
+                });
+            }
+             
+
+            return Ok(new
+            {
+                status = true,
+                mensaje = "Se estan guardando los excedentes en segundo plano.",
+                data = new{
+                    listaExcedente = listaFiltrada
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+    }
 }

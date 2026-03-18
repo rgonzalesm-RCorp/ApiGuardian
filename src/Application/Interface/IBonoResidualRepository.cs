@@ -1,3 +1,4 @@
+using System.Reflection.Metadata;
 using ApiGuardian.Domain.Entities;
 
 namespace ApiGuardian.Application.Interfaces;
@@ -9,7 +10,7 @@ public interface IBonoResidualRepository
     Task<(bool Success, string Mensaje)> GuardarCartera(string LogTransaccionId,string Usuario, List<TCartera> ListadoCartera);
 
     Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuota(string LogTransaccionId,string Usuario, string inicio, string fin);
-    Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota);
+    Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota, bool excedente = false);
 
     Task<(IEnumerable<Excedente> ListaCuota, bool Success, string Mensaje)> GetExcedente(string LogTransaccionId,string Usuario, string inicio, string fin);
 
