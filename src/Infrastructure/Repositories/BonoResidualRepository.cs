@@ -248,8 +248,8 @@ public class BonoResidualRepository : IBonoResidualRepository
         try
         {
             using var connection = _context.CreateConnection();
-            if (!excedente)
-                await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
+            //if (!excedente)
+                //await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
             
             var rows = await connection.ExecuteAsync(query, ListaCuota);
 
