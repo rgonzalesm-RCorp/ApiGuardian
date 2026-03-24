@@ -20,9 +20,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
     {
          string nombreMetodo = "GetProceso()";
 
-        string query = $@"
-            select * from ControlProceso where paso = @Paso and lciclo_id = @LCicloId
-        ";
+        string query = $@"select * from ControlProceso where paso = @Paso and lciclo_id = @LCicloId";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 

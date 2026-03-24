@@ -36,7 +36,8 @@ public class BrConfiguracionRepository : IBrConfiguracionRepository
                         inner join br_niveles bn on bn.brniveles_id = bcd.brniveles_id
                         INNER join br_tipoproducto btp on btp.brtipoproducto_id = bc.brtipoproducto_id
                         inner join administracionciclo ac on ac.lciclo_id = bc.lciclo_id
-                        where bc.estado = 1 and bcd.estado = 1";
+                        where bc.estado = 1 and bcd.estado = 1
+                        order by bc.lciclo_id desc, bc.brtipoproducto_id, bn.nivel ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio: Usuario: {Usuario}");
 
@@ -119,8 +120,8 @@ public async Task<(IEnumerable<BrTipoProducto> Data, bool Success, string Mensaj
                     (@BrConfiguracionId, @LCicloId, @TipoProductoId, 1, NOW(), @Usuario);
                     SELECT IFNULL(MAX(brconfiguracion_id), 0) FROM br_configuracion;";
         string queryEmcabezadoUpdate = $@"UPDATE br_configuracion
-                    SET lcicloc_id=@LCicloId,
-                        brtipoproducto_id = @TipoProductoId
+                    SET lciclo_id=@LCicloId,
+                        brtipoproducto_id = @TipoProductoId,
                         fechamod=NOW(),
                         usuariomod=@Usuario
                     WHERE brconfiguracion_id=@BrConfiguracionId";
@@ -141,7 +142,7 @@ public async Task<(IEnumerable<BrTipoProducto> Data, bool Success, string Mensaj
             }
             else
             {
-                await con.QueryAsync(queryEmcabezadoUpdate, new { BrConfiguracionId, data.LCicloId, data.Usuario });
+                await con.QueryAsync(queryEmcabezadoUpdate, new { BrConfiguracionId, data.LCicloId, data.Usuario, data.TipoProductoId });
 
                 // eliminar detalles previos
                 await con.QueryAsync(@"
@@ -174,20 +175,25 @@ public async Task<(IEnumerable<BrTipoProducto> Data, bool Success, string Mensaj
     }
 
     // =========================================================
-    public async Task<(bool, string)> EliminarConfiguracion(string LogTransaccionId, string Usuario, int id)
+    public async Task<(bool, string)> EliminarConfiguracion(string LogTransaccionId, string Usuario, int brConfiguracionId)
     {
         const string metodo = "EliminarConfiguracion()";
+        string query = @"UPDATE br_configuracion SET estado=0 WHERE brconfiguracion_id=@brConfiguracionId;";
+        string queryDetalle = @"UPDATE br_configuraciondetalle SET estado=0 WHERE brconfiguracion_id=@brConfiguracionId;";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio de metodo [Usuario: {Usuario}, script: {query}]");
+
 
         try
         {
             using var con = _context.CreateConnection();
 
-            await con.ExecuteAsync(@"
-                UPDATE br_configuracion SET estado=0 WHERE brconfiguracion_id=@id;
-                UPDATE br_configuraciondetalle SET estado=0 WHERE brconfiguracion_id=@id;
-            ", new { id });
-
-            return (true, "Eliminado");
+            var rows = await con.ExecuteAsync(query, new { brConfiguracionId });
+            var rowsDetalle = await con.ExecuteAsync(queryDetalle, new { brConfiguracionId });
+            bool success = rows > 0;
+            string mensaje = success ? "Configuracion eliminada correctamente" : "No se encontró al configuracion a eliminar";
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}]");
+            
+            return (success, mensaje); 
         }
         catch (Exception ex)
         {
@@ -195,4 +201,30 @@ public async Task<(IEnumerable<BrTipoProducto> Data, bool Success, string Mensaj
             return (false, ex.Message);
         }
     }
+    public async Task<(bool Success, string Mensaje, bool existe)>ValidarRegistro(string LogTransaccionId, string Usuario, int LCicloId, int TipoProductoId)
+    {
+        //int total = await connection.ExecuteScalarAsync<int>(queryCount, parameters);
+        const string metodo = "ValidarRegistro()";
+        string query = @"select count(*) from br_configuracion where estado = 1 and lciclo_id = @LCicloId and brtipoproducto_id = @TipoProductoId;"; 
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio de metodo [Usuario: {Usuario}, script: {query}]");
+
+
+        try
+        {
+            using var con = _context.CreateConnection();
+
+            int total = await con.ExecuteScalarAsync<int>(query, new {LCicloId, TipoProductoId}); 
+             
+            string mensaje = total > 0 ? "Ya existe una configuracion para el ciclo y tipo de producto seleccionado" : "No existe se puede crear";
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Fin de metodo [mensaje: {mensaje}, count registro:{total}]");
+            
+            return (true, mensaje, total >0? true: false); 
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, metodo, "Error", ex);
+            return (false, ex.Message, true);
+        }
+    }
+
 }

@@ -25,14 +25,15 @@ public class BrConfiguracionController : ControllerBase
     }
 
     [HttpGet("get/datos")]
-    public async Task<IActionResult> GetDatos()
+    public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario )
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+        _log.Error(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
 
         try
         {
-            var responseNivel = await _repo.GetNivel(logTransaccionId, "");
-            var responseTipoProducto = await _repo.GetTipoProducto(logTransaccionId, "");
+            var responseNivel = await _repo.GetNivel(logTransaccionId, Usuario);
+            var responseTipoProducto = await _repo.GetTipoProducto(logTransaccionId, Usuario);
 
 
             
@@ -119,7 +120,36 @@ public class BrConfiguracionController : ControllerBase
 
         try
         {
+            if(data.BrConfiguracionId == 0)
+            {
+                var responseValidacion = await _repo.ValidarRegistro(logId, data.Usuario ?? "", data.LCicloId, data.TipoProductoId);
+                if(!responseValidacion.Success)
+                {
+                    return Ok(new { status = false, mensaje = responseValidacion.Mensaje });
+                }
+                if (responseValidacion.existe)
+                {
+                    return Ok(new { status = false, mensaje = responseValidacion.Mensaje });
+                }
+                
+            }
             var resp = await _repo.GuardarConfiguracion(logId, "", data);
+            return Ok(new { status = resp.Success, mensaje = resp.Mensaje });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logId, NOMBREARCHIVO, "Save", "Error", ex);
+            return Ok(new { status = false, mensaje = ex.Message });
+        }
+    }
+    [HttpDelete("delete/configuracion")]
+    public async Task<IActionResult> Delete([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "brConfiguracionId")] int brConfiguracionId)
+    {
+        var logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+
+        try
+        {
+            var resp = await _repo.EliminarConfiguracion(logId, Usuario, brConfiguracionId);
             return Ok(new { status = resp.Success, mensaje = resp.Mensaje });
         }
         catch (Exception ex)
