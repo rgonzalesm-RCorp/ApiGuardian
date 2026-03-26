@@ -5,6 +5,7 @@ using ApiGuardian.Infrastructure.Persistence;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Configuration;
 using Query.Cnx;
+using DocumentFormat.OpenXml.Bibliography;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -241,7 +242,7 @@ public class BonoResidualRepository : IBonoResidualRepository
                                 , DOCIDCLI, IDVENDEDOR, VENDEDOR, DOCIDVEN, BONO, AMORTIZACION, CAPITAL, INTERES, SEGURO, EXPENSA
                                 , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA) 
                             values (
-                                @IDPRODUCTO, @IDPROYECTO, @PROYECTO, @IDRECIBO, @IDVENTA, @IDTIPOPAGO, @DESCRIPCION, @IDCLIENTE, @CLIENTE
+                                @IDPRODUCTO, @LComplejoId, @PROYECTO, @IDRECIBO, @IDVENTA, @IDTIPOPAGO, @DESCRIPCION, @IDCLIENTE, @CLIENTE
                                 , @DOCIDCLI, @IDVENDEDOR, @VENDEDOR, @DOCIDVEN, @BONO, @AMORTIZACION, @CAPITAL, @INTERES, @SEGURO, @EXPENSA
                                 , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA)";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, usuario = {Usuario}]");
@@ -295,6 +296,78 @@ public class BonoResidualRepository : IBonoResidualRepository
         catch (Exception ex)
         {
             return(Enumerable.Empty<Excedente>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
+        }
+    }
+    public async Task<(IEnumerable<BrCuotaRed> ListaCuotaRed, IEnumerable<BrContacto> ListaContacto, IEnumerable<BrContactoActivos> ListaContactosActivos, bool Success, string Mensaje)> GetDataCalculoBonoResidual(string LogTransaccionId,string Usuario, int LCicloId)
+    {
+        string nombreMetodo = "GetDataCalculoBonoResidual()";
+        string queryCuota = @"select 
+                                ct.Id , ct.IDPRODUCTO ProductoId
+                                , ct.IDPROYECTO ProyectoId , CT.PROYECTO Proyecto
+                                , CT.IDRECIBO ReciboId , CT.IDVENTA VentaId
+                                , CT.IDTIPOPAGO TipoPagoId , CT.DESCRIPCION TipoPago
+                                , CT.IDCLIENTE ClienteId , CT.CLIENTE Cliente
+                                , CT.DOCIDCLI DocumentoCliente , CT.IDVENDEDOR VendedorId
+                                , CT.VENDEDOR Vendedor , CT.DOCIDVEN DocumentoVendedor
+                                , CT.BONO Bono , C.lcontacto_id LContactoId
+                                , r.lpatrocinador1g LPatrocinado1 , r.lpatrocinador2g LPatrocinado2
+                                , r.lpatrocinador3g LPatrocinado3 , r.lpatrocinador4g LPatrocinado4
+                                , r.lpatrocinador5g LPatrocinado5 , r.lpatrocinador6g LPatrocinado6
+                                , r.lpatrocinador7g LPatrocinado7
+                            from T_ACCIONESCUOTASGRL ct 
+                            inner JOIN tmp_residual_contacto c on ct.docidcli = c.scedulaidentidad
+                            inner join tmp_residual_red r on r.lcontacto_id = c.lcontacto_id ";
+        string queryContacto = @"select 
+                                    tmpresidualcontactoId TmpResidualContactoId
+                                    , lcontacto_id LContactoId
+                                    , scedulaidentidad SCedulaIdentidad
+                                    , snombrecompleto SNombreCompleto
+                                    , scodigo Codigo 
+                                from tmp_residual_contacto";
+        string queryContactosActivos = @"select DISTINCT lcontacto_id from administracionventapersonal where lciclo_id = @LCicloId";
+        
+        string queryInsertTempRed = @"
+                                        TRUNCATE TABLE tmp_residual_red;
+                                        insert into tmp_residual_red
+                                        SELECT 0,
+                                                    r.lcontacto_id
+                                                    , r.lpatrocinador1g
+                                                    , r.lpatrocinador2g
+                                                    , r.lpatrocinador3g
+                                                    , r.lpatrocinador4g
+                                                    , r.lpatrocinador5g
+                                                    , r.lpatrocinador6g
+                                                    , r.lpatrocinador7g
+                                                    FROM administracionred R  
+                                                    where r.lciclo_id = @LCicloId";
+        string queryInsertTempContacto = @"TRUNCATE TABLE tmp_residual_contacto;
+                                            insert into tmp_residual_contacto
+                                            select 0, lcontacto_id, scedulaidentidad, snombrecompleto, scodigo 
+                                            from administracioncontacto ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [queryCuota: {queryCuota}, queryContacto: {queryContacto}, usuario: {Usuario}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            //await connection.QueryAsync(queryInsertTempRed, new {LCicloId});
+            //await connection.QueryAsync(queryInsertTempContacto);
+
+            var ListaCuota = await connection.QueryAsync<BrCuotaRed>(queryCuota);
+            var ListaContacto = await connection.QueryAsync<BrContacto>(queryContacto);
+            var ListaContactoActivos = await connection.QueryAsync<BrContactoActivos>(queryContactosActivos, new {LCicloId});
+
+            bool success = true;
+            string mensaje = success ? "Datos obtenidos correctamente." : "No se encontraron los datos.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, total registro:{ListaCuota.Count()}]");
+
+            return (ListaCuota, ListaContacto, ListaContactoActivos, success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            return(Enumerable.Empty<BrCuotaRed>(), Enumerable.Empty<BrContacto>(), Enumerable.Empty<BrContactoActivos>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
 

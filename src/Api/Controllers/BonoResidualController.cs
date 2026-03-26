@@ -8,6 +8,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
 using DocumentFormat.OpenXml.Drawing.Charts;
+using ApiGuardian.Infrastructure.Services;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -18,25 +19,29 @@ public class BonoResidualController : ControllerBase
     private readonly ILogService _log;
     private readonly IBonoResidualRepository _bonoResidualRepository;
     private readonly IVentasCnxRepository _ventasCnxRepository;
+    private readonly IBrConfiguracionRepository _brConfiguracionRepository;
+    private readonly IAdministracionBonoResidualRepository _adminBonoResidualRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
-    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository, IVentasCnxRepository ventasCnxRepository)
+    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository, IVentasCnxRepository ventasCnxRepository, IBrConfiguracionRepository brConfiguracionRepository, IAdministracionBonoResidualRepository administracionBonoResidualRepository)
     {
         _bonoResidualRepository = bonoResidualRepository;
         _ventasCnxRepository = ventasCnxRepository;
+        _brConfiguracionRepository = brConfiguracionRepository;
+        _adminBonoResidualRepository = administracionBonoResidualRepository;
         _log = log;
     }
     [HttpGet("get/cartera")]
     public async Task<IActionResult> GetCartera([FromHeader(Name = "Usuario")] string Usuario)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "GetCartera()";
+        string nombreMetodo = "GetCartera()";
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreMetodo, "Inicio de metodo");
             var responseCarteraAll = await _bonoResidualRepository.GetCarteraAll(logTransaccionId.ToString(), Usuario);
 
 
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreMetodo, $"Fin de metodo.");
 
             var resumenCartera = responseCarteraAll.ListaCartera.GroupBy(x => new {x.Estado})
             .Select(g => new
@@ -61,7 +66,7 @@ public class BonoResidualController : ControllerBase
         }
         catch (Exception ex)
         {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return Ok(new
             {
                 status = false,
@@ -326,5 +331,116 @@ public class BonoResidualController : ControllerBase
                 data = ""
             });
         }
+    }
+    [HttpGet("get/calculo/residual")]
+    public async Task<IActionResult> GetBonoResidual([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        DateTime inicio = DateTime.Now;
+        string nombreMetodo = "GetBonoResidual()";
+        try
+        {
+            var responserGetBonoResidual = await _bonoResidualRepository.GetDataCalculoBonoResidual(logTransaccionId.ToString(), Usuario, LCicloId);
+            var responseConfiguracionBr = await _brConfiguracionRepository.GetConfiguracion(logTransaccionId.ToString(), Usuario);
+
+            List<DetailsBrConfiguracion> configuracions = responseConfiguracionBr.Data.Where(x => x.LCicloId == LCicloId).ToList();
+            List<BrCalculoItem> listadoResidual = new List<BrCalculoItem>();
+            foreach (var item in responserGetBonoResidual.ListaCuotaRed)
+            {
+                for (int i = 1; i <= 7; i++)
+                {
+                    var prop = item.GetType().GetProperty($"LPatrocinado{i}");
+
+                    int PatrocinadoId = 0;
+
+                    if (prop != null)
+                    {
+                        var value = prop.GetValue(item);
+                        PatrocinadoId = value == null ? 0 : Convert.ToInt32(value);
+                    }
+                    
+
+                    var r = responserGetBonoResidual.ListaContacto.Where(x => x.LContactoId == PatrocinadoId).FirstOrDefault();
+                    var objConfig = configuracions.Where(x => x.Nivel == i && x.TipoProductoId == 1).FirstOrDefault();
+                    BrCalculoItem rows = new BrCalculoItem
+                    {
+                        LContactoId = PatrocinadoId,
+                        NombreCompleto = r == null ? "" : r.SNombreCompleto,
+                        Documento = r == null ? "" : r.SCedulaIdentidad,
+                        LContactoIdHijo = 0,
+                        NombreCompletoHijo = item.Cliente,
+                        DocumentoHijo = item.DocumentoCliente,
+                        Nivel = i,
+                        Bono = item.Bono,
+                        BonoResidual = item.Bono * (objConfig == null ? 0 : objConfig.PorcentajeComision)  /100,
+                        ActivoMes = responserGetBonoResidual.ListaContactosActivos.Where(x => x.LContactoId == PatrocinadoId).Count() > 0 ? true : false,
+                        PorcentajeComision = (objConfig == null ? 0 : objConfig.PorcentajeComision),
+                        LComplejoId = item.ProyectoId
+                    };
+                    listadoResidual.Add(rows);
+                }
+            }
+            var listadoBonoCompleto = listadoResidual.GroupBy(x => new {x.Nivel, x.LContactoId, x.DocumentoHijo, x.LComplejoId})
+            .Select(g => new
+            {
+                g.Key.Nivel,
+                g.Key.LContactoId,
+                g.Key.DocumentoHijo,
+                g.Key.LComplejoId,
+                TotalPago = g.Sum(x => x.BonoResidual)
+            })
+            .ToList();
+
+            var ListadoRedEmpresaComplejo = listadoResidual.GroupBy(x => new {x.LContactoId, x.LComplejoId})
+            .Select(g => new
+            {
+                g.Key.LContactoId,
+                g.Key.LComplejoId,
+                TotalPago = g.Sum(x => x.BonoResidual)
+            })
+            .ToList();
+
+            List<ItemAdministracionBonoResidual> listado = ListadoRedEmpresaComplejo.GroupBy(x => new {x.LContactoId})
+            .Select(g=> new ItemAdministracionBonoResidual
+            {
+                Usuario = Usuario
+                , LBonoResidualId = 0
+                , LCicloId = LCicloId
+                , LContactoId = g.Key.LContactoId
+                , DTotalBono = g.Sum(x => x.TotalPago)
+            })
+            .ToList();
+            
+            var responseAdministacionBonoResidual = await _adminBonoResidualRepository.SaveAdministracionBonoResidual(logTransaccionId.ToString(), Usuario, listado);
+            
+            DateTime fin = DateTime.Now;
+            
+            return Ok(new
+            {
+                status = responserGetBonoResidual.Success,
+                mensaje = responserGetBonoResidual.Mensaje,
+                data =new
+                {
+                    listaCuota = responserGetBonoResidual.ListaCuotaRed.Count(),
+                    contacto = responserGetBonoResidual.ListaContacto.Count(),
+                    Residual = listadoResidual.Count,
+                    ResidualActivos = listadoResidual.Where(x => x.ActivoMes == true).ToList().Count,
+                    ResidualInactivos = listadoResidual.Where(x => x.ActivoMes == false).ToList().Count,
+                    inicio,
+                    fin
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+        
     }
 }

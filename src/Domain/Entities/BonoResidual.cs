@@ -143,6 +143,7 @@ public class TCuota
 {
     public string Idproducto { get; set; } = string.Empty;
     public int Idproyecto { get; set; }
+    public int LComplejoId { get; set; }
     public string Proyecto { get; set; } = string.Empty;
     public int Idrecibo { get; set; }
     public int Idventa { get; set; }
@@ -202,4 +203,110 @@ public class TCuota
         public int IdProyecto_Guardian { set; get; }
     }
 
+public class BrContacto
+{
+    public int TmpResidualContactoId { get; set; }
+    public int LContactoId { get; set; }
+    public string SCedulaIdentidad { get; set; } = string.Empty;
+    public string SNombreCompleto { get; set; } = string.Empty;
+    public int Codigo { get; set; }
+}
+public class BrCuotaRed
+{
+    public int Id { get; set; }
+    public string ProductoId { get; set; } = string.Empty;
+    public int ProyectoId { get; set; }
+    public string Proyecto { get; set; } = string.Empty;
+    public int ReciboId { get; set; }
+    public int VentaId { get; set; }
+    public int TipoPagoId { get; set; }
+    public string TipoPago { get; set; } = string.Empty;
+    public int ClienteId { get; set; }
+    public string Cliente { get; set; } = string.Empty;
+    public string DocumentoCliente { get; set; } = string.Empty;
+    public int VendedorId { get; set; }
+    public string Vendedor { get; set; } = string.Empty;
+    public string DocumentoVendedor { get; set; } = string.Empty;
+    public decimal Bono { get; set; }
+    public int LContactoId { get; set; } 
+    public int LPatrocinado1 { get; set; }
+    public int LPatrocinado2 { get; set; }
+    public int LPatrocinado3 { get; set; }
+    public int LPatrocinado4 { get; set; }
+    public int LPatrocinado5 { get; set; }
+    public int LPatrocinado6 { get; set; }
+    public int LPatrocinado7 { get; set; }
+}
 
+
+public class BrCalculoItem
+{
+    public int LContactoId { get; set; }
+    public string NombreCompleto { get; set; } = string.Empty;
+    public string Documento { get; set; } = string.Empty;
+    public int LContactoIdHijo { get; set; }
+    public string NombreCompletoHijo { get; set; } = string.Empty;
+    public string DocumentoHijo { get; set; } = string.Empty;
+    public int Nivel { get; set; }
+    public decimal Bono { get; set; }
+    public decimal BonoResidual { get; set; }
+    public bool ActivoMes { get; set; }
+    public decimal PorcentajeComision { get; set; }
+    public int LComplejoId { get; set; }
+}
+public class BrContactoActivos
+{
+    public int LContactoId { get; set; } 
+}
+
+
+
+
+public class AdministracionRedEmpresaComplejo
+{
+    public string UsuarioCreacion { get; set; } = string.Empty;
+
+    public DateTime FechaCreacion { get; set; }
+
+    public string UsuarioModificacion { get; set; } = string.Empty;
+
+    public DateTime FechaModificacion { get; set; }
+
+    public int RedEmpresaComplejoId { get; set; }
+
+    public int CicloId { get; set; }
+
+    public int ContactoId { get; set; }
+
+    public int ComplejoId { get; set; }
+
+    public decimal Monto { get; set; }
+}
+public class TBonoCompleto
+{
+    public int Id { get; set; }
+
+    public int IbonoCompleto { get; set; }
+
+    public DateTime Fecha { get; set; }
+
+    public int Generacion { get; set; }
+
+    public int Padre_lcontacto_id { get; set; }
+
+    public int Lciclo_id { get; set; }
+
+    public int Lcontacto_id { get; set; }
+
+    public string CedulaIdentidad { get; set; } = string.Empty;
+
+    public int Proyecto { get; set; }
+
+    public decimal Bono { get; set; }
+
+    public decimal Porcentaje { get; set; }
+
+    public decimal Pagar { get; set; }
+
+    public int Cantidad { get; set; }
+}

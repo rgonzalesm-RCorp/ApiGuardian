@@ -1,4 +1,4 @@
-   CREATE TABLE administracionjob(
+CREATE TABLE administracionjob(
     ladministracionjobId INT AUTO_INCREMENT PRIMARY KEY,
     proceso VARCHAR(1500),
     lciclo_id INT,

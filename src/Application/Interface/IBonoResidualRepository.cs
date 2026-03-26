@@ -13,5 +13,6 @@ public interface IBonoResidualRepository
     Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId,string Usuario, List<TCuota> ListaCuota, bool excedente = false);
 
     Task<(IEnumerable<Excedente> ListaCuota, bool Success, string Mensaje)> GetExcedente(string LogTransaccionId,string Usuario, string inicio, string fin);
+    Task<(IEnumerable<BrCuotaRed> ListaCuotaRed, IEnumerable<BrContacto> ListaContacto, IEnumerable<BrContactoActivos> ListaContactosActivos, bool Success, string Mensaje)> GetDataCalculoBonoResidual(string LogTransaccionId,string Usuario, int LCicloId);
 
 }
