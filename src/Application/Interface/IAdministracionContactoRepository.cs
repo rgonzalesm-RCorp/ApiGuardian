@@ -9,4 +9,5 @@ public interface IAdministracionContactoRepository
     Task<(bool Success, string Mensaje)> InsertContacto(string LogTransaccionId, AdministracionContacto data, bool autoCompra = false);
     Task<(bool Success, string Mensaje)> UpdateContacto(string LogTransaccionId, AdministracionContacto data);
     Task<(bool Success, string Mensaje)> BajaContacto(string LogTransaccionId, AdministracionContactoBaja data);
+    Task<(bool Success, string Mensaje, bool Estado)> VerificarEstadoContacto(string LogTransaccionId, string Usuario, string Documento);
 }

@@ -342,4 +342,44 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
             return (false, $"Error al dar de baja contacto: {ex.Message}");
         }
     }
+    public async Task<(bool Success, string Mensaje, bool Estado)> VerificarEstadoContacto(string LogTransaccionId, string Usuario, string Documento)
+    {
+        DateTime fecha = DateTime.Now;
+
+        int Anio = fecha.Year;
+        int Mes = fecha.Month;
+        if (fecha.Month == 1)
+        {
+            Anio = fecha.Year - 1;
+            Mes = 12;
+        }
+        else
+        {
+            Mes = fecha.Month - 1;
+        }
+        string NombreMetodo = "VerificarEstadoContacto()";
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo");
+        try
+        {
+            string query = @"
+                SELECT COUNT(*) FROM administracioncontrato ACT
+                INNER JOIN administracioncontacto AC ON AC.lcontacto_id = ACT.lcontacto_id
+                WHERE AC.scedulaidentidad = @Documento AND YEAR(ACT.dtfecha) = @Anio AND MONTH(ACT.dtfecha) = @Mes";
+
+            using var connection = _context.CreateConnection();
+            var CantidadVentas = await connection.ExecuteScalarAsync<int>(query, new
+            {
+                Documento,
+                Anio,
+                Mes
+            });
+            return (true, "Verificacion ejecutada correctamente.", CantidadVentas > 0 ? true : false);
+
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al verificar estado del contacto: {ex.Message}", false);
+        }
+    }
 }
