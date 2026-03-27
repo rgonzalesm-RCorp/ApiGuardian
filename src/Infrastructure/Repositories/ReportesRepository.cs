@@ -79,8 +79,7 @@ public class ReportesRepository : IReportesRepository
         /* Cuota residual */
         LEFT JOIN (
             SELECT  'Cuo. Residual' AS Inicial, vp.dpreciolote AS m, vp.lContacto_id, vp.lContrato_id
-            FROM t_productos_detalle_cuotas a
-            JOIN administracionventapersonal vp ON a.lcontrato_id = vp.lcontrato_id AND a.lciclo_id = vp.lciclo_id
+            FROM administracionventapersonal vp 
             WHERE vp.lCiclo_id = @lCicloId AND vp.lContacto_id = @lContactoId
             GROUP BY vp.lcontrato_id, vp.lciclo_id
         ) AS ty ON ty.lContacto_id = c.lContacto_id AND ty.lContrato_id = c.lContrato_id

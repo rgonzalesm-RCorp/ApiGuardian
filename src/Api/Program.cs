@@ -56,6 +56,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<DapperContext>();
 builder.Services.AddSingleton<DapperContextSqlServer>();
+builder.Services.AddSingleton<DapperContextSqlServer64>();
 builder.Services.AddScoped<IAdministracionContactoRepository, AdministracionContactoRepository>();
 builder.Services.AddScoped<IUtilsRepository, UtilsRepository>();
 builder.Services.AddScoped<IAdministracionContratoRepository, AdministracionContratoRepository>();
@@ -78,6 +79,14 @@ builder.Services.AddScoped<IAdministracionDetalleFacturaRepository, Administraci
 builder.Services.AddScoped<IReportesRepository, ReportesRepository>();
 builder.Services.AddScoped<IVentasCnxRepository, VentaCnxRepository>();
 builder.Services.AddScoped<IProcesoComisionesRepository, ProcesoComisionesRepository>();
+builder.Services.AddScoped<IConfiguracionProcesoComisionesRepository, ConfiguracionProcesoComisionesRepository>();
+builder.Services.AddScoped<IAdministracionVentaPersonalRepository, AdministracionVentaPersonalRepository>();
+builder.Services.AddScoped<IAdministracionVentaGrupoRepository, AdministracionVentaGrupoRepository>();
+builder.Services.AddScoped<IControlProcesoRepository, ControlProcesoRepository>();
+builder.Services.AddScoped<IBonoResidualRepository, BonoResidualRepository>();
+builder.Services.AddScoped<IBrConfiguracionRepository, BrConfiguracionRepository>();
+builder.Services.AddScoped<IAdministracionBonoResidualRepository, AdministracionBonoResidualRepository>();
+
 builder.Services.AddSingleton<ILogService, LogService>();
 
 builder.Services.AddScoped<MiCronJob>();

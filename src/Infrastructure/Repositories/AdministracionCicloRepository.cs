@@ -25,8 +25,8 @@ namespace ApiGuardian.Infrastructure.Repositories
                 SELECT 
                     lciclo_id AS LCicloId,
                     UPPER(snombre) AS SNombre,
-                    dtfechainicio AS DtFechaInicio,
-                    dtfechafin AS DtFechaFin,
+                    DATE_FORMAT(dtfechainicio,'%Y%m%d') AS DtFechaInicio,
+                    DATE_FORMAT(dtfechafin,'%Y%m%d') AS DtFechaFin,
                     lestado AS LEstado,
                     dtfechacierre AS DtFechaCierre,
                     dtfechaprecierre1 AS DtFechaPreCierre1,

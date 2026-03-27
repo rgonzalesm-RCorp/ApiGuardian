@@ -80,7 +80,7 @@ namespace ApiGuardian.Controllers
                 });
             }
         }
-            [HttpGet("aplicaciones")]
+        [HttpGet("aplicaciones")]
         public async Task<IActionResult> ReporteAplicaciones([FromHeader] int lCicloId, [FromHeader] int lContactoId, [FromHeader] string? usuario)
         {
             long logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

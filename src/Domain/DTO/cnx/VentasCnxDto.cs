@@ -13,7 +13,7 @@ public class ItemVentaCnx
     public string? SUV { get; set; }
     public decimal PrecioInicial { get; set; }
     public decimal SCuotaInicial { get; set; }
-
+    public decimal SCuotaInicialOriginal { get; set; }
     public int IdCliente { get; set; }
     public string TelefonoFijo { get; set; } = string.Empty;
     public string TelefonoMovil { get; set; } = string.Empty;
@@ -45,4 +45,10 @@ public class ItemVentaCnx
     public string? Complejo { get; set; }
     public int TipoVenta { get; set; }
     public decimal PorcentajeCuotaInicial { get; set; }
+
+    public int EstadoVentaRezagadasCicloId { get; set; } = 1;
+    public DateTime FechaRegistroGrd { get; set; } = DateTime.Now;
+    public decimal ValorCi { get; set; }
+    public string SeccionId { get; set; } = "";
+    public string Glosa { get; set; } = "";
 }

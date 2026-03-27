@@ -162,4 +162,45 @@ public class AdministracionContactoController : ControllerBase
             });
         }
     }
+    [HttpGet("verificar/estado")]
+    public async Task<IActionResult> VerificarEstadoContacto(
+        [FromHeader(Name = "Usuario")] string Usuario,
+        [FromHeader(Name = "Documento")] string Documento
+    )
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        string NombreMetodo = "GetAllAdministracionContacto()";
+
+        try
+        {
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [Usuario:{Usuario}, pageSize:{Documento}]");
+
+            var responseContacto = await _repository.VerificarEstadoContacto(logTransaccionId.ToString(), Usuario, Documento);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo,
+                $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
+
+            return Ok(new
+            {
+                status = responseContacto.Success,
+                mensaje = responseContacto.Mensaje,
+                data = new
+                {
+                    Estado = responseContacto.Estado
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+    }
+    
 }

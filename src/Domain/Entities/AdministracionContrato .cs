@@ -43,3 +43,18 @@ public class AdministracionContrato
     public string? Usuario { get; set; }
     public decimal PorcentajeCuotaInicial { get; set; }
 }
+
+
+public class ItemVentaComision
+{
+    public DateTime DtFecha { get; set; }
+    public string DocIdCliente { get; set; } = string.Empty;
+    public string NombreCliente { get; set; } = string.Empty;
+    public string DocIdVendedor { get; set; } = string.Empty;
+    public string NombreVendedor { get; set; } = string.Empty;
+    public string Complejo { get; set; } = string.Empty;
+    public string SNroVenta { get; set; } = string.Empty;
+    public decimal DPrecio { get; set; }
+    public decimal PorcentajeCuotaInicial { get; set; }
+    public decimal DCuotaInicial { get; set; }
+}

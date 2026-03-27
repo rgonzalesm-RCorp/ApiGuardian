@@ -1,4 +1,6 @@
 using ApiGuardian.Application.Interfaces;
+using ApiGuardian.Infrastructure.Repositories;
+using DocumentFormat.OpenXml.Office2010.ExcelAc;
 using Newtonsoft.Json;
 using Quartz;
 
@@ -10,7 +12,8 @@ public class MiCronJob : IJob
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IProcesoComisionesRepository _procesoComisionesRepository;
     private readonly IAdministracionComplejoRepository _administracionComplejoRepository;
-    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionComplejoRepository administracionComplejoRepository)
+    private readonly IControlProcesoRepository _controlProcesoRepository;
+    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionComplejoRepository administracionComplejoRepository, IControlProcesoRepository controlProcesoRepository)
     {
         _logger = logger;
         _ventasCnxRepository = ventasCnxRepository;
@@ -18,6 +21,7 @@ public class MiCronJob : IJob
         _administracionContratoRepository = administracionContratoRepository;
         _procesoComisionesRepository = procesoComisionesRepository;
         _administracionComplejoRepository = administracionComplejoRepository;
+        _controlProcesoRepository = controlProcesoRepository;
     }
     private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante)
     {
@@ -71,6 +75,8 @@ public class MiCronJob : IJob
     {
         // 1️⃣ ¿Existe en GRD?
         var responseGrd = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, ci);
+        //verificar autocompra
+
 
         if (!string.IsNullOrEmpty(responseGrd.Data?.SCedulaIdentidad))
             return responseGrd.Data.LContactoId;
@@ -80,10 +86,28 @@ public class MiCronJob : IJob
 
         long padreId = 0;
 
+        if (item.SCedulaIdentidad == item.SCedulaIdentidadVendedor)
+        {
+             AdministracionContacto contactoAutoCompra = await objPatrocinante(item, padreId);
+             var insert = await _administracionContactoRepository.InsertContacto(LogTransaccionId, contactoAutoCompra, true);
+            var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, contactoAutoCompra.CedulaIdentidad ?? "");
+
+            return responseCliente.Data.LContactoId;
+        }
+
         // 3️⃣ Procesar padre (recursivo)
         
         if ( responseCnx.Data != null)
         {
+            //AUTOCOMPRA
+            if (responseCnx.Data.SCedulaIdentidad == responseCnx.Data.SCedulaIdentidadVendedor)
+            {
+                AdministracionContacto contactoAutoCompra = await objPatrocinante(item, padreId);
+                var insert = await _administracionContactoRepository.InsertContacto(LogTransaccionId, contactoAutoCompra, true);
+                var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, contactoAutoCompra.CedulaIdentidad ?? "");
+
+                return responseCliente.Data.LContactoId;
+            }
             responseGrd = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, responseCnx.Data.SCedulaIdentidadVendedor ?? "");
             if (responseGrd.Data == null)
             {
@@ -244,5 +268,80 @@ public class MiCronJob : IJob
         }
         //_logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);
         return true;
+    }
+    public async Task<bool> ProcesoPrincipal(List<ItemVentaCnx>? Lista = null, string tipo = "JOB", string inicio = "", string fin ="", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0){
+
+        var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx("");
+        List<HomologacionComplejoGrdCnx> ListaComplejo = responseHomologacion.Data;
+
+        if(tipo == "JOB")
+        {
+            var responseProceso = await _procesoComisionesRepository.GetProceso("", "VENTAS");
+            if (responseProceso.Data == null)
+                return true;
+            
+            inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
+            fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
+            var vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin);
+            Lista = vtaCnx.Data.ToList();
+        }
+        await ProcesarVentas(Lista, ListaComplejo, inicio, fin, rezagada);
+        await _controlProcesoRepository.UpdateControlProceso("", usuario, paso, lCicloId);
+        return true;
+    }
+    private async Task<bool> ProcesarVentas(List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada)
+    {
+        int counter = 0;
+        foreach (var item in Lista)
+        {
+            // 🔹 Asegurar vendedor (árbol completo)
+            var vendedorId = await EnsureContactoExisteAsync("", item.SCedulaIdentidadVendedor ?? "", item);
+
+            // 🔹 Asegurar cliente (depende del vendedor)
+            var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
+
+            if (string.IsNullOrEmpty(responseCliente.Data?.SCedulaIdentidad))
+            {
+                AdministracionContacto cliente = await objCliennte(item, vendedorId);
+
+                await _administracionContactoRepository.InsertContacto("", cliente);
+                responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
+
+            }
+            AdministracionContrato data = new AdministracionContrato
+            {
+                LContratoId = 0,
+                Fecha = item.DFecha,
+                NroVenta = $"{item.IdVenta}-{item.Lote}",
+                LPropietarioId = (int)responseCliente.Data.LContactoId,
+                LCopmlejoId = ListaComplejo.FirstOrDefault(x => x.LComplejoIdCX == item.LComplejoId).LComplejoId, //Obtener la equivalecia
+                Mzno = item.SManzano,
+                Lote = $"{item.SLote}" ,
+                Uv = item.SUV,
+                PrecioInicial = item.PrecioInicial,
+                CuotaInicial = item.SCuotaInicial,
+                PrecioFinal = item.DPrecio,
+                LEstadoContratoId = 1,
+                LTipoContratoId = item.TipoVenta == 2 ? 1 : 2,
+                LCiudadId =  0,
+                ContratoEspecial = 0,
+                LAsesorId = (int)vendedorId,
+                Usuario = ".Net",
+                PorcentajeCuotaInicial = item.PorcentajeCuotaInicial 
+            };
+            var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta("", $"{item.IdVenta}-{item.Lote}", inicio, fin);
+
+            if(responseExistContrato.Data == null || responseExistContrato.Data.Count()<= 0)
+            {
+                var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);   
+            }
+            counter = counter+ 1;
+            Console.WriteLine(item.Lote);
+            if (rezagada)
+            {
+                await _procesoComisionesRepository.UpdateVtaRezagadas("", item, "");
+            }
+        }
+        return false;
     }
 }

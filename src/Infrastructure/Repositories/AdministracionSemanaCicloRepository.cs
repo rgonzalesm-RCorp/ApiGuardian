@@ -18,8 +18,7 @@ public class AdministracionSemanaCicloRepository : IAdministracionSemanaCicloRep
         _log = log;
     }
 
-    public async Task<(IEnumerable<AdministracionSemanaCicloList> Semanas, bool Success, string Mensaje)>
-        GetSemanaCiclo(string LogTransaccionId)
+    public async Task<(IEnumerable<AdministracionSemanaCicloList> Semanas, bool Success, string Mensaje)> GetSemanaCiclo(string LogTransaccionId)
     {
         string metodo = "GetSemanaCiclo()";
 
@@ -46,6 +45,45 @@ public class AdministracionSemanaCicloRepository : IAdministracionSemanaCicloRep
         {
             using var con = _context.CreateConnection();
             var lista = await con.QueryAsync<AdministracionSemanaCicloList>(query);
+
+            bool success = lista.Any();
+            return (lista, success, success ? "Datos obtenidos." : "No hay registros.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, metodo, "Error obteniendo datos", ex);
+            return (Enumerable.Empty<AdministracionSemanaCicloList>(), false, ex.Message);
+        }
+    }
+
+    public async Task<(IEnumerable<AdministracionSemanaCicloList> Semanas, bool Success, string Mensaje)> GetSemanaCicloId(string LogTransaccionId, int LCicloId)
+    {
+        string metodo = "GetSemanaCicloId()";
+
+        const string query = @"
+             SELECT
+                SCA.lsemana_id AS LSemanaId,
+                UPPER(SCA.nombre) AS Nombre,
+                SCA.lnrosemana AS LNroSemana,
+                SCA.lciclo_id AS LCicloId,
+                SCA.dtfechainicio AS DtFechaInicio,
+                SCA.dtfechafin AS DtFechaFin,
+                SCA.lvalidacion AS LValidacion,
+                UPPER(SA.lnombre) AS Semana,
+                UPPER(AC.snombre) AS Ciclo
+            FROM administracionsemanaciclo SCA
+            INNER JOIN administracionsemana SA ON SA.idsemana = SCA.lnrosemana
+            INNER JOIN administracionciclo AC ON AC.lciclo_id = SCA.lciclo_id
+            WHERE AC.lciclo_id = @LCicloId
+            ORDER BY lsemana_id DESC;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio consulta. Script={query}");
+
+        try
+        {
+            using var con = _context.CreateConnection();
+            var lista = await con.QueryAsync<AdministracionSemanaCicloList>(query, new{LCicloId});
 
             bool success = lista.Any();
             return (lista, success, success ? "Datos obtenidos." : "No hay registros.");
