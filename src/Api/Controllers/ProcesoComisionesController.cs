@@ -111,7 +111,7 @@ public class ProcesoComisionesController : ControllerBase
     {
         
 
-        var t = _miCronJob.ProcesoPrincipal(null, "JOB");
+        var t = _miCronJob.ProcesoPrincipal("logTransaccionId.ToString()", null, "JOB", "", "", false, "EJEMPLO", "SYSTEM", 0);
         
         return Ok(new
         {
@@ -153,9 +153,10 @@ public class ProcesoComisionesController : ControllerBase
     public async Task<IActionResult> SaveVenta(RequestGuardarVentaGRD Data)
     {
         string paso = "GUARDAR_VTA";
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         try
         {
-            long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            
             var responseControlProceso = await _controlProcesoRepository.GetControlProceso(logTransaccionId.ToString(), Data.Usuario, paso, Data.LCicloId );
             if(responseControlProceso.Success)
             {
@@ -200,7 +201,7 @@ public class ProcesoComisionesController : ControllerBase
                 });
             }
             var responseVentaPersonal = await _procesoComisionesRepository.GuardarVtaRezagadas(logTransaccionId.ToString(), Data.NoListaSeleccionado, "");
-            var t = _miCronJob.ProcesoPrincipal(Data.ListaSeleccionado, "", "", "", Data.Rezagada, paso, Data.Usuario, Data.LCicloId);
+            var t = _miCronJob.ProcesoPrincipal(logTransaccionId.ToString(), Data.ListaSeleccionado, "", "", "", Data.Rezagada, paso, Data.Usuario, Data.LCicloId);
             return Ok(new
             {
                 status = true,

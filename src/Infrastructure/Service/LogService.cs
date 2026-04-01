@@ -14,7 +14,7 @@ public class LogService : ILogService
         if (!Directory.Exists(_logDirectory))
             Directory.CreateDirectory(_logDirectory);
     }
-
+    private static readonly object _lock = new object();
     private void WriteLog(string id,  string archivo, string metodo, string level, string message, Exception? ex = null)
     {
         string logFile = Path.Combine(_logDirectory, $"{DateTime.Now:yyyyMMdd}.log");
@@ -23,7 +23,11 @@ public class LogService : ILogService
         if (ex != null)
             logMessage += $"{Environment.NewLine}Exception: {ex.Message}{Environment.NewLine}{ex.StackTrace}";
 
-        File.AppendAllText(logFile, logMessage + Environment.NewLine);
+        lock (_lock)
+        {
+            File.AppendAllText(logFile, logMessage + Environment.NewLine);
+        }
+
         Console.WriteLine(logMessage);
     }
 

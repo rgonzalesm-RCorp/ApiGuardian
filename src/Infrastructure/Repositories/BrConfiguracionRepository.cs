@@ -214,7 +214,7 @@ public async Task<(IEnumerable<BrTipoProducto> Data, bool Success, string Mensaj
             using var con = _context.CreateConnection();
 
             int total = await con.ExecuteScalarAsync<int>(query, new {LCicloId, TipoProductoId}); 
-             
+
             string mensaje = total > 0 ? "Ya existe una configuracion para el ciclo y tipo de producto seleccionado" : "No existe se puede crear";
             _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Fin de metodo [mensaje: {mensaje}, count registro:{total}]");
             

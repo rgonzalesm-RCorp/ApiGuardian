@@ -23,11 +23,11 @@ public class MiCronJob : IJob
         _administracionComplejoRepository = administracionComplejoRepository;
         _controlProcesoRepository = controlProcesoRepository;
     }
-    private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante)
+    private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante, string Usuario)
     {
         return new AdministracionContacto
                     {
-                        Usuario = ".Net",
+                        Usuario = Usuario,
                         NombreCompleto = vtaCnx.SNombreCompletoVendedor,
                         CedulaIdentidad = vtaCnx.SCedulaIdentidadVendedor,
                         TelefonoFijo = vtaCnx.TelefonoFijoVendedor,
@@ -47,31 +47,31 @@ public class MiCronJob : IJob
                     };
         
     }
-    private async Task<AdministracionContacto> objCliennte(ItemVentaCnx vtaCnx, long lPatrocinante)
+    private async Task<AdministracionContacto> objCliennte(ItemVentaCnx vtaCnx, long lPatrocinante, string Usuario)
     {
         return new AdministracionContacto
                     {
-                        Usuario = ".Net",
-                    NombreCompleto = vtaCnx.SNombreCompleto,
-                    CedulaIdentidad = vtaCnx.SCedulaIdentidad,
-                    TelefonoFijo = vtaCnx.TelefonoFijo,
-                    TelefonoMovil = vtaCnx.TelefonoMovil,
-                    CorreoElectronico = vtaCnx.Correo,
-                    Ciudad = vtaCnx.SCiudad,
-                    PaisId = vtaCnx.IdPaisResidencia,
-                    PatrocinanteId = lPatrocinante,
-                    NivelId = 0,
-                    Comentario = "",
-                    TelefonoOficina = vtaCnx.STelefonoOficina,
-                    Direccion = vtaCnx.Direccion,
-                    Nit = 0,
-                    FechaRegistro = DateTime.Now,
-                    FechaNacimiento = vtaCnx.FechaNacimiento,
-                    LContactoId = 0,
+                        Usuario = Usuario,
+                        NombreCompleto = vtaCnx.SNombreCompleto,
+                        CedulaIdentidad = vtaCnx.SCedulaIdentidad,
+                        TelefonoFijo = vtaCnx.TelefonoFijo,
+                        TelefonoMovil = vtaCnx.TelefonoMovil,
+                        CorreoElectronico = vtaCnx.Correo,
+                        Ciudad = vtaCnx.SCiudad,
+                        PaisId = vtaCnx.IdPaisResidencia,
+                        PatrocinanteId = lPatrocinante,
+                        NivelId = 1,
+                        Comentario = "",
+                        TelefonoOficina = vtaCnx.STelefonoOficina,
+                        Direccion = vtaCnx.Direccion,
+                        Nit = 0,
+                        FechaRegistro = DateTime.Now,
+                        FechaNacimiento = vtaCnx.FechaNacimiento,
+                        LContactoId = 0,
                     };
         
     }
-    private async Task<long> EnsureContactoExisteAsync(string LogTransaccionId, string ci, ItemVentaCnx item)
+    private async Task<long> EnsureContactoExisteAsync(string LogTransaccionId, string ci, ItemVentaCnx item, string Usuario)
     {
         // 1️⃣ ¿Existe en GRD?
         var responseGrd = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, ci);
@@ -88,8 +88,8 @@ public class MiCronJob : IJob
 
         if (item.SCedulaIdentidad == item.SCedulaIdentidadVendedor)
         {
-             AdministracionContacto contactoAutoCompra = await objPatrocinante(item, padreId);
-             var insert = await _administracionContactoRepository.InsertContacto(LogTransaccionId, contactoAutoCompra, true);
+            AdministracionContacto contactoAutoCompra = await objPatrocinante(item, padreId, Usuario);
+            var insert = await _administracionContactoRepository.InsertContacto(LogTransaccionId, contactoAutoCompra, true);
             var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, contactoAutoCompra.CedulaIdentidad ?? "");
 
             return responseCliente.Data.LContactoId;
@@ -102,7 +102,7 @@ public class MiCronJob : IJob
             //AUTOCOMPRA
             if (responseCnx.Data.SCedulaIdentidad == responseCnx.Data.SCedulaIdentidadVendedor)
             {
-                AdministracionContacto contactoAutoCompra = await objPatrocinante(item, padreId);
+                AdministracionContacto contactoAutoCompra = await objPatrocinante(item, padreId, Usuario);
                 var insert = await _administracionContactoRepository.InsertContacto(LogTransaccionId, contactoAutoCompra, true);
                 var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, contactoAutoCompra.CedulaIdentidad ?? "");
 
@@ -111,7 +111,7 @@ public class MiCronJob : IJob
             responseGrd = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, responseCnx.Data.SCedulaIdentidadVendedor ?? "");
             if (responseGrd.Data == null)
             {
-                padreId = await EnsureContactoExisteAsync(LogTransaccionId, responseCnx.Data.SCedulaIdentidadVendedor ?? "", item);
+                padreId = await EnsureContactoExisteAsync(LogTransaccionId, responseCnx.Data.SCedulaIdentidadVendedor ?? "", item, Usuario);
             }
             else
             {
@@ -123,7 +123,7 @@ public class MiCronJob : IJob
         }
 
         // 4️⃣ Crear contacto en GRD
-        AdministracionContacto contacto = await objPatrocinante(item, padreId);
+        AdministracionContacto contacto = await objPatrocinante(item, padreId, Usuario);
 
         responseGrd = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, contacto.CedulaIdentidad ?? "");
         if (responseGrd.Data == null)
@@ -219,14 +219,14 @@ public class MiCronJob : IJob
         foreach (var item in vtaCnx.Data)
         {
             // 🔹 Asegurar vendedor (árbol completo)
-            var vendedorId = await EnsureContactoExisteAsync("", item.SCedulaIdentidadVendedor ?? "", item);
+            var vendedorId = await EnsureContactoExisteAsync("", item.SCedulaIdentidadVendedor ?? "", item, "");
 
             // 🔹 Asegurar cliente (depende del vendedor)
             var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
 
             if (string.IsNullOrEmpty(responseCliente.Data?.SCedulaIdentidad))
             {
-                AdministracionContacto cliente = await objCliennte(item, vendedorId);
+                AdministracionContacto cliente = await objCliennte(item, vendedorId, "");
 
                 await _administracionContactoRepository.InsertContacto("", cliente);
                 responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
@@ -269,43 +269,43 @@ public class MiCronJob : IJob
         //_logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);
         return true;
     }
-    public async Task<bool> ProcesoPrincipal(List<ItemVentaCnx>? Lista = null, string tipo = "JOB", string inicio = "", string fin ="", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0){
+    public async Task<bool> ProcesoPrincipal(string LogTransaccionId,  List<ItemVentaCnx>? Lista = null, string tipo = "JOB", string inicio = "", string fin ="", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0){
 
-        var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx("");
+        var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx(LogTransaccionId);
         List<HomologacionComplejoGrdCnx> ListaComplejo = responseHomologacion.Data;
 
         if(tipo == "JOB")
         {
-            var responseProceso = await _procesoComisionesRepository.GetProceso("", "VENTAS");
+            var responseProceso = await _procesoComisionesRepository.GetProceso(LogTransaccionId, "VENTAS");
             if (responseProceso.Data == null)
                 return true;
             
             inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
             fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
-            var vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin);
+            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin);
             Lista = vtaCnx.Data.ToList();
         }
-        await ProcesarVentas(Lista, ListaComplejo, inicio, fin, rezagada);
-        await _controlProcesoRepository.UpdateControlProceso("", usuario, paso, lCicloId);
+        await ProcesarVentas(LogTransaccionId, usuario, Lista, ListaComplejo, inicio, fin, rezagada);
+        await _controlProcesoRepository.UpdateControlProceso(LogTransaccionId, usuario, paso, lCicloId);
         return true;
     }
-    private async Task<bool> ProcesarVentas(List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada)
+    private async Task<bool> ProcesarVentas(string LogTransaccionId, string Usuario, List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada)
     {
         int counter = 0;
         foreach (var item in Lista)
         {
             // 🔹 Asegurar vendedor (árbol completo)
-            var vendedorId = await EnsureContactoExisteAsync("", item.SCedulaIdentidadVendedor ?? "", item);
+            var vendedorId = await EnsureContactoExisteAsync(LogTransaccionId, item.SCedulaIdentidadVendedor ?? "", item, Usuario);
 
             // 🔹 Asegurar cliente (depende del vendedor)
-            var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
+            var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, item.SCedulaIdentidad ?? "");
 
             if (string.IsNullOrEmpty(responseCliente.Data?.SCedulaIdentidad))
             {
-                AdministracionContacto cliente = await objCliennte(item, vendedorId);
+                AdministracionContacto cliente = await objCliennte(item, vendedorId, Usuario);
 
-                await _administracionContactoRepository.InsertContacto("", cliente);
-                responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
+                await _administracionContactoRepository.InsertContacto(LogTransaccionId, cliente);
+                responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, item.SCedulaIdentidad ?? "");
 
             }
             AdministracionContrato data = new AdministracionContrato
@@ -326,20 +326,20 @@ public class MiCronJob : IJob
                 LCiudadId =  0,
                 ContratoEspecial = 0,
                 LAsesorId = (int)vendedorId,
-                Usuario = ".Net",
+                Usuario = Usuario,
                 PorcentajeCuotaInicial = item.PorcentajeCuotaInicial 
             };
-            var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta("", $"{item.IdVenta}-{item.Lote}", inicio, fin);
+            var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta(LogTransaccionId, $"{item.IdVenta}-{item.Lote}", inicio, fin);
 
             if(responseExistContrato.Data == null || responseExistContrato.Data.Count()<= 0)
             {
-                var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);   
+                var respSaveContrato = await _administracionContratoRepository.InsertContrato(LogTransaccionId, data);   
             }
             counter = counter+ 1;
             Console.WriteLine(item.Lote);
             if (rezagada)
             {
-                await _procesoComisionesRepository.UpdateVtaRezagadas("", item, "");
+                await _procesoComisionesRepository.UpdateVtaRezagadas(LogTransaccionId, item, Usuario);
             }
         }
         return false;
