@@ -86,6 +86,7 @@ builder.Services.AddScoped<IControlProcesoRepository, ControlProcesoRepository>(
 builder.Services.AddScoped<IBonoResidualRepository, BonoResidualRepository>();
 builder.Services.AddScoped<IBrConfiguracionRepository, BrConfiguracionRepository>();
 builder.Services.AddScoped<IAdministracionBonoResidualRepository, AdministracionBonoResidualRepository>();
+builder.Services.AddScoped<IRedesRepository, RedesRepository>();
 
 builder.Services.AddSingleton<ILogService, LogService>();
 

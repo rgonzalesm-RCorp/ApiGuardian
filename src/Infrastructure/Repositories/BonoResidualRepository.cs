@@ -184,7 +184,7 @@ public class BonoResidualRepository : IBonoResidualRepository
             foreach (var item in ListadoCartera)
             {
                 item.Fecha = item.Fecha.Replace("-", "");
-                item.UltimoPago = item.UltimoPago.Replace("-", "");
+                item.UltimoPago = item.UltimoPago != null ? item.UltimoPago.Replace("-", ""): null;                    
                 item.FUltimoVenc = item.FUltimoVenc == null ? null: item.FUltimoVenc.Replace("-", "");
                 item.FVencMasAnt = item.FVencMasAnt == null ? null: item.FVencMasAnt.Replace("-", "");
             }
@@ -240,17 +240,17 @@ public class BonoResidualRepository : IBonoResidualRepository
         string query = $@"insert into T_ACCIONESCUOTASGRL (
                                 IDPRODUCTO,	IDPROYECTO,	PROYECTO, IDRECIBO,	IDVENTA, IDTIPOPAGO, DESCRIPCION, IDCLIENTE, CLIENTE
                                 , DOCIDCLI, IDVENDEDOR, VENDEDOR, DOCIDVEN, BONO, AMORTIZACION, CAPITAL, INTERES, SEGURO, EXPENSA
-                                , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA) 
+                                , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA, empresa) 
                             values (
                                 @IDPRODUCTO, @LComplejoId, @PROYECTO, @IDRECIBO, @IDVENTA, @IDTIPOPAGO, @DESCRIPCION, @IDCLIENTE, @CLIENTE
                                 , @DOCIDCLI, @IDVENDEDOR, @VENDEDOR, @DOCIDVEN, @BONO, @AMORTIZACION, @CAPITAL, @INTERES, @SEGURO, @EXPENSA
-                                , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA)";
+                                , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA, @Empresa)";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, usuario = {Usuario}]");
         try
         {
             using var connection = _context.CreateConnection();
-            //if (!excedente)
-                //await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
+            if (!excedente)
+                await connection.ExecuteAsync(SCRIPT_CLEAR_CUOTAS);
             
             var rows = await connection.ExecuteAsync(query, ListaCuota);
 
@@ -314,6 +314,7 @@ public class BonoResidualRepository : IBonoResidualRepository
                                 , r.lpatrocinador3g LPatrocinado3 , r.lpatrocinador4g LPatrocinado4
                                 , r.lpatrocinador5g LPatrocinado5 , r.lpatrocinador6g LPatrocinado6
                                 , r.lpatrocinador7g LPatrocinado7
+                                , ct.empresa Empresa
                             from T_ACCIONESCUOTASGRL ct 
                             inner JOIN tmp_residual_contacto c on ct.docidcli = c.scedulaidentidad
                             inner join tmp_residual_red r on r.lcontacto_id = c.lcontacto_id ";

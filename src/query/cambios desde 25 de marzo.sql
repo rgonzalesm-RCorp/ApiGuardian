@@ -13,5 +13,15 @@ CREATE INDEX idx_lcontacto_id ON administracionventapersonal (lcontacto_id);
 
 
 
+alter table T_ACCIONESCUOTASGRL add empresa varchar(200);
 
 
+
+ CREATE TABLE red_comprimida (
+    RedComprimidaId INT PRIMARY KEY AUTO_INCREMENT,
+    lciclo_id INT,
+    lcontacto_id INT, 
+    lasesor_id INT, 
+    Nivel int,
+    fecharegistro DATETIME
+) ;
