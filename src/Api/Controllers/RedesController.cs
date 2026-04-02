@@ -25,7 +25,7 @@ public class RedesController : ControllerBase
     }
 
     [HttpGet("get/datos")]
-    public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario,[FromHeader(Name = "Inicio")]  string Inicio, [FromHeader(Name = "Fin")] string Fin )
+    public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId ,[FromHeader(Name = "Inicio")]  string Inicio, [FromHeader(Name = "Fin")] string Fin )
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         _log.Info(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
@@ -36,7 +36,7 @@ public class RedesController : ControllerBase
             List<ItemContactoRedComprimida> Lista = new List<ItemContactoRedComprimida>();
             foreach (var item in ResponseContactoVentaMes.ListadoContactosActivos)
             {
-                int LContactoId = item.LContactoId;
+                int LContactoId = item.LVendedorId;
                 int LPatrocinadorId = 0;
                 int counter = 1;
                 while (counter <= 7)
@@ -45,15 +45,18 @@ public class RedesController : ControllerBase
                     LPatrocinadorId = responsePatrocinador.PatrocinadorId;
                     if(LPatrocinadorId <= 0)
                         break;
-                    int EstaActivo = ResponseContactoVentaMes.ListadoContactosActivos.Where(x => x.LPatrocinadorId == LPatrocinadorId).Count();
+                    int EstaActivo = ResponseContactoVentaMes.ListadoContactosActivos.Where(x => x.LVendedorId == LPatrocinadorId).Count();
                     if (EstaActivo > 0)
                     {
                         Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.PatrocinadorId}");
                         ItemContactoRedComprimida ObjRedComprimidad = new ItemContactoRedComprimida
                         {
-                            LContactoId = item.LContactoId,
+                            LContactoId = item.LVendedorId,
                             LPatrocinadorId = LPatrocinadorId,
-                            Nivel = counter
+                            Nivel = counter,
+                            LCicloId = LCicloId,
+                            LContratoId = 0,
+                            Usuario = Usuario
                         };
                         Lista.Add(ObjRedComprimidad);
 
@@ -64,14 +67,18 @@ public class RedesController : ControllerBase
                    
                 }
             }
-
+            var ResponseGuardarRedComprimida = await _repo.GuardarRedComprimida(logTransaccionId, Usuario, Lista);
             return Ok(new 
             {
                 status = ResponseContactoVentaMes.Success,
                 mensaje = ResponseContactoVentaMes.Mensaje,
                 data = new
                 {
-                    Nivel = ResponseContactoVentaMes.ListadoContactosActivos
+                    Nivel = ResponseContactoVentaMes.ListadoContactosActivos,
+                    RedComprimida = Lista,
+                    ResponseGuardarRedComprimida.Success,
+                    ResponseGuardarRedComprimida.Mensaje
+
                 }
             });
         }

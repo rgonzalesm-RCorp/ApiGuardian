@@ -287,7 +287,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                     , v.scedulaidentidad DocIdVendedor
                     , v.snombrecompleto NombreVendedor
                     , cp.snombre Complejo
-                    , ac.snroventa SNroVenta
+                    , rtrim(ac.snroventa) SNroVenta
                     , ac.dprecio DPrecio
                     , ac.porcentaje_inicial PorcentajeCuotaInicial
                     , ac.dcuota_inicial DCuotaInicial

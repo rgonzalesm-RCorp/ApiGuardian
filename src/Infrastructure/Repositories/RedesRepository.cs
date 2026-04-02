@@ -20,7 +20,7 @@ public class RedesRepository : IRedesRepository
     {
          string nombreMetodo = "GetObetenerContactoVentasMes()";
 
-        string query = $@" select DISTINCT lcontacto_id  LContactoId, lasesor_id  LPatrocinadorId from administracioncontrato where dtfecha BETWEEN @Inicio and @Fin ";
+        string query = $@" select DISTINCT lasesor_id  LVendedorId from administracioncontrato where dtfecha BETWEEN @Inicio and @Fin ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
@@ -44,6 +44,37 @@ public class RedesRepository : IRedesRepository
             return (false, $"Error al obtener los tipos de descuento: {ex.Message}", Enumerable.Empty<ItemContactoActivo>());
         }
     }
+    public async Task<(bool Success, string Mensaje)> GuardarRedComprimida(string LogTransaccionId, string Usuario,  List<ItemContactoRedComprimida> Listado)
+    {
+        string nombreMetodo = "GuardarRedComprimida()";
+
+        string query = $@"insert into red_comprimida 
+                        (RedComprimidaId,lcontrato_id, lciclo_id, lcontacto_id, lasesor_id, Nivel, usuario, fecharegistro)
+                        VALUES
+                        (0, @LContratoId, @LCicloId, @LContactoId, @LPatrocinadorId, @Nivel, @Usuario,  NOW()) ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var response = await connection.ExecuteAsync(query, Listado);
+
+            bool success = true;
+            string mensaje = success ? "Red comprimida guardado correctamente." : "No see pudo guardar la red comprimida.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [mensaje: {mensaje}, registro insertado: {response}]");
+
+            return ( success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al obtener los tipos de descuento: {ex.Message}");
+        }
+    }
+
     public async Task<(bool Success, string Mensaje, int PatrocinadorId)> GetObetenerPatrocinador(string LogTransaccionId, string Usuario, int LContactoId)
     {
   

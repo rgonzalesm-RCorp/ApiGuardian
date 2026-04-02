@@ -19,9 +19,11 @@ alter table T_ACCIONESCUOTASGRL add empresa varchar(200);
 
  CREATE TABLE red_comprimida (
     RedComprimidaId INT PRIMARY KEY AUTO_INCREMENT,
+    lcontrato_id INT,
     lciclo_id INT,
     lcontacto_id INT, 
     lasesor_id INT, 
     Nivel int,
+    usuario varchar(500),
     fecharegistro DATETIME
 ) ;
