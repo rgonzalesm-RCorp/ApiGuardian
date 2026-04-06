@@ -240,11 +240,11 @@ public class BonoResidualRepository : IBonoResidualRepository
         string query = $@"insert into T_ACCIONESCUOTASGRL (
                                 IDPRODUCTO,	IDPROYECTO,	PROYECTO, IDRECIBO,	IDVENTA, IDTIPOPAGO, DESCRIPCION, IDCLIENTE, CLIENTE
                                 , DOCIDCLI, IDVENDEDOR, VENDEDOR, DOCIDVEN, BONO, AMORTIZACION, CAPITAL, INTERES, SEGURO, EXPENSA
-                                , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA, empresa) 
+                                , MULTA, FECHA_VENTA, FECHA_PAGO, ACUENTA, TOTALPAGO, MONTODEUDA, PAGOSACUENTA,	NROCUOTA, empresa, FECHAINS) 
                             values (
                                 @IDPRODUCTO, @LComplejoId, @PROYECTO, @IDRECIBO, @IDVENTA, @IDTIPOPAGO, @DESCRIPCION, @IDCLIENTE, @CLIENTE
                                 , @DOCIDCLI, @IDVENDEDOR, @VENDEDOR, @DOCIDVEN, @BONO, @AMORTIZACION, @CAPITAL, @INTERES, @SEGURO, @EXPENSA
-                                , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA, @Empresa)";
+                                , @MULTA, @FECHA_VENTA, @FECHA_PAGO, @ACUENTA, @TOTALPAGO, @MONTODEUDA, @PAGOSACUENTA, @NROCUOTA, @Empresa, NOW())";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, usuario = {Usuario}]");
         try
         {
