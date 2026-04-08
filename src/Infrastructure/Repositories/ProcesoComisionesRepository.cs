@@ -69,8 +69,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , c.dprecio 
                                     , c.porcentaje_inicial PorcentajeInicial
                                     , c.dcuota_inicial inicial
-                                    , CF.PorcentajeComision dporcentajecomision
-                                    , (c.dcuota_inicial * CF.PorcentajeComision ) / 100 dcomision
+                                    , CASE WHEN c.lestado = 6 then 67 else CF.PorcentajeComision end dporcentajecomision
+                                    , CASE WHEN c.lestado = 6 then (c.dcuota_inicial * 67) / 100 else (c.dcuota_inicial * CF.PorcentajeComision ) / 100 end dcomision
                                     , CF.LCicloId lciclo_id
                                     , ASCC.lsemana_id
                                     , ASCC.lnrosemana

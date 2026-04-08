@@ -336,7 +336,6 @@ public class BonoResidualController : ControllerBase
     public async Task<IActionResult> GetBonoResidual([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        DateTime inicio = DateTime.Now;
         string nombreMetodo = "GetBonoResidual()";
         try
         {
@@ -387,7 +386,8 @@ public class BonoResidualController : ControllerBase
                         PorcentajeComision = porcentaje,
                         LComplejoId = item.ProyectoId,
                         Complejo = item.Proyecto,
-                        Empresa = item.Empresa
+                        Empresa = item.Empresa,
+                        ProductoId = item.ProductoId
                     };
 
                     listadoResidual.Add(rows);
@@ -398,12 +398,21 @@ public class BonoResidualController : ControllerBase
             .Select(g => new
             {
                 g.Key.Empresa,
-                TotalPago = g.Sum(x => x.BonoResidual)
+                TotalPago = g.Sum(x => x.Bono),
+                TotalResidual = g.Sum(x => x.BonoResidual),
+                listadoProyecto = listadoResidual.Where(d => d.Empresa == g.Key.Empresa).GroupBy(x => new {x.Complejo})
+                                    .Select(g => new
+                                    {
+                                        g.Key.Complejo,
+                                        TotalPago = g.Sum(x => x.Bono),
+                                        TotalResidual = g.Sum(x => x.BonoResidual)
+                                    })
+                                    .ToList()
             })
             .ToList();
 
-            DateTime fin = DateTime.Now;
-            
+            ComisionResidualXls _ins = new ComisionResidualXls();
+            var reponseXLS = await _ins.GetComisionResidualXls (listadoResidual);
             return Ok(new
             {
                 status = responserGetBonoResidual.Success,
@@ -411,13 +420,8 @@ public class BonoResidualController : ControllerBase
                 data =new
                 {
                     ListadoResumenPorEmpresa,
-                    listaCuota = responserGetBonoResidual.ListaCuotaRed.Count(),
-                    contacto = responserGetBonoResidual.ListaContacto.Count(),
-                    Residual = listadoResidual.Count,
-                    ResidualActivos = listadoResidual.Where(x => x.ActivoMes == true).ToList().Count,
-                    ResidualInactivos = listadoResidual.Where(x => x.ActivoMes == false).ToList().Count,
-                    inicio,
-                    fin
+                    counter = listadoResidual.Count,
+                    base64 = reponseXLS.base64
                 }
             });
         }

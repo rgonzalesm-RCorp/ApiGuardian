@@ -321,7 +321,7 @@ public class MiCronJob : IJob
                 PrecioInicial = item.PrecioInicial,
                 CuotaInicial = item.SCuotaInicial,
                 PrecioFinal = item.DPrecio,
-                LEstadoContratoId = 1,
+                LEstadoContratoId = 4,
                 LTipoContratoId = item.TipoVenta == 2 ? 1 : 2,
                 LCiudadId =  0,
                 ContratoEspecial = 0,

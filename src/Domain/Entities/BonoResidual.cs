@@ -251,6 +251,7 @@ public class BrCalculoItem
     public string DocumentoHijo { get; set; } = string.Empty;
     public string Complejo { get; set; } = string.Empty;
     public string Empresa { get; set; } = string.Empty;
+    public string ProductoId { get; set; } = string.Empty;
     public int Nivel { get; set; }
     public decimal Bono { get; set; }
     public decimal BonoResidual { get; set; }
