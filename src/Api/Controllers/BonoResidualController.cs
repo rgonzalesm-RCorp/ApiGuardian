@@ -9,9 +9,7 @@ using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using ApiGuardian.Infrastructure.Services;
-
 namespace CleanDapperApi.Api.Controllers;
-
 [ApiController]
 [Route("api/[controller]")]
 public class BonoResidualController : ControllerBase
@@ -203,8 +201,6 @@ public class BonoResidualController : ControllerBase
             });
         }
     }
-
-
     [HttpGet("get/excedente")]
     public async Task<IActionResult> GetExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
     {
@@ -563,6 +559,4 @@ public class BonoResidualController : ControllerBase
         }
         
     }
-
-
 }

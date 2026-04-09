@@ -9,7 +9,7 @@ public class ComisionResidualXls
             return (false, string.Empty);
 
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Plan Carrera");
+        var worksheet = workbook.Worksheets.Add("Comision residual");
 
         const int headerRow = 2;
         const int firstDataRow = headerRow + 1;

@@ -139,12 +139,16 @@ public class ProcesoComisionesController : ControllerBase
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+
+        ComisionVentadirectaXls Comi = new ComisionVentadirectaXls();
+        var responseXls = await Comi.GetComicionVentaPersonalXls(responseVentaPersonal.Data.ToList());
         return Ok(new{
             status = responseVentaPersonal.Success,
             mensaje = responseVentaPersonal.Mensaje,
             data = new {
                 ventaPersonal = responseVentaPersonal.Data, 
-                ventaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal 
+                ventaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal,
+                base64Xls = responseXls.base64,
             }
         });
     }
@@ -270,11 +274,18 @@ public class ProcesoComisionesController : ControllerBase
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        var responseVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        ComisionVentaGrupoXls comi = new ComisionVentaGrupoXls();
+
+        var responseXls = await comi.GetComicionVentaGrupoXls(responseVentaGrupo.Data.ToList());
         return Ok(new{
-            status = responseVentaPersonal.Success,
-            mensaje = responseVentaPersonal.Mensaje,
-           responseVentaPersonal.Data 
+            status = responseVentaGrupo.Success,
+            mensaje = responseVentaGrupo.Mensaje,
+            data = new
+            {
+                listado = responseVentaGrupo.Data,
+                base64Xls = responseXls.base64
+            }
         });
     }
 
