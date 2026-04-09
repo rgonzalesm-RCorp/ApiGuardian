@@ -211,6 +211,7 @@ public class BrContacto
     public string SCedulaIdentidad { get; set; } = string.Empty;
     public string SNombreCompleto { get; set; } = string.Empty;
     public int Codigo { get; set; }
+    public int LPatrocinanteId { get; set; }
 }
 public class BrCuotaRed
 {

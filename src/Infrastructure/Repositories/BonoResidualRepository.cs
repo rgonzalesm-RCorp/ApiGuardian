@@ -323,7 +323,8 @@ public class BonoResidualRepository : IBonoResidualRepository
                                     , lcontacto_id LContactoId
                                     , scedulaidentidad SCedulaIdentidad
                                     , snombrecompleto SNombreCompleto
-                                    , scodigo Codigo 
+                                    , scodigo Codigo
+                                    , lpatrocinante_id LPatrocinanteId
                                 from tmp_residual_contacto";
         string queryContactosActivos = @"select DISTINCT lcontacto_id from administracionventapersonal where lciclo_id = @LCicloId";
         
@@ -343,7 +344,7 @@ public class BonoResidualRepository : IBonoResidualRepository
                                                     where r.lciclo_id = @LCicloId";
         string queryInsertTempContacto = @"TRUNCATE TABLE tmp_residual_contacto;
                                             insert into tmp_residual_contacto
-                                            select 0, lcontacto_id, scedulaidentidad, snombrecompleto, scodigo 
+                                            select 0, lcontacto_id, scedulaidentidad, snombrecompleto, scodigo, lpatrocinante_id
                                             from administracioncontacto ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [queryCuota: {queryCuota}, queryContacto: {queryContacto}, usuario: {Usuario}]");

@@ -24,7 +24,7 @@ public class RedesController : ControllerBase
         _log = log;
     }
 
-    [HttpGet("get/datos")]
+    [HttpGet("armar/red/comprimida/mes")]
     public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId ,[FromHeader(Name = "Inicio")]  string Inicio, [FromHeader(Name = "Fin")] string Fin )
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
@@ -33,7 +33,7 @@ public class RedesController : ControllerBase
         try
         {
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
-            List<ItemContactoRedComprimida> Lista = new List<ItemContactoRedComprimida>();
+            List<ItemContactoRed> Lista = new List<ItemContactoRed>();
             foreach (var item in ResponseContactoVentaMes.ListadoContactosActivos)
             {
                 int LContactoId = item.LVendedorId;
@@ -49,7 +49,7 @@ public class RedesController : ControllerBase
                     if (EstaActivo > 0)
                     {
                         Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.PatrocinadorId}");
-                        ItemContactoRedComprimida ObjRedComprimidad = new ItemContactoRedComprimida
+                        ItemContactoRed ObjRedComprimidad = new ItemContactoRed
                         {
                             LContactoId = item.LVendedorId,
                             LPatrocinadorId = LPatrocinadorId,
@@ -64,10 +64,10 @@ public class RedesController : ControllerBase
                     }
                     LContactoId = LPatrocinadorId;
                     
-                   
                 }
             }
             var ResponseGuardarRedComprimida = await _repo.GuardarRedComprimida(logTransaccionId, Usuario, Lista);
+            
             return Ok(new 
             {
                 status = ResponseContactoVentaMes.Success,
@@ -93,5 +93,66 @@ public class RedesController : ControllerBase
             });
         }
     }
+    [HttpGet("armar/red/cuotas")]
+    public async Task<IActionResult> GetClientesCuotas([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId )
+    {
+        var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+        _log.Info(logTransaccionId, NOMBREARCHIVO, "GetClientesCuotas", $"Inicio GetClientesCuotas() Usuario: {Usuario}");
 
+        try
+        {
+            var ResponseClientesCuotas = await _repo.GetObtnerClientesCuotas(logTransaccionId, Usuario);
+            List<ItemContactoRed> Lista = new List<ItemContactoRed>();
+
+            List<ItemCuotasRed> ListadoContactosCuotas = ResponseClientesCuotas.ListadoContactosCuotas.ToList();
+            List<BrContacto> ListaContacto = ResponseClientesCuotas.ListaContacto.ToList();
+            var cachePatrocinadores = new Dictionary<int, int>();
+
+            foreach (var item in ListadoContactosCuotas)
+            {
+                int contactoId = item.LContactoId;
+
+                for (int nivel = 1; nivel <= 7; nivel++)
+                {
+                    int patrocinadorId = ListaContacto.Where(x => x.LContactoId == contactoId)
+                        .Select(x => x.LPatrocinanteId)
+                        .FirstOrDefault();
+                    if (patrocinadorId <= 0)
+                        break;
+                    Lista.Add(new ItemContactoRed
+                    {
+                        LContactoId = item.LContactoId,
+                        LPatrocinadorId = patrocinadorId,
+                        Nivel = nivel,
+                        LCicloId = LCicloId,
+                        LContratoId = 0,
+                        Usuario = Usuario
+                    });
+
+                    contactoId = patrocinadorId;
+                }
+            }
+            var responseGuardarRedCompletaCuotas = await _repo.GuardarRedCompletaCuotas(logTransaccionId, Usuario, Lista);
+
+            return Ok(new 
+            {
+                status = ResponseClientesCuotas.Success,
+                mensaje = ResponseClientesCuotas.Mensaje,
+                data = new
+                {
+                    ClientesCuotas = ResponseClientesCuotas.ListadoContactosCuotas.Count()
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId, NOMBREARCHIVO, "GetClientesCuotas", "Error", ex);
+            return Ok(new 
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+    }
 }
