@@ -390,6 +390,7 @@ public class BonoResidualController : ControllerBase
                 }
             }
 
+            listadoResidual = listadoResidual.Where(x => x.ActivoMes).ToList();
             var ListadoResumenPorEmpresa = listadoResidual.GroupBy(x => new {x.Empresa })
             .Select(g => new
             {
@@ -544,7 +545,7 @@ public class BonoResidualController : ControllerBase
             return Ok(new
             {
                 status = responserGetBonoResidual.Success,
-                mensaje = responserGetBonoResidual.Mensaje,
+                mensaje = "Se guardo correctamente el bono residual.",
                 data =new
                 {
                     listaCuota = responserGetBonoResidual.ListaCuotaRed.Count(),
