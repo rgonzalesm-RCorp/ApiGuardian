@@ -479,7 +479,7 @@ public class BonoResidualController : ControllerBase
                         LContactoId = patrocinadoId,
                         NombreCompleto = contacto?.SNombreCompleto ?? "",
                         Documento = contacto?.SCedulaIdentidad ?? "",
-                        LContactoIdHijo = 0,
+                        LContactoIdHijo = item.LContactoId,
                         NombreCompletoHijo = item.Cliente,
                         DocumentoHijo = item.DocumentoCliente,
                         Nivel = i,
@@ -495,24 +495,32 @@ public class BonoResidualController : ControllerBase
                     listadoResidual.Add(rows);
                 }
             }
+            listadoResidual = listadoResidual.Where(x => x.ActivoMes).ToList();
 
-            var listadoBonoCompleto = listadoResidual.GroupBy(x => new {x.Nivel, x.LContactoId, x.DocumentoHijo, x.LComplejoId})
-            .Select(g => new
+            var listadoBonoCompleto = listadoResidual.GroupBy(x => new {x.Nivel, x.LContactoId, x.LContactoIdHijo, x.DocumentoHijo, x.LComplejoId})
+            .Select(g => new ItemBonoCompleto
             {
-                g.Key.Nivel,
-                g.Key.LContactoId,
-                g.Key.DocumentoHijo,
-                g.Key.LComplejoId,
-                TotalPago = g.Sum(x => x.BonoResidual)
+                Id = 0,
+                Nivel = g.Key.Nivel,
+                LContactoId = g.Key.LContactoId,
+                LContactoIdHijo = g.Key.LContactoIdHijo,
+                DocumentoHijo = g.Key.DocumentoHijo,
+                LComplejoId = g.Key.LComplejoId,
+                TotalBono = g.Sum(x => x.Bono),
+                TotalPago = g.Sum(x => x.BonoResidual),
+                Cantidad = g.Count(),
+                LCicloId = LCicloId
             })
             .ToList();
 
             var ListadoRedEmpresaComplejo = listadoResidual.GroupBy(x => new {x.LContactoId, x.LComplejoId})
-            .Select(g => new
+            .Select(g => new ItemRedEmpresaComplejo
             {
-                g.Key.LContactoId,
-                g.Key.LComplejoId,
-                TotalPago = g.Sum(x => x.BonoResidual)
+                LRedEmpresaComplejoId = 0,
+                LCicloId = LCicloId,
+                LContactoId = g.Key.LContactoId,
+                LComplejoId = g.Key.LComplejoId,
+                DMonto = g.Sum(x => x.BonoResidual)
             })
             .ToList();
 
@@ -523,11 +531,13 @@ public class BonoResidualController : ControllerBase
                 , LBonoResidualId = 0
                 , LCicloId = LCicloId
                 , LContactoId = g.Key.LContactoId
-                , DTotalBono = g.Sum(x => x.TotalPago)
+                , DTotalBono = g.Sum(x => x.DMonto)
             })
             .ToList();
             
             var responseAdministacionBonoResidual = await _adminBonoResidualRepository.SaveAdministracionBonoResidual(logTransaccionId.ToString(), Usuario, listado);
+            var responseAdministacionBonoCompleto = await _adminBonoResidualRepository.SaveAdministracionBonoCompleto(logTransaccionId.ToString(), Usuario, listadoBonoCompleto );
+            var responseAdministacionRedEmpresaComplejo= await _adminBonoResidualRepository.SaveAdministracionRedEmpresaComplejo(logTransaccionId.ToString(), Usuario, ListadoRedEmpresaComplejo );
             
             DateTime fin = DateTime.Now;
             

@@ -67,5 +67,89 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
             return (false, $"Error al insertar las comisiones: {ex.Message}");
         }
     }
+    public async Task<( bool Success, string Mensaje)> SaveAdministracionBonoCompleto(string LogTransaccionId, string Usuario, List<ItemBonoCompleto> data)
+    {
+        string nombreMetodo = "SaveAdministracionBonoCompleto()";
+        const string nextIdQuery = @"SELECT IFNULL(MAX(id), 0) FROM t_bonocompleto;";
 
+        const string query = @"INSERT INTO t_bonocompleto (
+                                    id, lbonocompleto, fecha, generacion, padre_lcontacto_id, lciclo_id,
+                                    lcontacto_id, cedulaidentidad, proyecto, bono, porcentaje, pagar, cantidad
+                                )VALUES (
+                                    @Id, 0, now(), @Nivel, @LContactoId, @LCicloId,
+                                    @LContactoIdHijo, @DocumentoHijo, @LComplejoId, @TotalBono, 1, @TotalPago, @Cantidad
+                                )";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var nextId = await connection.ExecuteScalarAsync<int>(nextIdQuery);
+
+            foreach (var item in data)
+            {
+                nextId++;
+                item.Id = nextId;
+            }
+
+            var rows = await connection.ExecuteAsync(query, data);
+
+            bool success = rows > 0;
+            string mensaje = success ? "Registrados guardados correctamente." : "No se realizó el guardado.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}]");
+
+            return (success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al insertar las comisiones: {ex.Message}");
+        }
+    }
+    public async Task<( bool Success, string Mensaje)> SaveAdministracionRedEmpresaComplejo(string LogTransaccionId, string Usuario, List<ItemRedEmpresaComplejo> data)
+    {
+        string nombreMetodo = "SaveAdministracionRedEmpresaComplejo()";
+        const string nextIdQuery = @"SELECT IFNULL(MAX(lredempresacomplejo_id), 0) FROM administracionredempresacomplejo;";
+
+        const string query = @"INSERT INTO administracionredempresacomplejo (
+                                    susuarioadd, dtfechaadd, susuariomod, dtfechamod,
+                                    lredempresacomplejo_id, lciclo_id, lcontacto_id, lcomplejo_id, dmonto
+                                )VALUES (
+                                    @Usuario, now(), @Usuario, now(), 
+                                    @LRedEmpresaComplejoId, @LCicloId, @LContactoId, @LComplejoId, @DMonto
+                                )";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var nextId = await connection.ExecuteScalarAsync<int>(nextIdQuery);
+
+            foreach (var item in data)
+            {
+                nextId++;
+                item.LRedEmpresaComplejoId = nextId;
+                item.Usuario = Usuario;
+            }
+
+            var rows = await connection.ExecuteAsync(query, data);
+
+            bool success = rows > 0;
+            string mensaje = success ? "Registrados guardados correctamente." : "No se realizó el guardado.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected:{rows}]");
+
+            return (success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al insertar las comisiones: {ex.Message}");
+        }
+    }
 }

@@ -18,3 +18,27 @@ public class ItemAdministracionBonoResidual
     public int LSemanaId { get; set; } = 0;
 
 }
+
+public class ItemBonoCompleto
+{
+    public int Id { get; set; }
+    public int Nivel { get; set; }
+    public int LContactoId { get; set; }
+    public int LContactoIdHijo  { get; set; }
+    public string DocumentoHijo  { get; set; } = string.Empty;
+    public int LComplejoId { get; set; }
+    public decimal TotalBono { get; set; }
+    public decimal TotalPago { get; set; }
+    public int Cantidad  { get; set; }
+    public int LCicloId  { get; set; }
+
+}
+public class ItemRedEmpresaComplejo
+{
+    public int LRedEmpresaComplejoId { get; set; }
+    public int LCicloId  { get; set; }
+    public int LContactoId { get; set; }
+    public int LComplejoId { get; set; }
+    public decimal DMonto { get; set; }
+    public string Usuario { get; set; } = "";
+}

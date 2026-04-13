@@ -326,7 +326,7 @@ public class BonoResidualRepository : IBonoResidualRepository
                                     , scodigo Codigo
                                     , lpatrocinante_id LPatrocinanteId
                                 from tmp_residual_contacto";
-        string queryContactosActivos = @"select DISTINCT lcontacto_id from administracionventapersonal where lciclo_id = @LCicloId";
+        string queryContactosActivos = @"select DISTINCT lcontacto_id LContactoId from administracionventapersonal where lciclo_id = @LCicloId";
         
         string queryInsertTempRed = @"
                                         TRUNCATE TABLE tmp_residual_red;

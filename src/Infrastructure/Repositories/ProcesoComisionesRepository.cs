@@ -405,9 +405,9 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                         , ACTR.dcuota_inicial dCuotaInicial
                         , ACTR.dtfecha 
                         , RC.nivel
-                        , cm.porcentaje
-                        , CASE WHEN actr.dcuota_inicial <= 0.00 then 0 else ACTR.dcuota_inicial * cm.porcentaje / 100 end comision
-                        , CASE WHEN actr.dcuota_inicial <= 0.00 then 0 else 1 end esCero
+                        , CASE WHEN ACTR.lestado = 6 THEN 0 ELSE cm.porcentaje END porcentaje
+                        , CASE WHEN actr.dcuota_inicial <= 0.00 OR ACTR.lestado = 6 then 0 else ACTR.dcuota_inicial * cm.porcentaje / 100 end comision
+                        , CASE WHEN actr.dcuota_inicial <= 0.00 OR ACTR.lestado = 6 then 0 else 1 end esCero
                     from red_comprimida RC 
                     INNER join administracioncontrato ACTR on ACTR.lasesor_id = rc.lcontacto_id and RC.lciclo_id = @LCicloId
 
