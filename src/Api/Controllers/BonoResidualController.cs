@@ -19,17 +19,19 @@ public class BonoResidualController : ControllerBase
     private readonly IVentasCnxRepository _ventasCnxRepository;
     private readonly IBrConfiguracionRepository _brConfiguracionRepository;
     private readonly IAdministracionBonoResidualRepository _adminBonoResidualRepository;
+    private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
-    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository, IVentasCnxRepository ventasCnxRepository, IBrConfiguracionRepository brConfiguracionRepository, IAdministracionBonoResidualRepository administracionBonoResidualRepository)
+    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository, IVentasCnxRepository ventasCnxRepository, IBrConfiguracionRepository brConfiguracionRepository, IAdministracionBonoResidualRepository administracionBonoResidualRepository, IControlProcesoRepository controlProcesoRepository)
     {
         _bonoResidualRepository = bonoResidualRepository;
         _ventasCnxRepository = ventasCnxRepository;
         _brConfiguracionRepository = brConfiguracionRepository;
         _adminBonoResidualRepository = administracionBonoResidualRepository;
+        _controlProcesoRepository = controlProcesoRepository;
         _log = log;
     }
     [HttpGet("get/cartera")]
-    public async Task<IActionResult> GetCartera([FromHeader(Name = "Usuario")] string Usuario)
+    public async Task<IActionResult> GetCartera([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreMetodo = "GetCartera()";
@@ -50,6 +52,8 @@ public class BonoResidualController : ControllerBase
             .ToList();
             CarteraXls _carteraXls = new CarteraXls();
             var xlsCuota = await _carteraXls.GetCarteraXlS(responseCarteraAll.ListaCartera.ToList());
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+
 
             return Ok(new
             {
@@ -58,7 +62,11 @@ public class BonoResidualController : ControllerBase
                 data = new {
                     resumenCartera,
                     base64 = xlsCuota.base64,
-                    fileNameXls = $"Reporte de la cartera de clientes"
+                    fileNameXls = $"Reporte de la cartera de clientes",
+                    controlPasos = new {
+                                        ejecutado = PasosDiccionario.OBTENER_CARTERA == responseSiguientePaso.Data.nombre ? false : true,
+                                        data = responseSiguientePaso.Data
+                                    }
                 }
             });
         }
@@ -75,18 +83,30 @@ public class BonoResidualController : ControllerBase
         
     }
     [HttpPost("save/cartera")]
-    public async Task<IActionResult> GuardarCartera([FromHeader(Name = "Usuario")] string Usuario)
+    public async Task<IActionResult> GuardarCartera([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreArchivo = "GuardarCartera()";
         try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.OBTENER_CARTERA != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
             var responseCartera = await _bonoResidualRepository.GetCarteraAll(logTransaccionId.ToString(), Usuario);
-            var responseSaveCartera = _bonoResidualRepository.GuardarCartera(logTransaccionId.ToString(), Usuario, responseCartera.ListaCartera.ToList());
+            var t = GuardarCarteraGrl (logTransaccionId.ToString(),  Usuario,  LCicloId, responseCartera.ListaCartera.ToList(), nombreArchivo);
+            /*var responseSaveCartera = _bonoResidualRepository.GuardarCartera(logTransaccionId.ToString(), Usuario, responseCartera.ListaCartera.ToList());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
-
+            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_CARTERA);
+            */
             return Ok(new
             {
                 status = true ,
@@ -105,6 +125,14 @@ public class BonoResidualController : ControllerBase
             });
         }
         
+    }
+    private async Task<bool> GuardarCarteraGrl(string logTransaccionId, string Usuario, int LCicloId, List<TCartera> Cartera, string nombreArchivo)
+    {
+            var responseSaveCartera = await _bonoResidualRepository.GuardarCartera(logTransaccionId.ToString(), Usuario, Cartera);
+
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_CARTERA);
+            return true;
     }
     [HttpGet("get/cuota")]
     public async Task<IActionResult> GetCuota([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)

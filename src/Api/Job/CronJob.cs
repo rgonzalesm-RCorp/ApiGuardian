@@ -287,6 +287,7 @@ public class MiCronJob : IJob
         }
         await ProcesarVentas(LogTransaccionId, usuario, Lista, ListaComplejo, inicio, fin, rezagada);
         await _controlProcesoRepository.UpdateControlProceso(LogTransaccionId, usuario, paso, lCicloId);
+        await _controlProcesoRepository.EjecutarPaso(LogTransaccionId, usuario, ProcesosDiccionario.COMISIONES, lCicloId, rezagada ? PasosDiccionario.ADICIONAR_VENTAS : PasosDiccionario.OBTENER_VENTAS);
         return true;
     }
     private async Task<bool> ProcesarVentas(string LogTransaccionId, string Usuario, List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada)
