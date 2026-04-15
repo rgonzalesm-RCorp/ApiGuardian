@@ -9,6 +9,7 @@ using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using ApiGuardian.Infrastructure.Services;
+using DocumentFormat.OpenXml.Bibliography;
 namespace CleanDapperApi.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
@@ -128,14 +129,14 @@ public class BonoResidualController : ControllerBase
     }
     private async Task<bool> GuardarCarteraGrl(string logTransaccionId, string Usuario, int LCicloId, List<TCartera> Cartera, string nombreArchivo)
     {
-            var responseSaveCartera = await _bonoResidualRepository.GuardarCartera(logTransaccionId.ToString(), Usuario, Cartera);
+        var responseSaveCartera = await _bonoResidualRepository.GuardarCartera(logTransaccionId.ToString(), Usuario, Cartera);
 
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
-            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_CARTERA);
-            return true;
+        _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_CARTERA);
+        return true;
     }
     [HttpGet("get/cuota")]
-    public async Task<IActionResult> GetCuota([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    public async Task<IActionResult> GetCuota([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreArchivo = "GetCuota()";
@@ -166,6 +167,8 @@ public class BonoResidualController : ControllerBase
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "PDF generado correctamente.");
             CuotaXls _cuotaXls = new CuotaXls();
             var xlsCuota = await _cuotaXls.GetCuotaXlS(responseCuota.ListaCuota.ToList());
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+
 
             return Ok(new
             {
@@ -174,7 +177,11 @@ public class BonoResidualController : ControllerBase
                 data = new {
                     resumen,
                     xlsCuota.base64,
-                    fileNameXls = $"Reporte de cuotas del {inicio} al {fin}"
+                    fileNameXls = $"Reporte de cuotas del {inicio} al {fin}",
+                    controlPasos = new {
+                                        ejecutado = PasosDiccionario.OBTENER_CUOTAS == responseSiguientePaso.Data.nombre ? false : true,
+                                        data = responseSiguientePaso.Data
+                                    }
                 }
             });
         }
@@ -190,12 +197,22 @@ public class BonoResidualController : ControllerBase
         }
     }
     [HttpPost("save/cuota")]
-    public async Task<IActionResult> GuardarCuota([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    public async Task<IActionResult> GuardarCuota([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreArchivo = "GetCuota()";
         try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.OBTENER_CUOTAS != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
             var responseCuota = await _bonoResidualRepository.GetCuota(logTransaccionId.ToString(), Usuario, inicio, fin);
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
@@ -208,8 +225,8 @@ public class BonoResidualController : ControllerBase
                     data = ""
                 });
             }
-            var responseSaveCuota = _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, responseCuota.ListaCuota.ToList());
-
+            //var responseSaveCuota = _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, responseCuota.ListaCuota.ToList());
+            var t = GuardarCuotaGrl(logTransaccionId.ToString(), Usuario, LCicloId, responseCuota.ListaCuota.ToList(), nombreArchivo);
 
             return Ok(new
             {
@@ -229,8 +246,15 @@ public class BonoResidualController : ControllerBase
             });
         }
     }
+    private async Task<bool> GuardarCuotaGrl(string logTransaccionId, string Usuario, int LCicloId, List<TCuota> Cuota, string nombreArchivo)
+    {
+        var responseSaveCuota = await _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, Cuota);
+        _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
+        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_CUOTAS);
+        return true;
+    }
     [HttpGet("get/excedente")]
-    public async Task<IActionResult> GetExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    public async Task<IActionResult> GetExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreArchivo = "GetExcedente()";
@@ -252,14 +276,19 @@ public class BonoResidualController : ControllerBase
                     data = ""
                 });
             }
-             
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+
 
             return Ok(new
             {
                 status = true,
                 mensaje = "Se estan guardando las cuotas en segundo plano.",
                 data = new{
-                    listaExcedente = listaFiltrada
+                    listaExcedente = listaFiltrada,
+                    controlPasos = new {
+                                        ejecutado = PasosDiccionario.OBTENER_EXCEDENTE == responseSiguientePaso.Data.nombre ? false : true,
+                                        data = responseSiguientePaso.Data
+                                    }
                 }
             });
         }
@@ -275,12 +304,22 @@ public class BonoResidualController : ControllerBase
         }
     }
     [HttpPost("save/excedente")]
-    public async Task<IActionResult> GuardarExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin)
+    public async Task<IActionResult> GuardarExcedente([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Inicio")] string inicio, [FromHeader(Name = "Fin")] string fin, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreArchivo = "GuardarExcedente()";
         try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.OBTENER_EXCEDENTE != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
             var responseVentaCnx = await _ventasCnxRepository.GetVentaCnx(logTransaccionId.ToString(), inicio, fin);
             List<ItemVentaCnx> dataVentasCnx = responseVentaCnx.Data.ToList();
@@ -324,6 +363,8 @@ public class BonoResidualController : ControllerBase
             }
 
             var responseGuardarExcedente = await _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, ListaExcedente, true);
+            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_EXCEDENTE);
+
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
             if (!responseVentaCnx.Success)
             {
@@ -438,6 +479,8 @@ public class BonoResidualController : ControllerBase
 
             ComisionResidualXls _ins = new ComisionResidualXls();
             var reponseXLS = await _ins.GetComisionResidualXls (listadoResidual);
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+
             return Ok(new
             {
                 status = responserGetBonoResidual.Success,
@@ -446,7 +489,11 @@ public class BonoResidualController : ControllerBase
                 {
                     ListadoResumenPorEmpresa,
                     counter = listadoResidual.Count,
-                    base64 = reponseXLS.base64
+                    base64 = reponseXLS.base64,
+                    controlPasos = new {
+                                        ejecutado = PasosDiccionario.COMISION_RESIDUAL == responseSiguientePaso.Data.nombre ? false : true,
+                                        data = responseSiguientePaso.Data
+                                    }
                 }
             });
         }
@@ -470,6 +517,16 @@ public class BonoResidualController : ControllerBase
         string nombreMetodo = "GetBonoResidual()";
         try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.COMISION_RESIDUAL != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             var responserGetBonoResidual = await _bonoResidualRepository.GetDataCalculoBonoResidual(logTransaccionId.ToString(), Usuario, LCicloId);
             var responseConfiguracionBr = await _brConfiguracionRepository.GetConfiguracion(logTransaccionId.ToString(), Usuario);
 
@@ -567,6 +624,7 @@ public class BonoResidualController : ControllerBase
             var responseAdministacionBonoResidual = await _adminBonoResidualRepository.SaveAdministracionBonoResidual(logTransaccionId.ToString(), Usuario, listado);
             var responseAdministacionBonoCompleto = await _adminBonoResidualRepository.SaveAdministracionBonoCompleto(logTransaccionId.ToString(), Usuario, listadoBonoCompleto );
             var responseAdministacionRedEmpresaComplejo= await _adminBonoResidualRepository.SaveAdministracionRedEmpresaComplejo(logTransaccionId.ToString(), Usuario, ListadoRedEmpresaComplejo );
+            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.COMISION_RESIDUAL);
             
             DateTime fin = DateTime.Now;
             
