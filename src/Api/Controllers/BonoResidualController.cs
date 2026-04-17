@@ -21,14 +21,22 @@ public class BonoResidualController : ControllerBase
     private readonly IBrConfiguracionRepository _brConfiguracionRepository;
     private readonly IAdministracionBonoResidualRepository _adminBonoResidualRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
+    private readonly IBonoParRepository _bonoParRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
-    public BonoResidualController(ILogService log, IBonoResidualRepository bonoResidualRepository, IVentasCnxRepository ventasCnxRepository, IBrConfiguracionRepository brConfiguracionRepository, IAdministracionBonoResidualRepository administracionBonoResidualRepository, IControlProcesoRepository controlProcesoRepository)
+    public BonoResidualController(ILogService log
+        , IBonoResidualRepository bonoResidualRepository
+        , IVentasCnxRepository ventasCnxRepository
+        , IBrConfiguracionRepository brConfiguracionRepository
+        , IAdministracionBonoResidualRepository administracionBonoResidualRepository
+        , IControlProcesoRepository controlProcesoRepository
+        , IBonoParRepository bonoParRepository)
     {
         _bonoResidualRepository = bonoResidualRepository;
         _ventasCnxRepository = ventasCnxRepository;
         _brConfiguracionRepository = brConfiguracionRepository;
         _adminBonoResidualRepository = administracionBonoResidualRepository;
         _controlProcesoRepository = controlProcesoRepository;
+        _bonoParRepository = bonoParRepository;
         _log = log;
     }
     [HttpGet("get/cartera")]
@@ -656,4 +664,49 @@ public class BonoResidualController : ControllerBase
         }
         
     }
+
+    [HttpGet("get/bono/par")]
+     public async Task<IActionResult> ObtenerBonoPar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        string nombreMetodo = "ObtenerBonoPar()";
+        try
+        {
+            /*var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.COMISION_RESIDUAL != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }*/
+            var ResponseObtenerBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
+            
+            return Ok(new
+            {
+                status = ResponseObtenerBonoPar.Success,
+                mensaje = ResponseObtenerBonoPar.Mensaje,
+                data =new
+                {
+                    ListaBonoPar = ResponseObtenerBonoPar.Data,
+                    
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+        
+    }
+
 }
