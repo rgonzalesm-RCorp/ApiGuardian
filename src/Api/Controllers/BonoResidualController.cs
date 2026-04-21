@@ -684,6 +684,8 @@ public class BonoResidualController : ControllerBase
                 });
             }*/
             var ResponseObtenerBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
+            BonoParXls bonoParXls = new BonoParXls();
+            var ResponseObtenerXls = await bonoParXls.GetBonoParXls(ResponseObtenerBonoPar.Data.ToList());
             
             return Ok(new
             {
@@ -692,6 +694,7 @@ public class BonoResidualController : ControllerBase
                 data =new
                 {
                     ListaBonoPar = ResponseObtenerBonoPar.Data,
+                    xls = ResponseObtenerXls.base64
                     
                 }
             });

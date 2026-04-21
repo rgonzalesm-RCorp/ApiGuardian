@@ -71,7 +71,7 @@ namespace Query.Grd
                                 FROM administracioncontrato ACT
                                 INNER JOIN administracioncontacto V on V.lcontacto_id = ACT.lasesor_id
                                 INNER JOIN administracioncontacto C ON C.lcontacto_id = ACT.lcontacto_id
-                                WHERE ACT.lcontrato_id in ({LcontratoId})";
+                                WHERE ACT.lcontrato_id in ({LcontratoId}) ORDER BY V.snombrecompleto";
      
 
             return queryDetalle;
