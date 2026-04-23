@@ -7,5 +7,11 @@ public interface IControlProcesoRepository
     Task<(ItemControlProceso Data, bool Success, string Mensaje)> GetControlProceso(string LogTransaccionId, string Usuario, string Paso, int LCicloId);
     Task<(bool Success, string Mensaje)> GuardarControlProceso(string LogTransaccionId, string Usuario, ItemControlProceso Data);
     Task<(bool Success, string Mensaje)> UpdateControlProceso(string LogTransaccionId, string Usuario, string Paso, int LCicloId);
+
+
+    Task<(bool Success, string Mensaje, ItemControlProcesoNext Data)> GetSiguientePaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId);
+    Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> EjecutarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso);
+    Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> ReiniciarCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId);
+    Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> CerrarCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId);
     
 }

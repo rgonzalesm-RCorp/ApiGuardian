@@ -92,7 +92,9 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                     A.sdireccion SDireccion,
                     A.dtfechanacimiento FechaNacimiento,
                     A.dtfecharegistro FechaRegistro,
-                    A.scodigo SCodigo
+                    A.scodigo SCodigo,
+                    A.cbaja CBaja,
+                    A.smotivobaja SMotivoBaja
 
                 FROM administracioncontacto A
                 INNER JOIN administracioncontacto P ON P.lcontacto_id = A.lpatrocinante_id 
@@ -100,7 +102,7 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                 INNER JOIN basepais BP ON BP.lpais_id = A.lpais_id
                 LEFT JOIN administracionbanco AB ON AB.lbanco_id = A.lbanco_id
                 LEFT JOIN administracionmoneda AM ON AM.lmoneda_id = AB.lmoneda_id
-                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search) AND A.cbaja = 0
+                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search)
                 ORDER BY A.lcontacto_id DESC
                 LIMIT @pageSize OFFSET @page;
             ";
@@ -113,7 +115,7 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                 INNER JOIN basepais BP ON BP.lpais_id = A.lpais_id
                 LEFT JOIN administracionbanco AB ON AB.lbanco_id = A.lbanco_id
                 LEFT JOIN administracionmoneda AM ON AM.lmoneda_id = AB.lmoneda_id
-                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search) AND A.cbaja = 0;
+                WHERE (@search IS NULL OR A.snombrecompleto LIKE @search OR A.scedulaidentidad LIKE @search);
             ";
 
             var parameters = new

@@ -146,7 +146,7 @@ namespace Query.Cnx
                     string proyectos = proyectosExcluidos == null ? "" : string.Join(",", proyectosExcluidos);
                     var productosExcluidos = item.migracionCuota.productosExcluir;
                     string pr = productosExcluidos == null ? "" : string.Join(", ", productosExcluidos.Select(x => $"'{x}'"));
-                    query += $@"SELECT
+                    query += $@"SELECT '{item.Nombre}' Empresa,
                                     RTRIM(VD.IDPRODUCTO) IDPRODUCTO, V.IDALMACEN AS IDPROYECTO, AL.DESCRIPCION AS PROYECTO,
                                     R.IDRECIBO, R.IDVENTA, TP.IDTIPOPAGO,
                                     RTRIM(TP.DESCRIPCION) DESCRIPCION, CLI.IDCLIENTE, RTRIM(CLI.NOMBRE) AS CLIENTE,

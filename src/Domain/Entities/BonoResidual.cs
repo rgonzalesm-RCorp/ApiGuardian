@@ -62,11 +62,11 @@ public class TCartera
         set => _proyecto = value?.TrimEnd() ?? string.Empty;
     }
     public decimal? CuotasLotesVencidas { get; set; }
-    private string _ultimoPago = string.Empty;
-    public string UltimoPago
+    private string? _ultimoPago = null;
+    public string? UltimoPago
     {
         get => _ultimoPago;
-        set => _ultimoPago = value?.TrimEnd() ?? string.Empty;
+        set => _ultimoPago = value?.TrimEnd() ?? null;
     }
     private string _estado = string.Empty;
     public string Estado
@@ -145,6 +145,7 @@ public class TCuota
     public int Idproyecto { get; set; }
     public int LComplejoId { get; set; }
     public string Proyecto { get; set; } = string.Empty;
+    public string Empresa { get; set; } = string.Empty;
     public int Idrecibo { get; set; }
     public int Idventa { get; set; }
     public int Idtipopago { get; set; }
@@ -210,10 +211,12 @@ public class BrContacto
     public string SCedulaIdentidad { get; set; } = string.Empty;
     public string SNombreCompleto { get; set; } = string.Empty;
     public int Codigo { get; set; }
+    public int LPatrocinanteId { get; set; }
 }
 public class BrCuotaRed
 {
     public int Id { get; set; }
+    public string Empresa { get; set; } = string.Empty;
     public string ProductoId { get; set; } = string.Empty;
     public int ProyectoId { get; set; }
     public string Proyecto { get; set; } = string.Empty;
@@ -247,6 +250,9 @@ public class BrCalculoItem
     public int LContactoIdHijo { get; set; }
     public string NombreCompletoHijo { get; set; } = string.Empty;
     public string DocumentoHijo { get; set; } = string.Empty;
+    public string Complejo { get; set; } = string.Empty;
+    public string Empresa { get; set; } = string.Empty;
+    public string ProductoId { get; set; } = string.Empty;
     public int Nivel { get; set; }
     public decimal Bono { get; set; }
     public decimal BonoResidual { get; set; }

@@ -28,7 +28,7 @@ public class BrConfiguracionController : ControllerBase
     public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario )
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-        _log.Error(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
+        _log.Info(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
 
         try
         {

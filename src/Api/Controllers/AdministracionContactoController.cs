@@ -18,24 +18,23 @@ public class AdministracionContactoController : ControllerBase
         _repository = repository;
         _log = log;
     }
+ 
     [HttpGet]
-    public async Task<IActionResult> GetAll(
-        [FromHeader(Name = "page")] int page,
-        [FromHeader(Name = "pageSize")] int pageSize,
-        [FromHeader(Name = "search")] string? search
-    )
+    public async Task<IActionResult> GetAll( 
+    [FromQuery] int page,
+    [FromQuery] int pageSize,
+    [FromQuery] string? search)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string NombreMetodo = "GetAllAdministracionContacto()";
 
         try
         {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [page:{page}, pageSize:{pageSize}, search:{search}]");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [page:{ page}, pageSize:{pageSize}, search:{search}]");
 
             var responseContacto = await _repository.GetAllAdministracionContacto(logTransaccionId.ToString(), page, pageSize, search);
 
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo,
-                $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
+            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
 
             return Ok(new
             {

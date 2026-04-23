@@ -3,6 +3,7 @@ using ApiGuardian.Domain.Entities;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Persistence;
 using Newtonsoft.Json;
+using DocumentFormat.OpenXml.Office.CoverPageProps;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -125,4 +126,121 @@ public class ControlProcesoRepository : IControlProcesoRepository
             return (false, $"Error al actualizar el registro: {ex.Message}");
         }
     }
+
+
+
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoNext Data)> GetSiguientePaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId)
+    {
+        string nombreMetodo = "GetSiguientePaso()";
+
+        string query = $@"CALL sp_obtener_siguientes_pasos(@proceso, @LCicloId);";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoNext>(query, new {proceso, LCicloId});
+
+            bool success = true;
+            string mensaje =  "Procedimiento ejecutado correctamente";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, Siguiente Paso:{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
+
+            return (success, mensaje, item ?? new ItemControlProcesoNext());
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al ejecutar el procedimiento: {ex.Message}", new ItemControlProcesoNext());
+        }
+    }
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> EjecutarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso)
+    {
+        string nombreMetodo = "EjecutarPaso()";
+
+        string query = $@"CALL sp_conf_ejecutar_paso(@proceso, @LCicloId, @paso);";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId, paso});
+
+            bool success = true;
+            string mensaje =  "Procedimiento ejecutado correctamente";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, Response Proc sp_conf_ejecutar_paso :{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
+
+            return (success, mensaje, item ?? new ItemControlProcesoPrincipal());
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al ejecutar el procedimiento sp_conf_ejecutar_paso: {ex.Message}", new ItemControlProcesoPrincipal());
+        }
+    }
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> ReiniciarCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId)
+    {
+        string nombreMetodo = "ReiniciarCiclo()";
+
+        string query = $@"CALL sp_reiniciar_ciclo(@proceso, @LCicloId);";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId});
+
+            bool success = true;
+            string mensaje =  "Procedimiento ejecutado correctamente";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, Response Proc sp_reiniciar_ciclo :{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
+
+            return (success, mensaje, item ?? new ItemControlProcesoPrincipal());
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al ejecutar el procedimiento sp_reiniciar_ciclo: {ex.Message}", new ItemControlProcesoPrincipal());
+        }
+    }
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> CerrarCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId)
+    {
+        string nombreMetodo = "CerrarCiclo()";
+
+        string query = $@"CALL sp_cerrar_ciclo(@proceso, @LCicloId);";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId});
+
+            bool success = true;
+            string mensaje =  "Procedimiento ejecutado correctamente";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, Response Proc sp_cerrar_ciclo :{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
+
+            return (success, mensaje, item ?? new ItemControlProcesoPrincipal());
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al ejecutar el procedimiento sp_cerrar_ciclo: {ex.Message}", new ItemControlProcesoPrincipal());
+        }
+    }
+
+
 }

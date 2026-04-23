@@ -84,13 +84,20 @@ public class ProcesoComisionesController : ControllerBase
             var responseContratofecha = await _administracionContratoRepository.GetContratoFecha(logTransaccionId.ToString(), inicio, fin);
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
 
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), "system", ProcesosDiccionario.COMISIONES, lCicloId);
+
+
             return Ok(new
             {
                 status = responseVtaCnx.Success ? true : false,
                 mensaje = responseVtaCnx.Mensaje,
                 data = new {
                     VtaCnx = responseVtaCnx.Data,
-                    VtaGrd = responseContratofecha.Data
+                    VtaGrd = responseContratofecha.Data,
+                    controlPasos = new {
+                            ejecutado = PasosDiccionario.OBTENER_VENTAS == responseSiguientePaso.Data.nombre ? false : true,
+                            data = responseSiguientePaso.Data
+                        }
                 }
             });
         }
@@ -111,7 +118,7 @@ public class ProcesoComisionesController : ControllerBase
     {
         
 
-        var t = _miCronJob.ProcesoPrincipal(null, "JOB");
+        var t = _miCronJob.ProcesoPrincipal("logTransaccionId.ToString()", null, "JOB", "", "", false, "EJEMPLO", "SYSTEM", 0);
         
         return Ok(new
         {
@@ -119,18 +126,30 @@ public class ProcesoComisionesController : ControllerBase
         });
     }
     [HttpGet("vta/rezagadas")]
-    public async Task<IActionResult> GetVtaRezagadas()
+    public async Task<IActionResult> GetVtaRezagadas([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Usuario")] string Usuario)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         
 
-        var responseVtaRezagadas = await _procesoComisionesRepository.GetVtaRezada(logTransaccionId.ToString(), "   ");
+        var responseVtaRezagadas = await _procesoComisionesRepository.GetVtaRezada(logTransaccionId.ToString(), Usuario);
+
+        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
+        
+
         
         return Ok(new
         {
             status = responseVtaRezagadas.Success,
             mensaje = responseVtaRezagadas.Mensaje,
-            responseVtaRezagadas.Data
+            data = new
+            {
+                responseVtaRezagadas.Data, 
+                controlPasos = new {
+                            ejecutado = PasosDiccionario.ADICIONAR_VENTAS == responseSiguientePaso.Data.nombre ? false : true,
+                            data = responseSiguientePaso.Data
+                        }
+            }
+            
         });
     }
     [HttpGet("venta/personal")]
@@ -139,12 +158,22 @@ public class ProcesoComisionesController : ControllerBase
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+
+        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
+
+        ComisionVentadirectaXls Comi = new ComisionVentadirectaXls();
+        var responseXls = await Comi.GetComicionVentaPersonalXls(responseVentaPersonal.Data.ToList());
         return Ok(new{
             status = responseVentaPersonal.Success,
             mensaje = responseVentaPersonal.Mensaje,
             data = new {
                 ventaPersonal = responseVentaPersonal.Data, 
-                ventaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal 
+                ventaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal,
+                base64Xls = responseXls.base64,
+                controlPasos = new {
+                            ejecutado = PasosDiccionario.COMISION_DIRECTA == responseSiguientePaso.Data.nombre ? false : true,
+                            data = responseSiguientePaso.Data
+                        }
             }
         });
     }
@@ -153,9 +182,37 @@ public class ProcesoComisionesController : ControllerBase
     public async Task<IActionResult> SaveVenta(RequestGuardarVentaGRD Data)
     {
         string paso = "GUARDAR_VTA";
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         try
         {
-            long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Data.Usuario, ProcesosDiccionario.COMISIONES, Data.LCicloId);
+            if (Data.Rezagada)
+            {
+                if (PasosDiccionario.ADICIONAR_VENTAS != responseSiguientePaso.Data.nombre)
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                        data = ""
+                    });
+                }
+            }
+            else
+            {
+                if (PasosDiccionario.OBTENER_VENTAS != responseSiguientePaso.Data.nombre)
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                        data = ""
+                    });
+                }
+            }
+            
+
             var responseControlProceso = await _controlProcesoRepository.GetControlProceso(logTransaccionId.ToString(), Data.Usuario, paso, Data.LCicloId );
             if(responseControlProceso.Success)
             {
@@ -200,7 +257,7 @@ public class ProcesoComisionesController : ControllerBase
                 });
             }
             var responseVentaPersonal = await _procesoComisionesRepository.GuardarVtaRezagadas(logTransaccionId.ToString(), Data.NoListaSeleccionado, "");
-            var t = _miCronJob.ProcesoPrincipal(Data.ListaSeleccionado, "", "", "", Data.Rezagada, paso, Data.Usuario, Data.LCicloId);
+            var t = _miCronJob.ProcesoPrincipal(logTransaccionId.ToString(), Data.ListaSeleccionado, "", "", "", Data.Rezagada, paso, Data.Usuario, Data.LCicloId);
             return Ok(new
             {
                 status = true,
@@ -224,6 +281,16 @@ public class ProcesoComisionesController : ControllerBase
     public async Task<IActionResult> SaveVtaPersonal(RequestSaveVtaPersonal request)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
+        if (PasosDiccionario.COMISION_DIRECTA != responseSiguientePaso.Data.nombre)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                data = ""
+            });
+        }
 
         var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
 
@@ -256,6 +323,8 @@ public class ProcesoComisionesController : ControllerBase
         }
         
         var responseVtaPersonsal = await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal);
+        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_DIRECTA);
+
         return Ok(new
         {
             status = responseVtaPersonsal.Success,
@@ -269,11 +338,24 @@ public class ProcesoComisionesController : ControllerBase
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        var responseVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
+
+        ComisionVentaGrupoXls comi = new ComisionVentaGrupoXls();
+
+        var responseXls = await comi.GetComicionVentaGrupoXls(responseVentaGrupo.Data.ToList());
         return Ok(new{
-            status = responseVentaPersonal.Success,
-            mensaje = responseVentaPersonal.Mensaje,
-           responseVentaPersonal.Data 
+            status = responseVentaGrupo.Success,
+            mensaje = responseVentaGrupo.Mensaje,
+            data = new
+            {
+                listado = responseVentaGrupo.Data,
+                base64Xls = responseXls.base64,
+                controlPasos = new {
+                                    ejecutado = PasosDiccionario.COMISION_GRUPO == responseSiguientePaso.Data.nombre ? false : true,
+                                    data = responseSiguientePaso.Data
+                                }
+            }
         });
     }
 
@@ -282,8 +364,20 @@ public class ProcesoComisionesController : ControllerBase
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
+        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
+        if (PasosDiccionario.COMISION_GRUPO != responseSiguientePaso.Data.nombre)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                data = ""
+            });
+        }
+
         var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
-   
+        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_GRUPO);
+
         if (responseGetVentaGrupo.Data.Count() != request.ListaComision.Count)
         {
             return Ok(new
@@ -316,6 +410,8 @@ public class ProcesoComisionesController : ControllerBase
         }
         
         var responseVtaPersonsal = await _administracionVentaGrupoRepository.InsertAdministracionVentaGrupo(logTransaccionId.ToString(), ListadoVentaGrupo);
+        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_GRUPO);
+
         return Ok(new
         {
             status = responseVtaPersonsal.Success,

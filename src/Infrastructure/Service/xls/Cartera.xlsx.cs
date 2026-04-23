@@ -10,7 +10,7 @@ public class CarteraXls
             return (false, string.Empty);
 
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Detalle de Cuotas");
+        var worksheet = workbook.Worksheets.Add("Detalle de Cartera");
 
         const int headerRow = 2;
         const int firstDataRow = headerRow + 1;

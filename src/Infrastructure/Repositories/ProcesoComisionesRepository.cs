@@ -69,8 +69,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , c.dprecio 
                                     , c.porcentaje_inicial PorcentajeInicial
                                     , c.dcuota_inicial inicial
-                                    , CF.PorcentajeComision dporcentajecomision
-                                    , (c.dcuota_inicial * CF.PorcentajeComision ) / 100 dcomision
+                                    , CASE WHEN c.lestado = 6 then 67 else CF.PorcentajeComision end dporcentajecomision
+                                    , CASE WHEN c.lestado = 6 then (c.dcuota_inicial * 67) / 100 else (c.dcuota_inicial * CF.PorcentajeComision ) / 100 end dcomision
                                     , CF.LCicloId lciclo_id
                                     , ASCC.lsemana_id
                                     , ASCC.lnrosemana
@@ -88,10 +88,10 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     INNER JOIN pc_configvtapersonalcomplejo CVPC ON CVP.PC_ConfigVtaPersonalId = CVPC.PC_ConfigVtaPersonalId and CVP.estado = 1 and  CVPC.estado = 1
                                     INNER JOIN pc_configvtapersonalinicial CVPI ON CVP.PC_ConfigVtaPersonalId = CVPI.PC_ConfigVtaPersonalId and CVPI.estado = 1
                                     INNER JOIN administracionciclo AC ON AC.lciclo_id = CVP.lciclo_id
-                                ) CF on CF.LComplejoId = C.lcomplejo_id AND c.porcentaje_inicial BETWEEN CF.PorcentajeInicialDesde and CF.PorcentajeInicialHasta
+                                ) CF on CF.LComplejoId = C.lcomplejo_id AND c.porcentaje_inicial BETWEEN CF.PorcentajeInicialDesde and CF.PorcentajeInicialHasta AND CF.LCicloId = @LCicloId
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
-                                INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id AND CF.LCicloId = @LCicloId
-                                INNER JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId 
+                                INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id 
+                                LEFT JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId 
                                 WHERE dtfecha BETWEEN @Inicio and @Fin order by c.lcontrato_id desc";
             string queryVtaPersonl = @"SELECT 
                                     c.lcontrato_id
@@ -394,10 +394,46 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                             ) cm on cm.nivel = t1.nivel
                             INNER JOIN administracioncontacto AD on AD.lcontacto_id = t1.lVendedorId
                             where t1.dtfecha BETWEEN @Inicio and @Fin ORDER BY t1.dtfecha desc";
+            
+            query = @"select 
+                        vend.SNombreCompleto nombreVendedor
+                        , vend.lcontacto_id lVendedorId
+                        , gan.lcontacto_id lGanadorId
+                        , gan.SNombreCompleto nombreGanador
+                        , ACTR.snroventa sNroVenta
+                        , ACTR.lcontrato_id lContratoId
+                        , ACTR.dcuota_inicial dCuotaInicial
+                        , ACTR.dtfecha 
+                        , RC.nivel
+                        , CASE WHEN ACTR.lestado = 6 THEN 0 ELSE cm.porcentaje END porcentaje
+                        , CASE WHEN actr.dcuota_inicial <= 0.00 OR ACTR.lestado = 6 then 0 else ACTR.dcuota_inicial * cm.porcentaje / 100 end comision
+                        , CASE WHEN actr.dcuota_inicial <= 0.00 OR ACTR.lestado = 6 then 0 else 1 end esCero
+                    from red_comprimida RC 
+                    INNER join administracioncontrato ACTR on ACTR.lasesor_id = rc.lcontacto_id and RC.lciclo_id = @LCicloId
+
+                    INNER JOIN administracioncontacto VEND on VEND.lcontacto_id = rc.lcontacto_id
+                    INNER JOIN administracioncontacto GAN on GAN.lcontacto_id = rc.lasesor_id
+                    INNER JOIN (
+                                    select 1 Nivel, dporcentaje1g porcentaje from administraciontipocontacto where ltipocontacto_id = 9
+                                    union ALL
+                                    select 2, dporcentaje2g from administraciontipocontacto where ltipocontacto_id = 9
+                                    union ALL
+                                    select 3, dporcentaje3g from administraciontipocontacto where ltipocontacto_id = 9
+                                    union ALL
+                                    select 4, dporcentaje4g from administraciontipocontacto where ltipocontacto_id = 9
+                                    union ALL
+                                    select 5, dporcentaje5g from administraciontipocontacto where ltipocontacto_id = 9
+                                    union ALL
+                                    select 6, dporcentaje6g from administraciontipocontacto where ltipocontacto_id = 9
+                                    union ALL
+                                    select 7, dporcentaje7g from administraciontipocontacto where ltipocontacto_id = 9
+                                ) cm on cm.Nivel = RC.nivel
+                    where ACTR. dtfecha BETWEEN @Inicio and @Fin ";
+            
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
             using var connection = _context.CreateConnection();
 
-            var ventaGrupo = await connection.QueryAsync<ItemComisionVentaGrupoDto>(query, new {Inicio, Fin});
+            var ventaGrupo = await connection.QueryAsync<ItemComisionVentaGrupoDto>(query, new {Inicio, Fin, LCicloId});
 
             bool success = ventaGrupo.Count() > 0 ? true : false ;
             string mensaje = success ? "Ventas personales obtenidos correctamente." : "No se encontraron ventas personales.";

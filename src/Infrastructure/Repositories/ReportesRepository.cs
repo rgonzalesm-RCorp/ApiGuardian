@@ -43,8 +43,8 @@ public class ReportesRepository : IReportesRepository
             JOIN AdministracionContrato cr ON vp.lContrato_id = cr.lContrato_id
             JOIN AdministracionContacto vt ON cr.lContacto_id = vt.lContacto_id
             JOIN AdministracionComplejo cp ON cr.lComplejo_id = cp.lComplejo_id
-            JOIN AdministracionSemanaCiclo sc ON vp.lSemana_id = sc.lSemana_id AND vp.lCiclo_id = sc.lCiclo_id
-            JOIN AdministracionNivel an  ON ct.lNivel_id = an.lNivel_id
+            LEFT JOIN AdministracionSemanaCiclo sc ON vp.lSemana_id = sc.lSemana_id AND vp.lCiclo_id = sc.lCiclo_id
+            LEFT JOIN AdministracionNivel an  ON ct.lNivel_id = an.lNivel_id
 
             WHERE 
                 vp.lCiclo_id = @lCicloId

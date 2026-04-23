@@ -1,14 +1,15 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 
-public class AscensoRangoXls
+public class ComisionVentaGrupoXls
 {
-    public async Task<(bool success, string base64)> GetAscensoRangoXls(List<ItemAscensoRango> listado)
+    public async Task<(bool success, string base64)> GetComicionVentaGrupoXls(List<ItemComisionVentaGrupoDto> listado)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
 
         using var workbook = new XLWorkbook();
-        var worksheet = workbook.Worksheets.Add("Ascenso de rango");
+        var worksheet = workbook.Worksheets.Add("Comision Venta de Grupo");
 
         const int headerRow = 2;
         const int firstDataRow = headerRow + 1;
@@ -32,79 +33,71 @@ public class AscensoRangoXls
 
         return (true, Convert.ToBase64String(stream.ToArray()));
     }
-    private static void EscribirFilaDetalle(IXLWorksheet ws, int row, ItemAscensoRango v)
+    private static void EscribirFilaDetalle(IXLWorksheet ws, int row, ItemComisionVentaGrupoDto v)
     {
-        ws.Cell(row, 2).Value = v.Nro;
-        ws.Cell(row, 3).Value = v.Mes;
-        ws.Cell(row, 4).Value = v.Nombre;
-        ws.Cell(row, 5).Value = v.CI;
-        ws.Cell(row, 6).Value = v.Telefono;
-        ws.Cell(row, 7).Value = v.Ciudad;
-        ws.Cell(row, 8).Value = v.Pais;
-        ws.Cell(row, 9).Value = v.PuntosAlcanzado;
-        ws.Cell(row, 10).Value = v.NivelAlcanzado;
-        ws.Cell(row, 11).Value = v.IncentivoDolares;
-        ws.Cell(row, 12).Value = v.Incentivo == "0" ? "": v.Incentivo ;
-        ws.Cell(row, 13).Value = v.ValorEspecie;
-        ws.Cell(row, 14).Value = "";
+        ws.Cell(row, 2).Value = row - 2;
+        ws.Cell(row, 3).Value = v.LVendedorId;
+        ws.Cell(row, 4).Value = v.NombreVendedor;
+        ws.Cell(row, 5).Value = v.LContratoId;
+        ws.Cell(row, 6).Value = v.SNroVenta;
+      
+        ws.Cell(row, 7).Value = v.LGanadorId;
+        ws.Cell(row, 8).Value = v.nombreGanador;
+        ws.Cell(row, 9).Value = v.Nivel;
+        ws.Cell(row, 10).Value = v.DCuotaInicial;
+        ws.Cell(row, 11).Value = v.Porcentaje;
+        ws.Cell(row, 12).Value = v.Comision;  
     }
     private static void ConfigurarColumnas(IXLWorksheet ws)
     {
         ws.Column(2).Width = 5;
-        ws.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-        ws.Column(3).Width = 15;
-        ws.Column(3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Column(3).Width = 10;
+        ws.Column(3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
         ws.Column(4).Width = 45;
         ws.Column(4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-        ws.Column(5).Width = 15;
+        ws.Column(5).Width = 10;
         ws.Column(5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-        ws.Column(6).Width = 20;
+        ws.Column(6).Width = 25;
         ws.Column(6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-        ws.Column(7).Width = 20;
+        ws.Column(7).Width = 10;
         ws.Column(7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-        ws.Column(8).Width = 15;
-        ws.Column(8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        ws.Column(8).Width = 45;
+        ws.Column(8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-        ws.Column(9).Width = 15;
-        ws.Column(9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        ws.Column(9).Width = 10;
+        ws.Column(9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-        ws.Column(10).Width = 20;
-        ws.Column(10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Column(10).Width = 15;
+        ws.Column(10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
         ws.Column(11).Width = 15;
+        ws.Column(11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-        ws.Column(12).Width = 30;
-        ws.Column(12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Column(12).Width = 15;
+        ws.Column(12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-        ws.Column(13).Width = 25;
-        ws.Column(13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-
-        ws.Column(14).Width = 20;
-        ws.Column(14).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        
-
-        ws.Column(11).Style.NumberFormat.Format = "#,##0.00";
-        ws.Column(11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-        ws.Column(13).Style.NumberFormat.Format = "#,##0.00";
+        ws.Column(10).Style.NumberFormat.Format = "#,##0.00";
+        ws.Column(12).Style.NumberFormat.Format = "#,##0.00";
     }
     private static void CrearEncabezados(IXLWorksheet ws, int row)
     {
         string[] headers =
         {
-            "#", "MES", "ASESOR", "CI", "TELEFONO",
-            "CIUDAD", "PAIS", "PTOS. DEL CICLO", "NIVEL ALCANZADO", "INCENTIVO $", "INCENTIVO ESPECIE", "VALOR ESPECIE", "ALCANZO VME"
+            "#", "ID VEN.", "VENDEDOR", "CONTRATO", "NRO VTA",
+            "ID GAN.", "GANADOR", "NIVEL","INICIAL", "%COMISION", "COMISION"
         };
 
         for (int i = 0; i < headers.Length; i++)
             ws.Cell(row, i + 2).Value = headers[i];
 
-        var range = ws.Range(row, 2, row, 14);
+        var range = ws.Range(row, 2, row, 12);
         range.Style.Font.Bold = true;
         range.Style.Fill.BackgroundColor = XLColor.LightGray;
         range.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -113,36 +106,36 @@ public class AscensoRangoXls
     }
     private static void AplicarBordes(IXLWorksheet ws, int headerRow, int lastDataRow)
     {
-        var range = ws.Range(headerRow, 2, lastDataRow, 14);
+        var range = ws.Range(headerRow, 2, lastDataRow, 12);
         range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
         range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }
-    private static void EscribirTotalizador(IXLWorksheet ws, int row, List<ItemAscensoRango> data)
-    {
-        decimal totalProduccion = data?.Sum(x => x.IncentivoDolares) ?? 0;
-        decimal totalMonto = data?.Sum(x => x.ValorEspecie) ?? 0;
+    private static void EscribirTotalizador(IXLWorksheet ws, int row, List<ItemComisionVentaGrupoDto> data)
+    { 
+        decimal totalInicial = data?.Sum(x => x.DCuotaInicial) ?? 0;
+        decimal totalComision = data?.Sum(x => x.Comision) ?? 0;
 
         // ===============================
         // TEXTO TOTAL
         // ===============================
         ws.Cell(row, 2).Value = "TOTAL:";
-        ws.Range(row, 2, row, 10).Merge();
+        ws.Range(row, 2, row, 9).Merge();
         ws.Cell(row, 2).Style.Font.Bold = true;
         ws.Cell(row, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
         // ===============================
         // VALORES
         // ===============================
-        ws.Cell(row, 11).Value = totalProduccion;
-        ws.Cell(row, 12).Value = ""; 
-        ws.Cell(row, 13).Value = totalMonto;
-
-        ws.Cell(row, 14).Value = "";
+   
+        ws.Cell(row, 10).Value = totalInicial;
+        ws.Cell(row, 11).Value = "";
+        ws.Cell(row, 12).Value = totalComision;
+ 
  
         // ===============================
         // ESTILO
         // ===============================
-        var range = ws.Range(row, 2, row, 14);
+        var range = ws.Range(row, 2, row, 12);
 
         range.Style.Font.Bold = true;
         range.Style.NumberFormat.Format = "#,##0.00";

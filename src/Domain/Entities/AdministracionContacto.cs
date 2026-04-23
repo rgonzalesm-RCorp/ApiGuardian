@@ -24,6 +24,8 @@ public class ListaAdministracionContacto
         public DateTime FechaNacimiento { get; set; }
         public DateTime FechaRegistro { get; set; }
         public string SCodigo { get; set; } = string.Empty;
+        public string CBaja { get; set; } = string.Empty;
+        public string SMotivoBaja { get; set; } = string.Empty;
 
 }
 
