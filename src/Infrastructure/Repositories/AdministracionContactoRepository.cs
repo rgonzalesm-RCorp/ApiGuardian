@@ -92,7 +92,9 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
                     A.sdireccion SDireccion,
                     A.dtfechanacimiento FechaNacimiento,
                     A.dtfecharegistro FechaRegistro,
-                    A.scodigo SCodigo
+                    A.scodigo SCodigo,
+                    A.cbaja CBaja,
+                    A.smotivobaja SMotivoBaja
 
                 FROM administracioncontacto A
                 INNER JOIN administracioncontacto P ON P.lcontacto_id = A.lpatrocinante_id 
