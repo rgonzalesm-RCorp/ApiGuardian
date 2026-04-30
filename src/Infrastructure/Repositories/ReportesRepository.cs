@@ -127,12 +127,14 @@ public class ReportesRepository : IReportesRepository
         FROM administracionbonoresidual ABR
         WHERE ABR.lcontacto_id = @lContactoId AND lciclo_id = @lCicloId
     ";
-    private const string QUERY_BONO_LIDERAZGO = @"
-        SELECT 
-            COUNT(*) Cantidad,
-            SUM(pagar) Comision
-        FROM t_bono_liderazgo 
-        WHERE vendedores_id = @lContactoId AND lciclo_id = @lCicloId
+    private const string QUERY_BONO_PAR = @"
+        SELECT
+            bono Bono,
+            persona_que_vendieron CantPar,
+            cantidad_venta CantidadVenta
+        FROM bonopar
+        WHERE l_contacto_ganador_id = @lContactoId
+            AND lciclo_id = @lCicloId
     ";
     private const string QUERY_ENCABEZADO = @"
         SELECT 
@@ -168,7 +170,7 @@ public class ReportesRepository : IReportesRepository
             , vp.comisionVP ComisionVP
             , IFNULL(VG.comisionVG, 0) ComisionVG
             , IFNULL(BR.comisionBR, 0) ComisionBR
-            , IFNULL(BL.comisionBL, 0) ComisionBL
+            , IFNULL(BP.comisionBP, 0) ComisionBP
             , IFNULL(RT.retencion, 0) Retencion
             , IFNULL(RT.porcentajeRetecion, 0) PorcentajeRetencion
             , IFNULL(DS.descuento, 0)Descuento
@@ -184,8 +186,8 @@ public class ReportesRepository : IReportesRepository
             SELECT  SUM(dtotalbono) comisionBR, lcontacto_id FROM administracionbonoresidual WHERE lciclo_id = @lCicloId GROUP BY lcontacto_id 
         ) BR ON VP.lcontacto_id = BR.lcontacto_id
         LEFT JOIN (
-            SELECT  SUM(pagar) comisionBL, vendedores_id lcontacto_id FROM t_bono_liderazgo  WHERE lciclo_id = @lCicloId group by vendedores_id
-        ) BL ON VP.lcontacto_id = BL.lcontacto_id
+            SELECT  SUM(bono) comisionBP, l_contacto_ganador_id lcontacto_id FROM bonopar  WHERE lciclo_id = @lCicloId group by l_contacto_ganador_id
+        ) BP ON VP.lcontacto_id = BP.lcontacto_id
         LEFT JOIN(
             SELECT IFNULL(SUM(montoretencion),0) retencion,IFNULL(MAX(porcentajeret),0) porcentajeRetecion ,  lcontacto_id FROM tbl_retencionempresa WHERE lciclo_id = @lCicloId GROUP BY lcontacto_id
         ) RT ON VP.lcontacto_id = RT.lcontacto_id
@@ -312,34 +314,20 @@ public class ReportesRepository : IReportesRepository
                                                         UNION ALL
 
                                                         SELECT
-                                                            liderazgo.vendedores_Mes_id AS lcontacto_id,
-                                                            liderazgo.lcomplejo_id,
+                                                            bonopar.l_contacto_ganador_id AS lcontacto_id,
+                                                            contrato.lcomplejo_id,
                                                             em.empresa_id AS lempresa_id,
                                                             em.empresa_nombre AS empresa,
-                                                            liderazgo.monto AS comision_vta_grupo_residual,
+                                                            SUM(IFNULL(bonopar.bono / NULLIF(bonopar.cantidad_venta, 0), 0)) AS comision_vta_grupo_residual,
                                                             0 AS comision_vta_personal,
-                                                            liderazgo.lciclo_id
-                                                        FROM T_GANADORES_BONOLIDERAZGO_EMPRESA_PAGAR liderazgo
-                                                            INNER JOIN administracioncomplejo complejo USING (lcomplejo_id)
-                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = liderazgo.lcomplejo_id
-                                                        WHERE liderazgo.lciclo_id = @LCicloId
-                                                        AND liderazgo.vendedores_Mes_id = @LContactoId
-
-                                                        UNION ALL
-
-                                                        SELECT
-                                                            liderazgo.vendedores_id AS lcontacto_id,
-                                                            liderazgo.lcomplejo_id,
-                                                            em.empresa_id AS lempresa_id,
-                                                            em.empresa_nombre AS empresa,
-                                                            liderazgo.pagar AS comision_vta_grupo_residual,
-                                                            0 AS comision_vta_personal,
-                                                            liderazgo.lciclo_id
-                                                        FROM t_bono_liderazgo liderazgo
-                                                            INNER JOIN administracioncomplejo complejo USING (lcomplejo_id)
-                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = liderazgo.lcomplejo_id
-                                                        WHERE liderazgo.lciclo_id = @LCicloId
-                                                        AND liderazgo.vendedores_id = @LContactoId
+                                                            bonopar.lciclo_id
+                                                        FROM bonopar
+                                                            INNER JOIN bonopardetalle detalle ON detalle.bonopar_id = bonopar.id
+                                                            INNER JOIN administracioncontrato contrato ON contrato.lcontrato_id = detalle.l_contrato_id
+                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = contrato.lcomplejo_id
+                                                        WHERE bonopar.lciclo_id = @LCicloId
+                                                        AND bonopar.l_contacto_ganador_id = @LContactoId
+                                                        GROUP BY bonopar.l_contacto_ganador_id, contrato.lcomplejo_id, em.empresa_id, em.empresa_nombre, bonopar.lciclo_id
 
                                                         UNION ALL
 
@@ -399,9 +387,9 @@ public class ReportesRepository : IReportesRepository
                                                     , ACT.snombrecompleto SNombreCompleto
                                                     , ACT.scedulaidentidad SCedulaIdentidad
                                                     , CE.snombre SEmpresa
-                                                    , IFNULL(VtaPersonal.ComisionPersonal, 0) + IFNULL(VtaGrupo.ComisionGrupo, 0) + IFNULL(BonoResidual.ComisionResidual, 0) + IFNULL(BonoLiderago.ComisionLiderazgo, 0) Importe
+                                                    , IFNULL(VtaPersonal.ComisionPersonal, 0) + IFNULL(VtaGrupo.ComisionGrupo, 0) + IFNULL(BonoResidual.ComisionResidual, 0) + IFNULL(BonoPar.ComisionBonoPar, 0) Importe
                                                     , IFNULL(Retencion.Retencion, 0) Retencion
-                                                    , IFNULL(VtaPersonal.ComisionPersonal, 0) + IFNULL(VtaGrupo.ComisionGrupo, 0)+IFNULL(BonoResidual.ComisionResidual, 0) + IFNULL(BonoLiderago.ComisionLiderazgo, 0)  - IFNULL(Retencion.Retencion, 0) Liquido
+                                                    , IFNULL(VtaPersonal.ComisionPersonal, 0) + IFNULL(VtaGrupo.ComisionGrupo, 0)+IFNULL(BonoResidual.ComisionResidual, 0) + IFNULL(BonoPar.ComisionBonoPar, 0)  - IFNULL(Retencion.Retencion, 0) Liquido
                                                     , IFNULL(Descuento.Descuento, 0) Descuento
                                                     , ACPR.dmonto Prorrateo
                                                     , CE.lempresa_id  EmpresaId
@@ -456,14 +444,16 @@ public class ReportesRepository : IReportesRepository
                                                     GROUP BY AD.lcontacto_id, CE.empresa_id 
                                                 ) Descuento on Descuento.empresa_id = CE.lempresa_id and Descuento.lcontacto_id = ACPR.lcontacto_id
                                                 left join (
-                                                    SELECT sum(pagar)ComisionLiderazgo, BL.vendedores_id lcontacto_id, CE.empresa_id  FROM t_bono_liderazgo BL 
+                                                    SELECT SUM(IFNULL(BP.bono / NULLIF(BP.cantidad_venta, 0), 0)) ComisionBonoPar, BP.l_contacto_ganador_id lcontacto_id, CE.empresa_id  FROM bonopar BP 
+                                                    inner join bonopardetalle BPD on BPD.bonopar_id = BP.id
+                                                    inner join administracioncontrato AC on AC.lcontrato_id = BPD.l_contrato_id
                                                     inner join (
                                                         SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                         INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
-                                                    ) CE on CE.lcomplejo_id = BL.lcomplejo_id
-                                                    WHERE BL.lciclo_id = @LCicloId and BL.lcontacto_Id > 3  
-                                                    group by BL.vendedores_id, CE.empresa_id 
-                                                )BonoLiderago on BonoLiderago.empresa_id = CE.lempresa_id and BonoLiderago.lcontacto_id = ACPR.lcontacto_id
+                                                    ) CE on CE.lcomplejo_id = AC.lcomplejo_id
+                                                    WHERE BP.lciclo_id = @LCicloId and BP.l_contacto_ganador_id > 3  
+                                                    group by BP.l_contacto_ganador_id, CE.empresa_id 
+                                                )BonoPar on BonoPar.empresa_id = CE.lempresa_id and BonoPar.lcontacto_id = ACPR.lcontacto_id
                                                 left join (
                                                     select SUM(montoretencion) Retencion, RE.lcontacto_id, CE.lempresa_id empresa_id from tbl_retencionempresa RE
                                                     inner join administracionempresa CE on CE.lempresa_id = RE.idempresa 
@@ -557,20 +547,22 @@ public class ReportesRepository : IReportesRepository
                                                 ACT.scodigo
                                                 , ACT.snombrecompleto
                                                 , 0 ComisionPersonal
-                                                , sum(BL.pagar) Servicio
+                                                , SUM(IFNULL(BP.bono / NULLIF(BP.cantidad_venta, 0), 0)) Servicio
                                                 , 0
                                                 , 0
                                                 , CE.empresa_id
                                                 , ACT.lcontacto_id
-                                                , BL.lciclo_id
-                                                FROM t_bono_liderazgo BL 
-                                                inner join administracioncontacto ACT on ACT.lcontacto_id = BL.vendedores_id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
+                                                , BP.lciclo_id
+                                                FROM bonopar BP 
+                                                inner join administracioncontacto ACT on ACT.lcontacto_id = BP.l_contacto_ganador_id  AND ACT.cbaja = 0 and ACT.lcontacto_id != 6474
+                                                inner join bonopardetalle BPD on BPD.bonopar_id = BP.id
+                                                inner join administracioncontrato AC on AC.lcontrato_id = BPD.l_contrato_id
                                                 inner join (
                                                     SELECT distinct EC.complejo_id lcomplejo_id, EC.empresa_id FROM administracionempresa E
                                                     INNER JOIN empresa_complejo EC ON EC.empresa_id = E.lempresa_id
-                                                ) CE on CE.lcomplejo_id = BL.lcomplejo_id
-                                                WHERE BL.lciclo_id = @LCicloId and bl.lcontacto_id > 3 and CASE WHEN @Empresaid > 0 THEN CE.empresa_id ELSE @Empresaid END = @Empresaid
-                                                group by BL.vendedores_id, CE.empresa_id 
+                                                ) CE on CE.lcomplejo_id = AC.lcomplejo_id
+                                                WHERE BP.lciclo_id = @LCicloId and BP.l_contacto_ganador_id > 3 and CASE WHEN @Empresaid > 0 THEN CE.empresa_id ELSE @Empresaid END = @Empresaid
+                                                group by BP.l_contacto_ganador_id, CE.empresa_id 
                                                 union all
                                                 SELECT 
                                                 ACT.scodigo
@@ -612,38 +604,38 @@ public class ReportesRepository : IReportesRepository
                                                 , ACT.lcuentabanco CuentaBanco
                                                 , ACT.sciudad Ciudad
                                                 , ACT.snombrecompleto NombreCompleto
-                                                , COMISION.lcontacto_id LContactoId, SUM(COMISION.Personal)Personal, SUM(COMISION.Liderazgo) Liderazgo, SUM(COMISION.Residual) Residual
+                                                , COMISION.lcontacto_id LContactoId, SUM(COMISION.Personal)Personal, SUM(COMISION.BonoPar) BonoPar, SUM(COMISION.Residual) Residual
                                                 , SUM(COMISION.Grupo) Grupo, SUM(COMISION.Descuento) Descuento, SUM(COMISION.Retencion) Retencion
                                                 , (SELECT UPPER(ACL.snombre) FROM administracionciclo ACL WHERE ACL.Lciclo_id = @LCicloId LIMIT 1) Ciclo
                                                 , ACT.scedulaidentidad CedulaIdentidad
                                                 , ACT.lcontacto_id LContactold
                                             FROM (
-                                                SELECT AVP.lcontacto_id, SUM(AVP.dcomision) Personal, 0 Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
+                                                SELECT AVP.lcontacto_id, SUM(AVP.dcomision) Personal, 0 BonoPar, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
                                                 FROM administracionventapersonal AVP
                                                 WHERE AVP.lciclo_id = @LCicloId AND AVP.lcontacto_id > 3 AND AVP.lcontacto_id != 6474
                                                 GROUP BY AVP.lcontacto_id
                                                 UNION ALL
-                                                SELECT BL.vendedores_id, 0 Personal, SUM(BL.pagar) Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
-                                                FROM t_bono_liderazgo BL
-                                                WHERE BL.Lciclo_id = @LCicloId AND BL.vendedores_id > 3 AND BL.vendedores_id != 6474
-                                                GROUP BY BL.vendedores_id
+                                                SELECT BP.l_contacto_ganador_id, 0 Personal, SUM(BP.bono) BonoPar, 0 Residual, 0 Grupo, 0 Descuento, 0 Retencion
+                                                FROM bonopar BP
+                                                WHERE BP.Lciclo_id = @LCicloId AND BP.l_contacto_ganador_id > 3 AND BP.l_contacto_ganador_id != 6474
+                                                GROUP BY BP.l_contacto_ganador_id
                                                 UNION ALL
-                                                SELECT ABR.lcontacto_id , 0 Personal, 0 Liderazgo, dtotalbono Residual, 0 Grupo, 0 Descuento, 0 Retencion
+                                                SELECT ABR.lcontacto_id , 0 Personal, 0 BonoPar, dtotalbono Residual, 0 Grupo, 0 Descuento, 0 Retencion
                                                 FROM administracionbonoresidual ABR
                                                 WHERE lciclo_id = @LCicloId AND ABR.lcontacto_id > 3 AND ABR.lcontacto_id != 6474
                                                 GROUP BY ABR.lcontacto_id 
                                                 UNION ALL
-                                                SELECT AVG.lcontacto_id, 0 Personal, 0 Liderazgo, 0 Residual, SUM(AVG.dcomision) Grupo, 0 Descuento, 0 Retencion
+                                                SELECT AVG.lcontacto_id, 0 Personal, 0 BonoPar, 0 Residual, SUM(AVG.dcomision) Grupo, 0 Descuento, 0 Retencion
                                                 FROM AdministracionVentaGrupo AVG
                                                 WHERE AVG.lciclo_id = @LCicloId AND AVG.lcontacto_id > 3 AND AVG.lcontacto_id != 6474
                                                 GROUP BY AVG.lcontacto_id
                                                 UNION ALL
-                                                SELECT ADC.lcontacto_id, 0 Personal, 0 Liderazgo, 0 Residual, 0 Grupo, SUM(DTOTAL) Descuento, 0 Retencion
+                                                SELECT ADC.lcontacto_id, 0 Personal, 0 BonoPar, 0 Residual, 0 Grupo, SUM(DTOTAL) Descuento, 0 Retencion
                                                 FROM administraciondescuentociclo ADC
                                                 WHERE ADC.lciclo_id = @LCicloId AND ADC.lcontacto_id > 3 AND ADC.lcontacto_id != 6474
                                                 GROUP BY ADC.lcontacto_id
                                                 UNION ALL
-                                                SELECT RET.lcontacto_id, 0 Personal, 0 Liderazgo, 0 Residual, 0 Grupo, 0 Descuento, SUM(RET.MONTORETENCION) Retencion
+                                                SELECT RET.lcontacto_id, 0 Personal, 0 BonoPar, 0 Residual, 0 Grupo, 0 Descuento, SUM(RET.MONTORETENCION) Retencion
                                                 FROM tbl_retencionempresa RET
                                                 WHERE RET.lciclo_id = @LCicloId AND RET.lcontacto_id > 3 AND RET.lcontacto_id != 6474
                                                 GROUP BY RET.lcontacto_id
@@ -795,7 +787,7 @@ public class ReportesRepository : IReportesRepository
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script venta personal: {QUERY_VENTA_PERSONAL}]");
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script venta grupo: {QUERY_VENTA_GRUPO}]");
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script bono residual: {QUERY_BONO_RESIDUAL}]");
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script bono liderazgo: {QUERY_BONO_LIDERAZGO}]");
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script bono par: {QUERY_BONO_PAR}]");
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script encabezado: {QUERY_ENCABEZADO}]");
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script bon carrera: {QUERY_BONO_CARRERA}]");
 
@@ -806,7 +798,7 @@ public class ReportesRepository : IReportesRepository
             DataResponse.VentasPersonales = await connection.QueryAsync<VentaItem>(QUERY_VENTA_PERSONAL, new { lCicloId, lContactoId });
             DataResponse.VentasGrupo = await connection.QueryAsync<VentaGrupoItem>(QUERY_VENTA_GRUPO, new { lCicloId, lContactoId });
             DataResponse.BonoRedisual = await connection.QueryAsync<BonoRedisualItem>(QUERY_BONO_RESIDUAL, new { lCicloId, lContactoId });
-            DataResponse.BonoLiderazgo = await connection.QueryAsync<BonoLiderazgoItem>(QUERY_BONO_LIDERAZGO, new { lCicloId, lContactoId });
+            DataResponse.BonoPar = await connection.QueryAsync<BonoParItem>(QUERY_BONO_PAR, new { lCicloId, lContactoId });
             DataResponse.Encabezado = await connection.QuerySingleOrDefaultAsync<Encabezado>(QUERY_ENCABEZADO, new { lCicloId, lContactoId });
             DataResponse.BonoCarrera = await connection.QueryAsync<BonoCarrera>(QUERY_BONO_CARRERA, new { lCicloId, lContactoId });
 

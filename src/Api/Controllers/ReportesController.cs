@@ -37,7 +37,6 @@ namespace ApiGuardian.Controllers
             {
                 var reporteComision = await _repo.GetReporteComision(logId.ToString(), lCicloId, lContactoId);
                 var comision = await _comision.GetComision(logId.ToString(), lContactoId, lCicloId, 1);
-
                 reporteComision.Data.Comisiones = comision.Data;
 
                 var documento = new ReporteComisionesDocumento(reporteComision.Data);
@@ -57,7 +56,7 @@ namespace ApiGuardian.Controllers
                         FileName = $"REPORTE DE COMISIONES {reporteComision.Data.Encabezado.NombreCompleto} - {reporteComision.Data.Encabezado.Ciclo}.pdf",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
-                        tieneComicion = reporteComision.Data.VentasPersonales.Count() <= 0 ? false :true,
+                        tieneComicion = reporteComision.Data.Comisiones.TotalComision > 0,
                     }
                     
                 });

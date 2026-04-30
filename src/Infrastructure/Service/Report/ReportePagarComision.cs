@@ -203,7 +203,6 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 }
                             }
                             table.Cell().Element(EstiloReporte.BodyCellStyle)
-                                //.Text((v.Personal + v.Liderazgo + v.Grupo + v.Residual - v.Descuento - v.Retencion).ToString("N2"))
                                 .Text(montoTotal.ToString("N2"))
                                 .FontSize(6)
                                 .AlignRight();

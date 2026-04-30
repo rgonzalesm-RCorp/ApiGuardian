@@ -175,7 +175,7 @@ public class PagarComisionxls
             item.Personal +
             item.Grupo +
             item.Residual +
-            item.Liderazgo -
+            item.BonoPar -
             item.Descuento -
             item.Retencion;*/
     }
@@ -183,7 +183,7 @@ public class PagarComisionxls
     {
         decimal total =
             listado.Sum(x => x.Personal)
-            + listado.Sum(x => x.Liderazgo)
+            + listado.Sum(x => x.BonoPar)
             + listado.Sum(x => x.Grupo)
             + listado.Sum(x => x.Residual)
             - listado.Sum(x => x.Descuento)

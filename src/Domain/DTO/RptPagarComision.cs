@@ -8,7 +8,7 @@ public class RptPagarComision
     public string? CedulaIdentidad { get; set; }
     public int LContactold { get; set; }
     public decimal Personal { get; set; }
-    public decimal Liderazgo { get; set; }
+    public decimal BonoPar { get; set; }
     public decimal Residual { get; set; }
     public decimal Grupo { get; set; }
     public decimal Descuento { get; set; }

@@ -70,6 +70,7 @@ CREATE TABLE conf_proceso_pasos (
 -- ÍNDICES RECOMENDADOS (MEJOR PERFORMANCE)
 -- ============================================
 CREATE INDEX idx_pasos_proceso ON conf_pasos(proceso_id);
+CREATE INDEX idx_procesos_ciclo ON conf_procesos(lciclo_id);
 CREATE INDEX idx_dependencias_paso ON conf_paso_dependencias(paso_id);
 CREATE INDEX idx_dependencias_requerido ON conf_paso_dependencias(paso_requerido_id);
 CREATE INDEX idx_proceso_instancia ON conf_proceso_instancias(proceso_id);
@@ -92,23 +93,23 @@ VALUES ('COMISIONES', 'Proceso de cálculo de comisiones');
 -- 2. INSERT PASOS (usando el proceso recién creado)
 -- ============================================
 INSERT INTO conf_pasos (proceso_id, nombre, orden, es_obligatorio)
-SELECT p.id, 'OBTENER VENTAS', 1, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'OBTENER VENTAS', 1, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'ADICIONAR VENTAS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'ADICIONAR VENTAS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION DIRECTA', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'COMISION DIRECTA', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION GRUPO', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'COMISION GRUPO', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CARTERA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'OBTENER CARTERA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CUOTAS', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'OBTENER CUOTAS', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER EXCEDENTE', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'OBTENER EXCEDENTE', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION RESIDUAL', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'COMISION RESIDUAL', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION LIDERAZGO', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES';
+SELECT p.id, 'BONO PAR', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
 
 -- ============================================
 -- 3. DEPENDENCIAS DINÁMICAS (por nombre)
@@ -159,7 +160,7 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'COMISION RESIDUAL' AND p2.nombre = 'COMISION LIDERAZGO';
+WHERE p1.nombre = 'COMISION RESIDUAL' AND p2.nombre = 'BONO PAR';
 
 
 

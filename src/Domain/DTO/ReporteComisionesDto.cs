@@ -29,10 +29,11 @@ namespace ApiGuardian.Models
         public decimal Terrenos { get; set; }
         public decimal Total { get; set; }
     }
-    public class BonoLiderazgoItem
+    public class BonoParItem
     {
-        public int Cantidad { get; set; }
-        public decimal Comision { get; set; }
+        public decimal Bono { get; set; }
+        public int CantPar { get; set; }
+        public int CantidadVenta { get; set; }
     }
     public class Encabezado
     {
@@ -58,7 +59,7 @@ namespace ApiGuardian.Models
         public IEnumerable<VentaItem> VentasPersonales { get; set; } = new List<VentaItem>();
         public IEnumerable<VentaGrupoItem> VentasGrupo { get; set; }  = new List<VentaGrupoItem>();
         public IEnumerable<BonoRedisualItem> BonoRedisual { get; set; }  = new List<BonoRedisualItem>();
-        public IEnumerable<BonoLiderazgoItem> BonoLiderazgo { get; set; }  = new List<BonoLiderazgoItem>();
+        public IEnumerable<BonoParItem> BonoPar { get; set; } = new List<BonoParItem>();
         public IEnumerable<BonoCarrera> BonoCarrera { get; set; }  = new List<BonoCarrera>();
         public DataComision Comisiones { get; set; } = new DataComision();
     }

@@ -7,7 +7,7 @@ public class AplicacionesItem
     public decimal ComisionVP { get; set; }
     public decimal ComisionVG { get; set; }
     public decimal ComisionBR { get; set; }
-    public decimal ComisionBL { get; set; }
+    public decimal ComisionBP { get; set; }
     public decimal Retencion { get; set; }
     public decimal PorcentajeRetencion { get; set; }
     public decimal Descuento { get; set; }
