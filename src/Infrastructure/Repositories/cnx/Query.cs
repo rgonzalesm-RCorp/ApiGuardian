@@ -201,5 +201,32 @@ namespace Query.Cnx
             }
 
         }
+        public static string GetQueryVentaResidual = @$"
+        SELECT 
+            CONCAT(y.idventa, '-', y.LOTES) AS NroVenta,
+            y.EMPRESA AS Empresa,
+            y.IDVENTA AS IdVenta,
+            y.FECHA AS Fecha,
+            y.IDALMACEN AS IdAlmacen,
+            y.PROYECTO AS Proyecto,
+            y.LOTES AS Lotes,
+            y.IDRECIBO AS IdRecibo,
+            y.FECHA_RECIBO AS FechaRecibo,
+            y.NROCUOTA AS NroCuota,
+            y.IMPORTETOTAL AS ImporteTotal,
+            y.IDCLIENTE AS IdCliente,
+            y.NOMBRE_CLIENTE AS NombreCliente,
+            y.CI_CLIENTE AS CiCliente,
+            y.IDVENDEDOR AS IdVendedor,
+            y.VENDEDOR AS Vendedor,
+            y.CI_VENDEDOR AS CiVendedor,
+            y.CONCEPTO1 AS Concepto1,
+            143 AS LcicloId
+        FROM vwLISTAVENTAS_RECIBOS y
+        WHERE 
+            y.FECHA BETWEEN '20240501' AND @Fin
+            AND y.FECHA_RECIBO BETWEEN @Inicio AND @Fin
+        ORDER BY y.FECHA;
+        ";
     }
 }
