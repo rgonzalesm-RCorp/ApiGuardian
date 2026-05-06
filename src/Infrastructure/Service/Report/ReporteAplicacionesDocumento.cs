@@ -110,22 +110,22 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.ComisionVP.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
-                                (v.ComisionVG + v.ComisionBR + v.ComisionBL).ToString("N2")
+                                (v.ComisionVG + v.ComisionBR + v.ComisionBP).ToString("N2")
                             ).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
-                                (v.ComisionVG + v.ComisionBR + v.ComisionBL + v.ComisionVP).ToString("N2")
+                                (v.ComisionVG + v.ComisionBR + v.ComisionBP + v.ComisionVP).ToString("N2")
                             ).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.PorcentajeRetencion.ToString("N2")).FontSize(6).AlignCenter();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Retencion.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Descuento.ToString("N2")).FontSize(6).AlignRight();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text((v.ComisionVG + v.ComisionBR + v.ComisionBL + v.ComisionVP - v.Retencion - v.Descuento).ToString("N2")).FontSize(6).AlignRight().Bold();
+                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text((v.ComisionVG + v.ComisionBR + v.ComisionBP + v.ComisionVP - v.Retencion - v.Descuento).ToString("N2")).FontSize(6).AlignRight().Bold();
                         }
                         table.Footer(footer =>
                         {
                             decimal totalVP = _data.Aplicaciones?.Sum(x => x.ComisionVP) ?? 0;
                             decimal totalVG = _data.Aplicaciones?.Sum(x => x.ComisionVG) ?? 0;
                             decimal totalBR = _data.Aplicaciones?.Sum(x => x.ComisionBR) ?? 0;
-                            decimal totalBL = _data.Aplicaciones?.Sum(x => x.ComisionBL) ?? 0;
+                            decimal totalBP = _data.Aplicaciones?.Sum(x => x.ComisionBP) ?? 0;
                             decimal totalRetencion = _data.Aplicaciones?.Sum(x => x.Retencion) ?? 0;
                             decimal totalDescuento = _data.Aplicaciones?.Sum(x => x.Descuento) ?? 0;
                              
@@ -133,16 +133,16 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             table.Cell().ColumnSpan(3).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(6).AlignRight().Bold();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalVP.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(
-                                (totalVG + totalBR + totalBL).ToString("N2")
+                                (totalVG + totalBR + totalBP).ToString("N2")
                             ).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(
-                                (totalVG + totalBR + totalBL + totalVP).ToString("N2")
+                                (totalVG + totalBR + totalBP + totalVP).ToString("N2")
                             ).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalRetencion.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalDescuento.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(
-                                (totalVG + totalBR + totalBL + totalVP - totalDescuento - totalRetencion).ToString("N2")
+                                (totalVG + totalBR + totalBP + totalVP - totalDescuento - totalRetencion).ToString("N2")
                             ).FontSize(6).AlignRight();
                         });
                         

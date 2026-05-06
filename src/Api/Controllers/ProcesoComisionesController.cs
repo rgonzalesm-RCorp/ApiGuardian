@@ -419,7 +419,7 @@ public class ProcesoComisionesController : ControllerBase
             data = ""
         });
     }
-    
+
     public class RequestSaveVtaPersonal
     {
         public List<VentaPersonalComisionDto> ListaComision { get; set; } = new List<VentaPersonalComisionDto>();

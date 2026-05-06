@@ -30,6 +30,8 @@ BEGIN
     SELECT id INTO v_proceso_id
     FROM conf_procesos
     WHERE nombre = p_proceso_nombre
+      AND estado = 1
+    ORDER BY id DESC
     LIMIT 1;
 
     IF v_proceso_id IS NULL THEN
@@ -79,6 +81,7 @@ BEGIN
         FROM conf_pasos
         WHERE nombre = p_paso_nombre
           AND proceso_id = v_proceso_id
+          AND estado = 1
         LIMIT 1;
 
         IF v_paso_id IS NULL THEN
@@ -159,6 +162,8 @@ BEGIN
     SELECT id INTO v_proceso_id
     FROM conf_procesos
     WHERE nombre = p_proceso_nombre
+      AND estado = 1 
+    ORDER BY id DESC
     LIMIT 1;
 
     IF v_proceso_id IS NULL THEN 
@@ -197,6 +202,7 @@ BEGIN
         p.es_obligatorio INTO v_id, v_nombre, v_orden, v_es_obligatoria
     FROM conf_pasos p
     WHERE p.proceso_id = v_proceso_id
+      AND p.estado = 1
 
     AND NOT EXISTS (
         SELECT 1
@@ -237,7 +243,13 @@ BEGIN
     DECLARE v_mensaje VARCHAR(255) DEFAULT 'OK';
     DECLARE v_next BOOLEAN DEFAULT TRUE;
 
-    SELECT id INTO v_proceso_id FROM conf_procesos WHERE nombre = p_proceso_nombre LIMIT 1;
+    SELECT id INTO v_proceso_id
+    FROM conf_procesos
+    WHERE nombre = p_proceso_nombre
+      AND estado = 1
+    ORDER BY  id DESC
+    LIMIT 1;
+    
 
     IF v_proceso_id IS NULL THEN
         SET v_status = FALSE;
@@ -310,7 +322,12 @@ BEGIN
     DECLARE v_mensaje VARCHAR(255) DEFAULT 'OK';
     DECLARE v_next BOOLEAN DEFAULT FALSE;
 
-    SELECT id INTO v_proceso_id FROM conf_procesos WHERE nombre = p_proceso_nombre LIMIT 1;
+    SELECT id INTO v_proceso_id
+    FROM conf_procesos
+    WHERE nombre = p_proceso_nombre
+      AND estado = 1 
+    ORDER BY id DESC
+    LIMIT 1;
 
     IF v_proceso_id IS NULL THEN
         SET v_status = FALSE;
@@ -350,6 +367,7 @@ BEGIN
             ON pp.paso_id = p.id
             AND pp.proceso_ciclo_id = v_ciclo_id
         WHERE p.proceso_id = v_proceso_id
+          AND p.estado = 1
           AND p.es_obligatorio = 1
           AND (pp.estado IS NULL OR pp.estado <> 'COMPLETADO');
 

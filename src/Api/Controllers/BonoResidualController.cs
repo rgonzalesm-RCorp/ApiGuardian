@@ -666,23 +666,14 @@ public class BonoResidualController : ControllerBase
     }
 
     [HttpGet("get/bono/par")]
-     public async Task<IActionResult> ObtenerBonoPar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
+    public async Task<IActionResult> ObtenerBonoPar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         string nombreMetodo = "ObtenerBonoPar()";
         try
         {
-            /*var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
-            if (PasosDiccionario.COMISION_RESIDUAL != responseSiguientePaso.Data.nombre)
-            {
-                return Ok(new
-                {
-                    status = false,
-                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
-                    data = ""
-                });
-            }*/
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             var ResponseObtenerBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
             BonoParXls bonoParXls = new BonoParXls();
             var ResponseObtenerXls = await bonoParXls.GetBonoParXls(ResponseObtenerBonoPar.Data.ToList());
@@ -694,7 +685,12 @@ public class BonoResidualController : ControllerBase
                 data =new
                 {
                     ListaBonoPar = ResponseObtenerBonoPar.Data,
-                    xls = ResponseObtenerXls.base64
+                    xls = ResponseObtenerXls.base64,
+                    controlPasos = new
+                    {
+                        ejecutado = PasosDiccionario.EsBonoPar(responseSiguientePaso.Data.nombre) ? false : true,
+                        data = responseSiguientePaso.Data
+                    }
                     
                 }
             });
@@ -711,5 +707,53 @@ public class BonoResidualController : ControllerBase
         }
         
     }
-
+    [HttpPost("save/bono/par")]
+        public async Task<IActionResult> GuardarBonoPar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        DateTime inicio = DateTime.Now;
+        string nombreMetodo = "GetBonoResidual()";
+        try
+        {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (!PasosDiccionario.EsBonoPar(responseSiguientePaso.Data.nombre))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
+            var responseBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
+            var responseSaveBonoPar = await _bonoParRepository.SaveBonoPar(logTransaccionId.ToString(), Usuario,LCicloId, responseBonoPar.Data.ToList());
+            if (responseSaveBonoPar.Success)
+            {
+                await _controlProcesoRepository.EjecutarPaso(
+                    logTransaccionId.ToString(),
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    responseSiguientePaso.Data.nombre
+                );
+            }
+            return Ok(new
+            {
+                status = responseSaveBonoPar.Success,
+                mensaje = responseSaveBonoPar.Mensaje,
+                data = ""
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
+        }
+        
+    }
 }

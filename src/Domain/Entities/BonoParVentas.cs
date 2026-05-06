@@ -11,6 +11,7 @@ public class ItemBonoPar
     public string SNroVenta { get; set; } = "";
     public decimal MontoVentas { get; set; }
     public decimal CuotasIniciales { get; set; }
+    public int LCicloId { get; set; } = 0;
     public List<ItemBonoParDetalle> ListaDetalleBonoPar { get; set; } = new List<ItemBonoParDetalle>();
 }
 
