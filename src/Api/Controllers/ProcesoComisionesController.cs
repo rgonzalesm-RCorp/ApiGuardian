@@ -376,7 +376,6 @@ public class ProcesoComisionesController : ControllerBase
         }
 
         var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
-        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_GRUPO);
 
         if (responseGetVentaGrupo.Data.Count() != request.ListaComision.Count)
         {

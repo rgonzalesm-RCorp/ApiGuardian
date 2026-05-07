@@ -708,7 +708,7 @@ public class BonoResidualController : ControllerBase
         
     }
     [HttpPost("save/bono/par")]
-        public async Task<IActionResult> GuardarBonoPar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
+    public async Task<IActionResult> GuardarBonoPar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         DateTime inicio = DateTime.Now;

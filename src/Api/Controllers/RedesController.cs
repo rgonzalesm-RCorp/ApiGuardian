@@ -16,12 +16,15 @@ public class RedesController : ControllerBase
 {
     private readonly IRedesRepository _repo;
     private readonly ILogService _log;
+    private readonly IControlProcesoRepository _controlProcesoRepository;
+
     private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
 
-    public RedesController(IRedesRepository repo, ILogService log)
+    public RedesController(IRedesRepository repo, ILogService log, IControlProcesoRepository controlProcesoRepository)
     {
         _repo = repo;
         _log = log;
+        _controlProcesoRepository = controlProcesoRepository;
     }
 
     [HttpGet("armar/red/comprimida/mes")]
@@ -32,6 +35,16 @@ public class RedesController : ControllerBase
 
         try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.RED_COMPRIMIDA != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
             List<ItemContactoRed> Lista = new List<ItemContactoRed>();
             foreach (var item in ResponseContactoVentaMes.ListadoContactosActivos)
@@ -67,7 +80,16 @@ public class RedesController : ControllerBase
                 }
             }
             var ResponseGuardarRedComprimida = await _repo.GuardarRedComprimida(logTransaccionId, Usuario, Lista);
-            
+            if (ResponseGuardarRedComprimida.Success)
+            {
+                await _controlProcesoRepository.EjecutarPaso(
+                    logTransaccionId.ToString(),
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    responseSiguientePaso.Data.nombre
+                );
+            }
             return Ok(new 
             {
                 status = ResponseContactoVentaMes.Success,

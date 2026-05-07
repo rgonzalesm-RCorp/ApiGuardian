@@ -115,12 +115,14 @@ public static class PasosDiccionario
     public const string OBTENER_VENTAS = "OBTENER VENTAS";
     public const string ADICIONAR_VENTAS = "ADICIONAR VENTAS";
     public const string COMISION_DIRECTA = "COMISION DIRECTA";
+    public const string RED_COMPRIMIDA = "RED COMPRIMIDA";
     public const string COMISION_GRUPO = "COMISION GRUPO";
     public const string OBTENER_CARTERA = "OBTENER CARTERA";
     public const string OBTENER_CUOTAS = "OBTENER CUOTAS";
     public const string OBTENER_EXCEDENTE = "OBTENER EXCEDENTE";
     public const string COMISION_RESIDUAL = "COMISION RESIDUAL";
     public const string COMISION_LIDERAZGO = "COMISION LIDERAZGO";
+    public const string COMISION_VENTA_RESIDUAL = "COMISION VENTA RESIDUAL";
     public const string BONO_PAR = "BONO PAR";
 
     public static bool EsBonoPar(string? paso)
