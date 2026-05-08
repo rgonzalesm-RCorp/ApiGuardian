@@ -1,5 +1,6 @@
 public class VentaResidual
 {
+    public int IdCuotproduc { get; set; } = 0;
     private string _nroVenta = string.Empty;
     private string _empresa = string.Empty;
     private string _proyecto = string.Empty;
@@ -96,7 +97,6 @@ public class ProductosPagarMensuales
     }
     public int? Terminado { get; set; } = 0;
 }
-
 public class ListadoComisionCuotaResidual
 {
     public string NroVenta { get; set; } = string.Empty;
@@ -134,4 +134,48 @@ public class ListadoComisionCuotaResidual
     public int? Terminado { get; set; }
     public int? LasesorId { get; set; }
     public bool Recibe { get; set; }
+}
+public class ProductosDetalleCuotas
+{
+    private string _usuarioAdd = string.Empty;
+    private string _fechaAdd = string.Empty;
+    private string _pagado = string.Empty;
+    private string _habilitado = string.Empty;
+    public int? IdProductoDetalle { get; set; }
+    public string UsuarioAdd
+    {
+        get => _usuarioAdd;
+        set => _usuarioAdd = value?.TrimEnd() ?? string.Empty;
+    }
+    public string FechaAdd
+    {
+        get => _fechaAdd;
+        set => _fechaAdd = value?.TrimEnd() ?? string.Empty;
+    }
+    public int? FkIdProductoPagar { get; set; }
+    public int? LcontratoId { get; set; }
+    public int? CantCuotas { get; set; }
+    public int? ExcCuotas { get; set; } = 0;
+    public string Pagado
+    {
+        get => _pagado;
+        set => _pagado = value?.TrimEnd() ?? string.Empty;
+    }
+    public string Habilitado
+    {
+        get => _habilitado;
+        set => _habilitado = value?.TrimEnd() ?? string.Empty;
+    }
+    public int? LcicloId { get; set; }
+}
+public class ProductosPagarMensualUpdate
+{
+    public int IdProductoPagar { get; set; }
+    public int? LContratoId { get; set; }
+    public string SNroVenta { get; set; } = string.Empty;
+    public int CantidadNroCuotas { get; set; }
+    public int? CuotasPagadas { get; set; }
+    public int? CuotasTotalesAPagar { get; set; }
+    public bool ActivoMes { get; set; }
+    public List<ProductosDetalleCuotas> _ProductosDetalleCuotas {get; set;} = new List<ProductosDetalleCuotas>();
 }
