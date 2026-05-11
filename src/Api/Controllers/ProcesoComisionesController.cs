@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection.Repositories;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
+using System.Text;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -134,8 +135,6 @@ public class ProcesoComisionesController : ControllerBase
         var responseVtaRezagadas = await _procesoComisionesRepository.GetVtaRezada(logTransaccionId.ToString(), Usuario);
 
         var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
-        
-
         
         return Ok(new
         {
@@ -332,7 +331,111 @@ public class ProcesoComisionesController : ControllerBase
             data = ""
         });
     }
-    
+    [HttpGet("calculo/venta/residual")]
+    public async Task<IActionResult> CalculoVentaResidual([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
+    {
+        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        try
+        {
+            var complejosMembresia = new List<int>{85, 29, 58, 95, 98, 101, 102};
+            var ResponseContrato = await _administracionContratoRepository.GetAdministracionContratoFechaVentaResidual(logTransaccionId.ToString(), Inicio, Fin);
+            bool esMembresia = complejosMembresia.Contains(85);
+            List<ProductosPagarMensuales> Listado = new List<ProductosPagarMensuales>();
+            foreach (var item in ResponseContrato.Data)
+            {
+                var t = await GetTotalVentaResidual(item.Precio, item.CuotaInicial, item.PorcentajeInicial, complejosMembresia.Contains(item.LComplejoId));
+                ProductosPagarMensuales obj = new ProductosPagarMensuales
+                {
+                    IdProductoPagar = 0,
+                    LcontratoId = item.LcontratoId,
+                    LcomplejoId = item.LComplejoId,
+                    Snroventa = item.NroVenta,
+                    LcontactoId = item.LcontratoId,
+                    LasesorId = item.LAsesorId,
+                    Dtfecha = item.Fecha,
+                    Precio = item.Precio,
+                    CuotaInicial = item.CuotaInicial,
+                    Porcentaje = item.PorcentajeInicial,
+                    Comision = t.ComisionDirecta,
+                    CuotAccPen = t.Cuotas,
+                    CuotPagadas = 0,
+                    Inicial10 = t.InicialAl10,
+                    MontPagar = t.DiferenciaComision,
+                    MensPagar = t.ComisionMensual,
+                    Terminado = 0
+
+                };
+
+                Listado.Add(obj);
+            }
+
+            return Ok(new
+            {
+                cant = ResponseContrato.Data.Count(),
+                Listado
+            });
+        }
+        catch (System.Exception ex)
+        {
+            return Ok(new
+            {
+                cant = ex.Message
+            });
+        }
+    }
+    private class ObjTotalVentaResidual
+    {
+        public decimal ComisionMensual { get; set; }
+        public decimal DiferenciaComision { get; set; }
+        public decimal NuevaComision { get; set; }
+        public decimal InicialAl10 { get; set; }
+        public int Cuotas { get; set; }
+        public decimal ComisionDirecta { get; set; }
+    }
+    private async Task<ObjTotalVentaResidual> GetTotalVentaResidual(decimal VendidoEn,decimal CuotaInicial, decimal PorcentajeInicial, bool EsMembresia)
+    {
+        try
+        {
+            if (EsMembresia)
+            {
+                decimal ComisionDirecta = CuotaInicial * 40 / 100;
+                decimal NuevaComision = VendidoEn * 10 / 100;
+                decimal DiferenciaComision = NuevaComision - ComisionDirecta;
+                int CantidadMes = 12;
+                decimal ComisionMensual = DiferenciaComision / CantidadMes;
+                return new ObjTotalVentaResidual
+                {
+                    ComisionMensual = DiferenciaComision / CantidadMes,
+                    DiferenciaComision = NuevaComision - ComisionDirecta,
+                    NuevaComision = VendidoEn * 10 / 100,
+                    InicialAl10 = VendidoEn * 10 / 100,
+                    Cuotas = 12,
+                    ComisionDirecta = ComisionDirecta
+                };
+            }else
+            {
+                decimal ComisionDirecta = CuotaInicial * 30 / 100;
+                decimal IncialAl10 = VendidoEn * 10 / 100;
+                decimal NuevaComision = IncialAl10 * 30 / 100;
+                decimal DiferenciaComision = NuevaComision - ComisionDirecta;
+                int CantidadMes = 6;
+                decimal ComisionMensual = DiferenciaComision / CantidadMes;
+                return new ObjTotalVentaResidual
+                {
+                    ComisionMensual = DiferenciaComision / CantidadMes,
+                    DiferenciaComision = NuevaComision - ComisionDirecta,
+                    NuevaComision = VendidoEn * 10 / 100,
+                    InicialAl10 = VendidoEn * 10 / 100,
+                    Cuotas = 6,
+                    ComisionDirecta = ComisionDirecta
+                };
+            }
+        }
+        catch (System.Exception)
+        {
+            return new ObjTotalVentaResidual();
+        }
+    }
     [HttpGet("venta/grupo")]
     public async Task<IActionResult> GetVentaGrupo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
     {

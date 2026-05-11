@@ -83,7 +83,7 @@ public class ProductosPagarMensuales
     public DateTime? Dtfecha { get; set; }
     public decimal? Precio { get; set; }
     public decimal? CuotaInicial { get; set; }
-    public int? Porcentaje { get; set; }
+    public decimal Porcentaje { get; set; }
     public decimal? Comision { get; set; }
     public int? CuotAccPen { get; set; }
     public int? CuotPagadas { get; set; }
@@ -123,7 +123,7 @@ public class ListadoComisionCuotaResidual
     public int? LcomplejoId { get; set; }
     public decimal? Precio { get; set; }
     public decimal? CuotaInicial { get; set; }
-    public int? Porcentaje { get; set; }
+    public decimal Porcentaje { get; set; }
     public decimal? Comision { get; set; }
     public int? CuotAccPen { get; set; }
     public int? CuotPagadas { get; set; }

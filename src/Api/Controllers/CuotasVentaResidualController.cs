@@ -17,7 +17,7 @@ public class CuotasVentaResidualController: ControllerBase
     private readonly ICuotasVentaResidualRepository _repo;
     private readonly IAdministracionVentaPersonalRepository _ventaPersonal;
     private readonly ILogService _log;
-    private readonly IControlProcesoRepository _controlProcesoRepository;
+    private readonly IControlProcesoRepository _controlProcesoRepository; 
 
     private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
 
@@ -98,14 +98,16 @@ public class CuotasVentaResidualController: ControllerBase
            {
                 item.Recibe = ListadoVentaPersonal.Where(a => a.lcontacto_id == item.LasesorId).ToList().Count > 0 ? true : false;
            }
+            ComisionVentaResidualXls xls = new ComisionVentaResidualXls();
+            var ResponseXLS = await xls.GetComisionVentaResidualXlS(ListadoComisionCuotaResidual);
             return Ok(new 
             {
                 status = ResponseCuotasVentaRecidual.Success,
                 mensaje = ResponseCuotasVentaRecidual.Mensaje,
                 data = new
                 {
-                    ResponseCuotasVentaRecidual.ListadoCuotasVentasResidual.ToList().Count,
                     ListadoComisionCuotaResidual,
+                    base64Xls = ResponseXLS.base64,
                     controlPasos = new {
                                     ejecutado = PasosDiccionario.COMISION_VENTA_RESIDUAL == responseSiguientePaso.Data.nombre ? false : true,
                                     data = responseSiguientePaso.Data
@@ -134,6 +136,16 @@ public class CuotasVentaResidualController: ControllerBase
 
         try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.COMISION_VENTA_RESIDUAL != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             var responseCuotasResidual = await _repo.GetCuotasVentasResidual(logTransaccionId, Usuario, Inicio, Fin);
 
             if (!responseCuotasResidual.Success)
@@ -152,7 +164,6 @@ public class CuotasVentaResidualController: ControllerBase
 
             await _repo.SaveCuotasVentasProductosPagarMensual(logTransaccionId, Usuario, responseCuotasResidual.ListadoCuotasVentasResidual.ToList());
 
-            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
 
             var listadoCuotasVentasResidual = responseCuotasResidual.ListadoCuotasVentasResidual.ToList();
             var listadoProductosPagarMensual = responseProductosPagar.ListadoProductosPagarMensuales.ToList();
@@ -246,6 +257,8 @@ public class CuotasVentaResidualController: ControllerBase
                 })
                 .ToList();
             var ResponseControlProductoCuotas = await _repo.SaveControlProductos(logTransaccionId, Usuario, listaProductoPagarMensualUpdate);
+            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.COMISION_VENTA_RESIDUAL);
+
             return Ok(new
             {
                 status = true,
@@ -265,4 +278,5 @@ public class CuotasVentaResidualController: ControllerBase
             });
         }
     }
+    
 }

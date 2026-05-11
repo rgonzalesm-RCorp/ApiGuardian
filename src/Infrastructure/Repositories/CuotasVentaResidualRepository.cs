@@ -273,10 +273,15 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
             return (false, $"Error al guardar cuotas ventas productos pagar mensual: {ex.Message}");
         }
     }
-    public async Task<(bool Success, string Mensaje)> SaveControlProductos(string LogTransaccionId, string Usuario, List<ProductosPagarMensualUpdate> ProductosPagarMensualUpdate)
+
+    public async Task<(bool Success, string Mensaje)> SaveControlProductos(string logTransaccionId, string usuario, List<ProductosPagarMensualUpdate> productos)
     {
-        string QueryUpdateProductoPagarMensual = @$"update t_productos_pagar_mensuales set cuot_pagadas = @CuotasPagadas where id_producto_pagar = @IdProductoPagar";
-        string QueryInsertProductoDetallCuotas = @"
+        const string queryUpdate = @"
+            UPDATE t_productos_pagar_mensuales 
+            SET cuot_pagadas = @CuotasPagadas 
+            WHERE id_producto_pagar = @IdProductoPagar;";
+
+        const string queryInsertDetalle = @"
             INSERT INTO t_productos_detalle_cuotas
             (
                 id_producto_detalle,
@@ -302,120 +307,97 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                 @Pagado,
                 @Habilitado,
                 @LcicloId
-            );
-        ";
+            );";
+
+        if (productos == null || productos.Count == 0) return (false, "No existen productos para procesar.");
+
+        var productosActivos = productos .Where(x => x.ActivoMes && x.CuotasPagadas < x.CuotasTotalesAPagar).ToList();
+
+        if (productosActivos.Count == 0) return (false, "No existen productos activos con cuotas pendientes.");
+
+        using var connection = _context.CreateConnection();
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
 
         try
-        {   
-            List<ProductosPagarMensualUpdate> productosPagarMensualUpdates = ProductosPagarMensualUpdate.Where(x => x.ActivoMes == true && x.IdProductoPagar == 2271).ToList();
-            using var connection = _context.CreateConnection();
-            connection.Open();
-            using var transaction = connection.BeginTransaction();
-            try
-            {
-                int couter = 0;
-                foreach (var item in productosPagarMensualUpdates)
-                {
-                    if (couter <= 0)
-                    {
-                        if((item.CantidadNroCuotas + item.CuotasPagadas) <= item.CuotasTotalesAPagar)
-                        {
-                            await connection.ExecuteScalarAsync(QueryUpdateProductoPagarMensual, new
-                            {
-                                CuotasPagadas = item.CantidadNroCuotas + item.CuotasPagadas,
-                                IdProductoPagar = item.IdProductoPagar
-
-                            }, transaction);
-                            int idProductoDetalle = await connection.ExecuteScalarAsync<int>(
-                                "SELECT IFNULL(MAX(id_producto_detalle),0) + 1 FROM t_productos_detalle_cuotas",
-                                transaction: transaction
-                            );
-                            foreach (var itemDetalle in item._ProductosDetalleCuotas)
-                            {
-                                itemDetalle.IdProductoDetalle = idProductoDetalle++;
-                                itemDetalle.UsuarioAdd = Usuario;
-                                itemDetalle.FechaAdd = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                await connection.ExecuteAsync(
-                                    QueryInsertProductoDetallCuotas,
-                                    itemDetalle,
-                                    transaction
-                                );
-                            }
-
-                            couter ++;
-                        }else if (item.CuotasPagadas < item.CuotasTotalesAPagar)
-                        {
-                            int? CuotasFaltantes = item.CuotasTotalesAPagar - item.CuotasPagadas;
-                            if (item.CantidadNroCuotas > CuotasFaltantes)
-                            {
-                                await connection.ExecuteScalarAsync(QueryUpdateProductoPagarMensual, new
-                                {
-                                    CuotasPagadas =  item.CuotasTotalesAPagar,
-                                    IdProductoPagar = item.IdProductoPagar
-
-                                }, transaction);
-                                int idProductoDetalle = await connection.ExecuteScalarAsync<int>(
-                                    "SELECT IFNULL(MAX(id_producto_detalle),0) + 1 FROM t_productos_detalle_cuotas",
-                                    transaction: transaction
-                                );
-                                List<ProductosDetalleCuotas> Detalle = item._ProductosDetalleCuotas.Take((int)CuotasFaltantes).ToList();
-                                foreach (var itemDetalle in item._ProductosDetalleCuotas)
-                                {
-                                    itemDetalle.IdProductoDetalle = idProductoDetalle++;
-                                    itemDetalle.UsuarioAdd = Usuario;
-                                    itemDetalle.FechaAdd = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                    await connection.ExecuteScalarAsync(
-                                        QueryInsertProductoDetallCuotas,
-                                        itemDetalle,
-                                        transaction
-                                    );
-                                }
-                                couter ++;
-                            }
-                            else
-                            {
-                               await connection.ExecuteScalarAsync(QueryUpdateProductoPagarMensual, new
-                                {
-                                    CuotasPagadas =  item.CuotasTotalesAPagar,
-                                    IdProductoPagar = item.IdProductoPagar
-
-                                }, transaction);
-                                int idProductoDetalle = await connection.ExecuteScalarAsync<int>(
-                                    "SELECT IFNULL(MAX(id_producto_detalle),0) + 1 FROM t_productos_detalle_cuotas",
-                                    transaction: transaction
-                                );
-                                foreach (var itemDetalle in item._ProductosDetalleCuotas)
-                                {
-                                    itemDetalle.IdProductoDetalle = idProductoDetalle++;
-                                    itemDetalle.UsuarioAdd = Usuario;
-                                    itemDetalle.FechaAdd = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                    await connection.ExecuteAsync(
-                                        QueryInsertProductoDetallCuotas,
-                                        itemDetalle,
-                                        transaction
-                                    );
-                                }
-                                couter ++; 
-                            }
-                        }
-                        
-                    }
-                    
-                }
-                transaction.Commit();
-                return(true, "");
-            }
-            catch (System.Exception ex)
-            {
-                transaction.Rollback();
-                return (false, ex.Message.ToString());
-            }
-        }
-        catch (System.Exception ex)
         {
-            return (false, ex.Message.ToString());
+            int idProductoDetalle = await connection.ExecuteScalarAsync<int>(
+                "SELECT IFNULL(MAX(id_producto_detalle), 0) + 1 FROM t_productos_detalle_cuotas;",
+                transaction: transaction
+            );
 
+            string fechaActual = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            foreach (var item in productosActivos)
+            {
+                int cuotasFaltantes = (int)item.CuotasTotalesAPagar - (int)item.CuotasPagadas;
+
+                if (cuotasFaltantes <= 0) continue;
+
+                int cuotasAProcesar = Math.Min(item.CantidadNroCuotas, cuotasFaltantes);
+
+                int nuevasCuotasPagadas = (int)item.CuotasPagadas + cuotasAProcesar;
+
+                await connection.ExecuteAsync(
+                    queryUpdate,
+                    new
+                    {
+                        CuotasPagadas = nuevasCuotasPagadas,
+                        IdProductoPagar = item.IdProductoPagar
+                    },
+                    transaction
+                );
+
+                var detalles = new List<ProductosDetalleCuotas>();
+
+                int cuotasPendientesDetalle = cuotasAProcesar;
+
+                foreach (var detalleOriginal in item._ProductosDetalleCuotas)
+                {
+                    if (cuotasPendientesDetalle <= 0)
+                        break;
+
+                    int cuotasDelDetalle = Math.Min(
+                        (int)detalleOriginal.CantCuotas,
+                        cuotasPendientesDetalle
+                    );
+
+                    var detalle = new ProductosDetalleCuotas
+                    {
+                        IdProductoDetalle = idProductoDetalle++,
+                        UsuarioAdd = usuario,
+                        FechaAdd = fechaActual,
+                        FkIdProductoPagar = detalleOriginal.FkIdProductoPagar,
+                        LcontratoId = detalleOriginal.LcontratoId,
+                        CantCuotas = cuotasDelDetalle,
+                        ExcCuotas = detalleOriginal.ExcCuotas,
+                        Pagado = detalleOriginal.Pagado,
+                        Habilitado = detalleOriginal.Habilitado,
+                        LcicloId = detalleOriginal.LcicloId
+                    };
+
+                    detalles.Add(detalle);
+                    cuotasPendientesDetalle -= cuotasDelDetalle;
+                }
+
+                if (detalles.Count > 0)
+                {
+                    await connection.ExecuteAsync(
+                        queryInsertDetalle,
+                        detalles,
+                        transaction
+                    );
+                }
+            }
+
+            transaction.Commit();
+            return (true, "Control de productos guardado correctamente.");
         }
-        
+        catch (Exception ex)
+        {
+            transaction.Rollback();
+            return (false, ex.Message);
+        }
     }
 }

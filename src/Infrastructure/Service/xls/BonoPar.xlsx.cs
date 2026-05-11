@@ -78,7 +78,7 @@ public class BonoParXls
 
         ws.Column(8).Style.NumberFormat.Format = "#,##0.00";
         ws.Column(9).Style.NumberFormat.Format = "#,##0.00";
-        ws.Column(910).Style.NumberFormat.Format = "#,##0.00";
+        ws.Column(10).Style.NumberFormat.Format = "#,##0.00";
     }
     private static void CrearEncabezados(IXLWorksheet ws, int row)
     {

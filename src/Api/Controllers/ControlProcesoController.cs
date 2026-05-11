@@ -156,7 +156,7 @@ public class ControlProcesoController : ControllerBase
     }
 
     [HttpPost("reset/ciclo")]
-    public async Task<IActionResult> ResetControlProcesoCiclo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Usuario")] string Usuario)
+    public async Task<IActionResult> ResetControlProcesoCiclo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Usuario")] string Usuario,  [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         string nombreMetodo = "ResetControlProcesoCiclo()";
@@ -169,7 +169,7 @@ public class ControlProcesoController : ControllerBase
                 logTransaccionId.ToString(),
                 Usuario,
                 ProcesosDiccionario.COMISIONES,
-                lCicloId
+                lCicloId, Inicio, Fin
             );
 
             string mensaje = !string.IsNullOrWhiteSpace(response.Data.mensaje)
