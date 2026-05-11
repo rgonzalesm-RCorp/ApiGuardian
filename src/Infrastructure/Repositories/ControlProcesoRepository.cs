@@ -882,7 +882,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
             return (false, $"Error al obtener el detalle del proceso: {ex.Message}", new ItemControlProcesoResumen());
         }
     }
-    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> ReiniciarCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId)
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> ReiniciarCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string Inicio, string Fin)
     {
         string nombreMetodo = "ReiniciarCiclo()";
 
@@ -903,6 +903,25 @@ public class ControlProcesoRepository : IControlProcesoRepository
         const string deleteRedComprimida = @"DELETE FROM red_comprimida WHERE lciclo_id = @LCicloId;";
         const string deleteRedCompletaCuotas = @"DELETE FROM red_completa_cuotas WHERE lciclo_id = @LCicloId;";
         const string deleteControlProceso = @"DELETE FROM ControlProceso WHERE lciclo_id = @LCicloId;";
+        const string deleteContrato = @"delete from administracioncontrato where dtfecha BETWEEN @Inicio and @Fin;";
+        const string deleteCuotas = @"DELETE FROM T_ACCIONESCUOTASGRL WHERE FECHA_PAGO BETWEEN @Inicio AND @Fin;"; 
+        const string deleteCuotasVentasResidual = @"delete from t_cuotas_ventas_productos_pagar_mensual where FECHA_RECIBO BETWEEN @Inicio AND @Fin;"; 
+        const string upadteProductosPagarMensual = @"UPDATE t_productos_pagar_mensuales m
+                                                    INNER JOIN
+                                                    (
+                                                        SELECT 
+                                                            fk_id_producto_pagar,
+                                                            SUM(cant_cuotas) AS total_cuotas
+                                                        FROM t_productos_detalle_cuotas
+                                                        WHERE lciclo_id = @LCicloId
+                                                        GROUP BY fk_id_producto_pagar
+                                                    ) d
+                                                    ON m.id_producto_pagar = d.fk_id_producto_pagar
+                                                    SET m.cuot_pagadas = m.cuot_pagadas - d.total_cuotas;"; 
+        const string deleteProductosDetalleCuotas = @"DELETE FROM t_productos_detalle_cuotas WHERE lciclo_id = @LCicloId;";
+        const string updateVentaRezagadas = @"update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 1, FechaProceso = null where lciclo_id = @LCicloId;";
+
+        
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}]");
 
@@ -912,16 +931,24 @@ public class ControlProcesoRepository : IControlProcesoRepository
             connection.Open();
             using var transaction = connection.BeginTransaction();
 
+            await connection.ExecuteAsync(deleteContrato, new { Inicio, Fin }, transaction);
+            await connection.ExecuteAsync(deleteVentaPersonal, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteRedComprimida, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteVentaGrupo, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteCuotas, new { Inicio, Fin }, transaction);
+            await connection.ExecuteAsync(deleteBonoResidual, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteBonoCompleto, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteRedEmpresaComplejo, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteCuotasVentasResidual, new { Inicio, Fin }, transaction);
+            await connection.ExecuteAsync(upadteProductosPagarMensual, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteProductosDetalleCuotas, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteBonoParDetalle, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteBonoPar, new { LCicloId }, transaction);
-            await connection.ExecuteAsync(deleteVentaPersonal, new { LCicloId }, transaction);
-            await connection.ExecuteAsync(deleteVentaGrupo, new { LCicloId }, transaction);
-            await connection.ExecuteAsync(deleteBonoResidual, new { LCicloId }, transaction);
-            await connection.ExecuteAsync(deleteRedEmpresaComplejo, new { LCicloId }, transaction);
-            await connection.ExecuteAsync(deleteBonoCompleto, new { LCicloId }, transaction);
-            await connection.ExecuteAsync(deleteRedComprimida, new { LCicloId }, transaction);
+            
             await connection.ExecuteAsync(deleteRedCompletaCuotas, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteControlProceso, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(updateVentaRezagadas, new { LCicloId}, transaction);
+
 
             var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId}, transaction);
             if (item != null && string.IsNullOrWhiteSpace(item.mensaje))

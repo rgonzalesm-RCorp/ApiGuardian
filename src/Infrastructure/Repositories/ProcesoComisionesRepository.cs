@@ -150,7 +150,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                     telefonoFijoVendedor, telefonoMovilVendedor, correoVendedor, fechaNacimientoVendedor,
                     direccionVendedor, idPaisResidenciaVendedor, sCedulaIdentidadVendedor, fechaRegistroVendedor,
                     sNombreCompletoVendedor, sTelefonoOficinaVendedor, sContrasenaVendedor, sCiudadVendedor,
-                    complejo, tipoVenta, porcentajeCuotaInicial, EstadoVentaRezagadasCicloId, FechaRegistroGrd
+                    complejo, tipoVenta, porcentajeCuotaInicial, EstadoVentaRezagadasCicloId, FechaRegistroGrd, lciclo_id
                 ) VALUES (
                     @empresaId, @lContratoId, @dFecha,  @sManzano, @sLote, @dPrecio, @lComplejoId, @idVenta,
                     @lote,  @suv, @precioInicial, @sCuotaInicial, @idCliente, @telefonoFijo,
@@ -160,7 +160,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                     @telefonoFijoVendedor, @telefonoMovilVendedor, @correoVendedor, @fechaNacimientoVendedor,
                     @direccionVendedor, @idPaisResidenciaVendedor, @sCedulaIdentidadVendedor, @fechaRegistroVendedor,
                     @sNombreCompletoVendedor, @sTelefonoOficinaVendedor, @sContrasenaVendedor, @sCiudadVendedor,
-                    @complejo, @tipoVenta, @porcentajeCuotaInicial, @EstadoVentaRezagadasCicloId, @FechaRegistroGrd
+                    @complejo, @tipoVenta, @porcentajeCuotaInicial, @EstadoVentaRezagadasCicloId, @FechaRegistroGrd, null
                 );";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio inserción. Script: { insertQuery}");
@@ -189,7 +189,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
     {
         string nombreMetodo = "GetVtaRezada()";
 
-        string query = $@"select * from VentaRezagadasCiclo WHERE EstadoVentaRezagadasCicloId = 1;";
+        string query = $@"select * from VentaRezagadasCiclo WHERE EstadoVentaRezagadasCicloId = 1 AND dFecha >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y%m01');";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
@@ -213,12 +213,12 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             return ( false, $"Error al obtener las ventas rezagadas: {ex.Message}", Enumerable.Empty<ItemVentaCnx>());
         }
     }
-    public async Task<(bool Success, string Mensaje)> UpdateVtaRezagadas(string LogTransaccionId, ItemVentaCnx Data, string Usuario)
+    public async Task<(bool Success, string Mensaje)> UpdateVtaRezagadas(string LogTransaccionId, ItemVentaCnx Data, string Usuario, int LCicloId)
     {
         string nombreMetodo = "UpdateVtaRezagadas()";
 
         const string query = @"
-            update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 2, FechaProceso = NOW() where idVenta = @IdVenta and lote = @Lote
+            update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 2, FechaProceso = NOW(), lciclo_id = @LCicloId  where idVenta = @IdVenta and lote = @Lote
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
@@ -230,7 +230,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             var rows = await connection.ExecuteAsync(query, new
             {
                 Data.IdVenta,
-                Data.Lote
+                Data.Lote,
+                LCicloId
             });
 
             bool success = rows > 0;

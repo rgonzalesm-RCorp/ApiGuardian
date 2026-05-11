@@ -9,4 +9,5 @@ public interface IAdministracionContratoRepository
     Task<( bool Success, string Mensaje)> InsertContrato(string LogTransaccionId, AdministracionContrato data);
     Task<(bool Success, string Mensaje)> UpdateContrato(string LogTransaccionId, AdministracionContrato data);
     Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje)> GetContratoXNroVenta(string LogTransaccionId, string sLote, string inicio, string fin);
+    Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAdministracionContratoFechaVentaResidual(string LogTransaccionId, string inicio, string fin);
 }

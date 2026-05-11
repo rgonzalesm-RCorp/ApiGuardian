@@ -114,5 +114,70 @@ public class AdministracionVentaPersonalRepository : IAdministracionVentaPersona
             return (false, $"Error al insertar las comisiones: {ex.Message}");
         }
     }
+    public async Task<(bool Success, string Mensaje, IEnumerable<AdministracionVentaPersonal>ListadoAdministracionVentaPersonal)> GetVentaPersonal(string LogTransaccionId, string Usuario, int LCicloId)
+    {
+        string query = @"
+            SELECT
+                lventapersonal_id,
+                susuarioadd,
+                dtfechaadd,
+                susuariomod,
+                dtfechamod,
+                dtfechacalculo,
+                lciclo_id,
+                lcontacto_id,
+                dpreciolote,
+                dporcentajecomision,
+                dcomision,
+                lcontrato_id,
+                ddescuentoatencion,
+                ddescuentotramite,
+                ddescuentoreferido,
+                latencion_id,
+                ltramite_id,
+                lreferido_id,
+                ddescuentolote,
+                snotadescuentolote,
+                0 cventapagada,
+                dtfechapago,
+                lnrosemana,
+                dporcentajeretencion,
+                dmontoRetencion,
+                0 cpresentafactura,
+                dtotaapagar,
+                lsemana_id
+            FROM administracionventapersonal
+            WHERE lciclo_id = @LCicloId
+        ";
 
+        string nombreMetodo = "GetVentaPersonal()";
+
+        _log.Info( LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var lista = await connection.QueryAsync<AdministracionVentaPersonal>(
+                query,
+                new { LCicloId }
+            );
+
+            bool success = lista != null && lista.Any();
+
+            string mensaje = success
+                ? "Ventas personales obtenidas correctamente."
+                : "No se encontraron ventas personales.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [mensaje: {mensaje}]");
+
+            return (success, mensaje, lista ?? new List<AdministracionVentaPersonal>());
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId,  NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+
+            return (false, $"Error al obtener ventas personales: {ex.Message}", Enumerable.Empty<AdministracionVentaPersonal>());
+        }
+    }
 }

@@ -308,5 +308,66 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             return (Enumerable.Empty<ItemVentaComision>(), false, "Error al consultar contactos.");
         }
     }
+    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAdministracionContratoFechaVentaResidual(string LogTransaccionId, string inicio, string fin)
+    {
+        string nombreMetodo = "GetAllAdministracionContrato()";
+
+        const string queryData = @"
+            SELECT 
+                C.lcontrato_id AS LContratoId,
+                C.dtfechaadd AS FechaRegistro,
+                C.dtfecha AS Fecha,
+                C.snroventa AS NroVenta,
+                P.snombrecompleto AS Propietario,
+                AC.snombre AS Complejo,
+                C.suv AS Uv,
+                C.smanzano AS NroMnzo,
+                C.slote AS NroLote,
+                C.dprecio AS Precio,
+                C.dcuota_inicial AS CuotaInicial,
+                C.lestado AS Estado,
+                ATC.snombre AS TipoContrato,
+                A.snombrecompleto AS Asesor,
+                ATC.ltipocontrato_id AS LTipoContratoId,
+                A.lcontacto_id AS LAsesorId,
+                P.lcontacto_id AS LPropietarioId,
+                AC.lcomplejo_id AS LComplejoId,
+                C.dprecioinicial AS DPrecioInicial,
+                AEC.snombre AS EstadoContrato,
+                C.cespecial AS CEspecial,
+                C.porcentaje_inicial PorcentajeInicial
+            FROM administracioncontrato C
+            INNER JOIN administracioncontacto P ON P.lcontacto_id = C.lcontacto_id
+            INNER JOIN administracioncontacto A ON A.lcontacto_id = C.lasesor_id
+            INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
+            INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
+            INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
+            WHERE c.dtfecha between @inicio and @fin;
+        ";
+
+      
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [scriptData: {queryData}]"); 
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var data = await connection.QueryAsync<ListaAdministracionContrato>(queryData, new {inicio, fin});
+
+            bool success = data != null && data.Any();
+            string mensaje = success ? "Contratos obtenidos correctamente." : "No se encontraron contratos.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje},   data:{JsonConvert.SerializeObject(data, Formatting.Indented)}]");
+
+            return (data ?? Enumerable.Empty<ListaAdministracionContrato>(), success, mensaje, 0);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ListaAdministracionContrato>(), false, $"Error al consultar contratos: {ex.Message}", 0);
+        }
+    }
     
 }

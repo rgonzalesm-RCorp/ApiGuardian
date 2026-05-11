@@ -5,6 +5,8 @@ TRUNCATE table conf_proceso_instancias;
 TRUNCATE table conf_proceso_ciclos;
 TRUNCATE table conf_proceso_pasos;
 
+--SELECT * FROM conf_pasos
+
 
 
 -- ============================================
@@ -23,17 +25,21 @@ SELECT p.id, 'ADICIONAR VENTAS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COM
 UNION ALL
 SELECT p.id, 'COMISION DIRECTA', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION GRUPO', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'RED COMPRIMIDA', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CARTERA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION GRUPO', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CUOTAS', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CARTERA', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER EXCEDENTE', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CUOTAS', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION RESIDUAL', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER EXCEDENTE', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'BONO PAR', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
+SELECT p.id, 'COMISION RESIDUAL', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'COMISION VENTA RESIDUAL', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'BONO PAR', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
 
 -- ============================================
 -- 3. DEPENDENCIAS DINÁMICAS (por nombre)
@@ -54,7 +60,13 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'COMISION DIRECTA' AND p2.nombre = 'COMISION GRUPO'
+WHERE p1.nombre = 'COMISION DIRECTA' AND p2.nombre = 'RED COMPRIMIDA'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'RED COMPRIMIDA' AND p2.nombre = 'COMISION GRUPO'
 
 UNION ALL
 SELECT p2.id, p1.id
@@ -84,4 +96,10 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'COMISION RESIDUAL' AND p2.nombre = 'BONO PAR';
+WHERE p1.nombre = 'COMISION RESIDUAL' AND p2.nombre = 'COMISION VENTA RESIDUAL'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'COMISION VENTA RESIDUAL' AND p2.nombre = 'BONO PAR';

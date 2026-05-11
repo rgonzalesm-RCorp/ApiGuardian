@@ -285,12 +285,12 @@ public class MiCronJob : IJob
             var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin);
             Lista = vtaCnx.Data.ToList();
         }
-        await ProcesarVentas(LogTransaccionId, usuario, Lista, ListaComplejo, inicio, fin, rezagada);
+        await ProcesarVentas(LogTransaccionId, usuario, Lista, ListaComplejo, inicio, fin, rezagada, lCicloId);
         await _controlProcesoRepository.UpdateControlProceso(LogTransaccionId, usuario, paso, lCicloId);
         await _controlProcesoRepository.EjecutarPaso(LogTransaccionId, usuario, ProcesosDiccionario.COMISIONES, lCicloId, rezagada ? PasosDiccionario.ADICIONAR_VENTAS : PasosDiccionario.OBTENER_VENTAS);
         return true;
     }
-    private async Task<bool> ProcesarVentas(string LogTransaccionId, string Usuario, List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada)
+    private async Task<bool> ProcesarVentas(string LogTransaccionId, string Usuario, List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada, int LCicloId)
     {
         int counter = 0;
         foreach (var item in Lista)
@@ -340,7 +340,7 @@ public class MiCronJob : IJob
             Console.WriteLine(item.Lote);
             if (rezagada)
             {
-                await _procesoComisionesRepository.UpdateVtaRezagadas(LogTransaccionId, item, Usuario);
+                await _procesoComisionesRepository.UpdateVtaRezagadas(LogTransaccionId, item, Usuario, LCicloId);
             }
         }
         return false;
