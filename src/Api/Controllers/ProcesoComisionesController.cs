@@ -25,13 +25,14 @@ public class ProcesoComisionesController : ControllerBase
     private readonly IAdministracionVentaGrupoRepository _administracionVentaGrupoRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly IAdministracionSemanaCicloRepository _administracionSemanaCicloRepository;
+    private readonly ICuotasVentaResidualRepository _cuotasVentaResidualRepository;
     private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
     public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log
         , MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository
         , IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository
         , IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository
-        , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository)
+        , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository, ICuotasVentaResidualRepository cuotasVentaResidualRepository)
     {
         _ventasCnxRepository = ventasCnxRepository;
         _log = log;
@@ -43,6 +44,7 @@ public class ProcesoComisionesController : ControllerBase
         _controlProcesoRepository = controlProcesoRepository;
         _administracionVentaGrupoRepository = administracionVentaGrupoRepository;
         _administracionSemanaCicloRepository = administracionSemanaCicloRepository;
+        _cuotasVentaResidualRepository = cuotasVentaResidualRepository;
     }
     [HttpGet("vta/cnx")]
     public async Task<IActionResult> GetVentaCnx([FromHeader(Name = "lCicloId")] int lCicloId)
@@ -322,6 +324,8 @@ public class ProcesoComisionesController : ControllerBase
         }
         
         var responseVtaPersonsal = await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal);
+        var responseCalculoVentaResidual = await CalculoVentaResidual(request.LCicloId, request.Inicio, request.Fin, request.Usuario);
+
         await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_DIRECTA);
 
         return Ok(new
@@ -331,20 +335,23 @@ public class ProcesoComisionesController : ControllerBase
             data = ""
         });
     }
-    [HttpGet("calculo/venta/residual")]
-    public async Task<IActionResult> CalculoVentaResidual([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
+    public async Task<IActionResult> CalculoVentaResidual( int lCicloId, string inicio, string fin, string usuario)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
         try
         {
-            var complejosMembresia = new List<int>{85, 29, 58, 95, 98, 101, 102};
-            var ResponseContrato = await _administracionContratoRepository.GetAdministracionContratoFechaVentaResidual(logTransaccionId.ToString(), Inicio, Fin);
-            bool esMembresia = complejosMembresia.Contains(85);
-            List<ProductosPagarMensuales> Listado = new List<ProductosPagarMensuales>();
-            foreach (var item in ResponseContrato.Data)
+            var complejosMembresia = new HashSet<int> { 85, 29, 58, 95, 98, 101, 102 };
+
+            var responseContrato = await _administracionContratoRepository.GetAdministracionContratoFechaVentaResidual(logTransaccionId.ToString(), inicio, fin);
+
+            var listado = responseContrato.Data.Select(item =>
             {
-                var t = await GetTotalVentaResidual(item.Precio, item.CuotaInicial, item.PorcentajeInicial, complejosMembresia.Contains(item.LComplejoId));
-                ProductosPagarMensuales obj = new ProductosPagarMensuales
+                bool esMembresia = complejosMembresia.Contains(item.LComplejoId);
+
+                var calculo = GetTotalVentaResidual(item.Precio, item.CuotaInicial, esMembresia);
+
+                return new ProductosPagarMensuales
                 {
                     IdProductoPagar = 0,
                     LcontratoId = item.LcontratoId,
@@ -356,30 +363,32 @@ public class ProcesoComisionesController : ControllerBase
                     Precio = item.Precio,
                     CuotaInicial = item.CuotaInicial,
                     Porcentaje = item.PorcentajeInicial,
-                    Comision = t.ComisionDirecta,
-                    CuotAccPen = t.Cuotas,
+                    Comision = calculo.ComisionDirecta,
+                    CuotAccPen = calculo.Cuotas,
                     CuotPagadas = 0,
-                    Inicial10 = t.InicialAl10,
-                    MontPagar = t.DiferenciaComision,
-                    MensPagar = t.ComisionMensual,
+                    Inicial10 = calculo.InicialAl10,
+                    MontPagar = calculo.DiferenciaComision,
+                    MensPagar = calculo.ComisionMensual,
                     Terminado = 0
-
                 };
-
-                Listado.Add(obj);
-            }
-
+            }).ToList();
+            listado = listado.Where(x => x.MontPagar > 0 &&  x.Porcentaje < 100).ToList();
+            var responser = await _cuotasVentaResidualRepository.InsertProductosPagarMensuales(logTransaccionId.ToString(), usuario, listado);
             return Ok(new
             {
-                cant = ResponseContrato.Data.Count(),
-                Listado
+                status = true,
+                mensaje = "Cálculo realizado correctamente",
+                cant = listado.Count,
+                data = listado
             });
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             return Ok(new
             {
-                cant = ex.Message
+                status = false,
+                mensaje = ex.Message,
+                data = new List<ProductosPagarMensuales>()
             });
         }
     }
@@ -392,50 +401,41 @@ public class ProcesoComisionesController : ControllerBase
         public int Cuotas { get; set; }
         public decimal ComisionDirecta { get; set; }
     }
-    private async Task<ObjTotalVentaResidual> GetTotalVentaResidual(decimal VendidoEn,decimal CuotaInicial, decimal PorcentajeInicial, bool EsMembresia)
+    private static ObjTotalVentaResidual GetTotalVentaResidual(decimal vendidoEn, decimal cuotaInicial, bool esMembresia)
     {
-        try
+        decimal inicialAl10 = vendidoEn * 10 / 100;
+
+        decimal comisionDirecta;
+        decimal nuevaComision;
+        int cantidadMeses;
+
+        if (esMembresia)
         {
-            if (EsMembresia)
-            {
-                decimal ComisionDirecta = CuotaInicial * 40 / 100;
-                decimal NuevaComision = VendidoEn * 10 / 100;
-                decimal DiferenciaComision = NuevaComision - ComisionDirecta;
-                int CantidadMes = 12;
-                decimal ComisionMensual = DiferenciaComision / CantidadMes;
-                return new ObjTotalVentaResidual
-                {
-                    ComisionMensual = DiferenciaComision / CantidadMes,
-                    DiferenciaComision = NuevaComision - ComisionDirecta,
-                    NuevaComision = VendidoEn * 10 / 100,
-                    InicialAl10 = VendidoEn * 10 / 100,
-                    Cuotas = 12,
-                    ComisionDirecta = ComisionDirecta
-                };
-            }else
-            {
-                decimal ComisionDirecta = CuotaInicial * 30 / 100;
-                decimal IncialAl10 = VendidoEn * 10 / 100;
-                decimal NuevaComision = IncialAl10 * 30 / 100;
-                decimal DiferenciaComision = NuevaComision - ComisionDirecta;
-                int CantidadMes = 6;
-                decimal ComisionMensual = DiferenciaComision / CantidadMes;
-                return new ObjTotalVentaResidual
-                {
-                    ComisionMensual = DiferenciaComision / CantidadMes,
-                    DiferenciaComision = NuevaComision - ComisionDirecta,
-                    NuevaComision = VendidoEn * 10 / 100,
-                    InicialAl10 = VendidoEn * 10 / 100,
-                    Cuotas = 6,
-                    ComisionDirecta = ComisionDirecta
-                };
-            }
+            comisionDirecta = cuotaInicial * 40 / 100;
+            nuevaComision = inicialAl10;
+            cantidadMeses = 12;
         }
-        catch (System.Exception)
+        else
         {
-            return new ObjTotalVentaResidual();
+            comisionDirecta = cuotaInicial * 30 / 100;
+            nuevaComision = inicialAl10 * 30 / 100;
+            cantidadMeses = 6;
         }
+
+        decimal diferenciaComision = nuevaComision - comisionDirecta;
+        decimal comisionMensual = diferenciaComision / cantidadMeses;
+
+        return new ObjTotalVentaResidual
+        {
+            ComisionMensual = comisionMensual,
+            DiferenciaComision = diferenciaComision,
+            NuevaComision = nuevaComision,
+            InicialAl10 = inicialAl10,
+            Cuotas = cantidadMeses,
+            ComisionDirecta = comisionDirecta
+        };
     }
+    
     [HttpGet("venta/grupo")]
     public async Task<IActionResult> GetVentaGrupo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
     {

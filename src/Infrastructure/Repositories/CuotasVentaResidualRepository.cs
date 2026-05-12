@@ -400,4 +400,109 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
             return (false, ex.Message);
         }
     }
+    public async Task<(bool Success, string Mensaje)> InsertProductosPagarMensuales(string LogTransaccionId, string Usuario, List<ProductosPagarMensuales> Listado)
+    {
+        string query = @"
+            INSERT INTO t_productos_pagar_mensuales
+            (
+                id_Producto_Pagar,
+                lcontrato_id,
+                lcomplejo_id,
+                snroventa,
+                lcontacto_id,
+                lasesor_id,
+                dtfecha,
+                PRECIO,
+                CUOTA_INICIAL,
+                PORCENTAJE,
+                Comision,
+                Cuot_Acc_Pen,
+                Cuot_Pagadas,
+                Inicial_10,
+                Mont_Pagar,
+                Mens_Pagar,
+                ciclos_habilitados,
+                Terminado
+            )
+            VALUES
+            (
+                @IdProductoPagar,
+                @LcontratoId,
+                @LcomplejoId,
+                @Snroventa,
+                @LcontactoId,
+                @LasesorId,
+                @Dtfecha,
+                @Precio,
+                @CuotaInicial,
+                @Porcentaje,
+                @Comision,
+                @CuotAccPen,
+                @CuotPagadas,
+                @Inicial10,
+                @MontPagar,
+                @MensPagar,
+                @CiclosHabilitados,
+                @Terminado
+            );
+        ";
+
+        string nombreMetodo = "InsertProductosPagarMensuales()";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            if (Listado == null || !Listado.Any())
+            {
+                return (false, "No existen productos pagar mensuales para guardar.");
+            }
+
+            using var connection = _context.CreateConnection();
+
+            connection.Open();
+
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                int correlativo = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT IFNULL(MAX(id_Producto_Pagar), 0) + 1 
+                    FROM t_productos_pagar_mensuales",
+                    transaction: transaction
+                );
+
+                foreach (var item in Listado)
+                {
+                    item.IdProductoPagar = correlativo++;
+                    item.Terminado ??= 0;
+                    item.CiclosHabilitados ??= string.Empty;
+                }
+
+                int response = await connection.ExecuteAsync(query, Listado, transaction);
+
+                transaction.Commit();
+
+                string mensaje = "Productos pagar mensuales guardados correctamente.";
+
+                _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [response:{response}, mensaje: {mensaje}]");
+
+                return (true, mensaje);
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+
+                _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Error en transacción", ex);
+
+                return (false, $"Error al guardar productos pagar mensuales: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+
+            return (false, $"Error al guardar productos pagar mensuales: {ex.Message}");
+        }
+    }
 }
