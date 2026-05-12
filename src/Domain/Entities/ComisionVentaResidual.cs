@@ -171,11 +171,13 @@ public class ProductosDetalleCuotas
 public class ProductosPagarMensualUpdate
 {
     public int IdProductoPagar { get; set; }
+    public int LContactoId { get; set; }
     public int? LContratoId { get; set; }
     public string SNroVenta { get; set; } = string.Empty;
     public int CantidadNroCuotas { get; set; }
     public int? CuotasPagadas { get; set; }
     public int? CuotasTotalesAPagar { get; set; }
     public bool ActivoMes { get; set; }
+    public decimal MontoPagarMes { get; set; }
     public List<ProductosDetalleCuotas> _ProductosDetalleCuotas {get; set;} = new List<ProductosDetalleCuotas>();
 }

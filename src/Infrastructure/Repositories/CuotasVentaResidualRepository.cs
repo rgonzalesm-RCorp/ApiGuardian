@@ -309,9 +309,76 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                 @LcicloId
             );";
 
+         const string nextIdQueryAdinistracionVentaPersonal = @"SELECT IFNULL(MAX(lventapersonal_id), 0)
+            FROM administracionventapersonal;
+        ";
+
+        const string queryAdministracionVentaPersonal = @"INSERT INTO administracionventapersonal (
+                    susuarioadd,
+                    dtfechaadd,
+                    susuariomod,
+                    dtfechamod,
+                    lventapersonal_id,
+                    dtfechacalculo,
+                    lciclo_id,
+                    lcontacto_id,
+                    dpreciolote,
+                    dporcentajecomision,
+                    dcomision,
+                    lcontrato_id,
+                    ddescuentoatencion,
+                    ddescuentotramite,
+                    ddescuentoreferido,
+                    latencion_id,
+                    ltramite_id,
+                    lreferido_id,
+                    ddescuentolote,
+                    snotadescuentolote,
+                    cventapagada,
+                    dtfechapago,
+                    lnrosemana,
+                    dporcentajeretencion,
+                    dmontoretencion,
+                    cpresentafactura,
+                    dtotaapagar,
+                    lsemana_id
+                )
+                VALUES (
+                    @susuarioadd,
+                    @dtfechaadd,
+                    @susuariomod,
+                    @dtfechamod,
+                    @lventapersonal_id,
+                    @dtfechacalculo,
+                    @lciclo_id,
+                    @lcontacto_id,
+                    @dpreciolote,
+                    @dporcentajecomision,
+                    @dcomision,
+                    @lcontrato_id,
+                    @ddescuentoatencion,
+                    @ddescuentotramite,
+                    @ddescuentoreferido,
+                    @latencion_id,
+                    @ltramite_id,
+                    @lreferido_id,
+                    @ddescuentolote,
+                    @snotadescuentolote,
+                    @cventapagada,
+                    @dtfechapago,
+                    @lnrosemana,
+                    @dporcentajeretencion,
+                    @dmontoretencion,
+                    @cpresentafactura,
+                    @dtotaapagar,
+                    @lsemana_id
+                );
+        ";
+
+
         if (productos == null || productos.Count == 0) return (false, "No existen productos para procesar.");
 
-        var productosActivos = productos .Where(x => x.ActivoMes && x.CuotasPagadas < x.CuotasTotalesAPagar).ToList();
+        var productosActivos = productos.Where(x => x.ActivoMes && x.CuotasPagadas < x.CuotasTotalesAPagar).ToList();
 
         if (productosActivos.Count == 0) return (false, "No existen productos activos con cuotas pendientes.");
 
@@ -389,6 +456,39 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                         transaction
                     );
                 }
+                //insertar administracion venta personal  
+                var obj = detalles.GroupBy(x => new {x.LcontratoId, x.LcicloId}).Select(s => new AdministracionVentaPersonal
+                {
+                    lventapersonal_id = 0,
+                    susuarioadd = usuario,
+                    susuariomod = usuario,
+                    lciclo_id = Convert.ToInt32(s.Key.LcicloId),
+                    lcontacto_id = item.LContactoId,
+                    dpreciolote = 1,
+                    dporcentajecomision =0,
+                    dcomision =  Convert.ToDecimal(s.Sum(z => z.CantCuotas)) * item.MontoPagarMes,
+                    lcontrato_id = (long) s.Key.LcontratoId,
+                    lnrosemana =1,
+                    lsemana_id = 1    
+                }).ToList();
+                if (obj.Count > 0)
+                {
+                    int AdministracionVentaPersonalId = await connection.ExecuteScalarAsync<int>(
+                        nextIdQueryAdinistracionVentaPersonal,
+                        transaction: transaction
+                    );
+                    foreach (var x in obj)
+                    {
+                        AdministracionVentaPersonalId = AdministracionVentaPersonalId + 1;
+                        x.lventapersonal_id = AdministracionVentaPersonalId;
+                    }
+                    await connection.ExecuteAsync(
+                        queryAdministracionVentaPersonal,
+                        obj,
+                        transaction
+                    );
+                }
+                
             }
 
             transaction.Commit();

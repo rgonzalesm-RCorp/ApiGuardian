@@ -22,3 +22,23 @@ public class ItemCuotasRed
     public int LContactoId { get; set; }
     public int LPatrocinanteId { get; set; }
 }
+
+public class RedContacto
+{
+    public int Hijo { get; set; }
+    public int Padre { get; set; }
+}
+
+public class ItemRedSieteNiveles
+{
+    public int Id { get; set; } = 0;
+    public int Hijo { get; set; }
+
+    public int? PadreN1 { get; set; } = 0;
+    public int? PadreN2 { get; set; } = 0;
+    public int? PadreN3 { get; set; } = 0;
+    public int? PadreN4 { get; set; } = 0;
+    public int? PadreN5 { get; set; } = 0;
+    public int? PadreN6 { get; set; } = 0;
+    public int? PadreN7 { get; set; } = 0;
+}

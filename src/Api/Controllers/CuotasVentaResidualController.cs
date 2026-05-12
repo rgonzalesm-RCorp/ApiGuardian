@@ -137,7 +137,7 @@ public class CuotasVentaResidualController: ControllerBase
         try
         {
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
-            if (PasosDiccionario.COMISION_VENTA_RESIDUAL != responseSiguientePaso.Data.nombre)
+            /*if (PasosDiccionario.COMISION_VENTA_RESIDUAL != responseSiguientePaso.Data.nombre)
             {
                 return Ok(new
                 {
@@ -145,7 +145,7 @@ public class CuotasVentaResidualController: ControllerBase
                     mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
                     data = ""
                 });
-            }
+            }*/
             var responseCuotasResidual = await _repo.GetCuotasVentasResidual(logTransaccionId, Usuario, Inicio, Fin);
 
             if (!responseCuotasResidual.Success)
@@ -229,7 +229,9 @@ public class CuotasVentaResidualController: ControllerBase
                     x.NroVenta,
                     x.Recibe,
                     x.CuotPagadas,
-                    x.CuotAccPen
+                    x.CuotAccPen,
+                    x.LasesorId,
+                    x.MensPagar
                 })
                 .Select(g => new ProductosPagarMensualUpdate
                 {
@@ -240,6 +242,8 @@ public class CuotasVentaResidualController: ControllerBase
                     CuotasPagadas = g.Key.CuotPagadas,
                     CuotasTotalesAPagar = g.Key.CuotAccPen,
                     LContratoId = g.Key.LcontratoId,
+                    LContactoId = Convert.ToInt32(g.Key.LasesorId),
+                    MontoPagarMes = Convert.ToDecimal(g.Key.MensPagar),
 
                     _ProductosDetalleCuotas = g.Select(x => new ProductosDetalleCuotas
                     {

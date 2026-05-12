@@ -335,7 +335,7 @@ public class ProcesoComisionesController : ControllerBase
             data = ""
         });
     }
-    public async Task<IActionResult> CalculoVentaResidual( int lCicloId, string inicio, string fin, string usuario)
+    private async Task<bool> CalculoVentaResidual( int lCicloId, string inicio, string fin, string usuario)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -374,22 +374,11 @@ public class ProcesoComisionesController : ControllerBase
             }).ToList();
             listado = listado.Where(x => x.MontPagar > 0 &&  x.Porcentaje < 100).ToList();
             var responser = await _cuotasVentaResidualRepository.InsertProductosPagarMensuales(logTransaccionId.ToString(), usuario, listado);
-            return Ok(new
-            {
-                status = true,
-                mensaje = "Cálculo realizado correctamente",
-                cant = listado.Count,
-                data = listado
-            });
+            return responser.Success;
         }
         catch (Exception ex)
         {
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = new List<ProductosPagarMensuales>()
-            });
+            return false;
         }
     }
     private class ObjTotalVentaResidual

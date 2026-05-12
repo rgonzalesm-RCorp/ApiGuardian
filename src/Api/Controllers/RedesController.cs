@@ -35,6 +35,7 @@ public class RedesController : ControllerBase
 
         try
         {
+            DateTime ini = DateTime.Now;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             if (PasosDiccionario.RED_COMPRIMIDA != responseSiguientePaso.Data.nombre)
             {
@@ -46,6 +47,8 @@ public class RedesController : ControllerBase
                 });
             }
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
+            var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
+
             List<ItemContactoRed> Lista = new List<ItemContactoRed>();
             foreach (var item in ResponseContactoVentaMes.ListadoContactosActivos)
             {
@@ -54,14 +57,16 @@ public class RedesController : ControllerBase
                 int counter = 1;
                 while (counter <= 7)
                 {
-                    var responsePatrocinador = await _repo.GetObetenerPatrocinador(logTransaccionId, Usuario, LContactoId);
-                    LPatrocinadorId = responsePatrocinador.PatrocinadorId;
+                    //var responsePatrocinador = await _repo.GetObetenerPatrocinador(logTransaccionId, Usuario, LContactoId);
+                    var responsePatrocinador = ResponseContactoAll.ListadoContactosCuotas.Where(x => x.Hijo == LContactoId).FirstOrDefault();
+                    //LPatrocinadorId = responsePatrocinador.PatrocinadorId;
+                    LPatrocinadorId = responsePatrocinador.Padre;
                     if(LPatrocinadorId <= 0)
                         break;
                     int EstaActivo = ResponseContactoVentaMes.ListadoContactosActivos.Where(x => x.LVendedorId == LPatrocinadorId).Count();
                     if (EstaActivo > 0)
                     {
-                        Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.PatrocinadorId}");
+                        Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.Padre}");
                         ItemContactoRed ObjRedComprimidad = new ItemContactoRed
                         {
                             LContactoId = item.LVendedorId,
@@ -90,12 +95,16 @@ public class RedesController : ControllerBase
                     responseSiguientePaso.Data.nombre
                 );
             }
+            DateTime fin = DateTime.Now;
+
             return Ok(new 
             {
                 status = ResponseContactoVentaMes.Success,
                 mensaje = ResponseContactoVentaMes.Mensaje,
                 data = new
                 {
+                    ini,
+                    fin,
                     Nivel = ResponseContactoVentaMes.ListadoContactosActivos,
                     RedComprimida = Lista,
                     ResponseGuardarRedComprimida.Success,
@@ -123,46 +132,50 @@ public class RedesController : ControllerBase
 
         try
         {
-            var ResponseClientesCuotas = await _repo.GetObtnerClientesCuotas(logTransaccionId, Usuario);
-            List<ItemContactoRed> Lista = new List<ItemContactoRed>();
+            DateTime ini = DateTime.Now;
+            var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
+            var diccionario = ResponseContactoAll.ListadoContactosCuotas.ToDictionary(x => x.Hijo , x => x.Padre);
+            List<ItemRedSieteNiveles> Lista = new List<ItemRedSieteNiveles>();
 
-            List<ItemCuotasRed> ListadoContactosCuotas = ResponseClientesCuotas.ListadoContactosCuotas.ToList();
-            List<BrContacto> ListaContacto = ResponseClientesCuotas.ListaContacto.ToList();
-            var cachePatrocinadores = new Dictionary<int, int>();
-
-            foreach (var item in ListadoContactosCuotas)
+            foreach (var item in ResponseContactoAll.ListadoContactosCuotas)
             {
-                int contactoId = item.LContactoId;
-
+                ItemRedSieteNiveles Red = new ItemRedSieteNiveles
+                {
+                    Hijo = item.Hijo
+                };
+                int actual = item.Hijo;
                 for (int nivel = 1; nivel <= 7; nivel++)
                 {
-                    int patrocinadorId = ListaContacto.Where(x => x.LContactoId == contactoId)
-                        .Select(x => x.LPatrocinanteId)
-                        .FirstOrDefault();
-                    if (patrocinadorId <= 0)
+                    if (!diccionario.TryGetValue(actual, out int padre))
                         break;
-                    Lista.Add(new ItemContactoRed
+                    switch (nivel)
                     {
-                        LContactoId = item.LContactoId,
-                        LPatrocinadorId = patrocinadorId,
-                        Nivel = nivel,
-                        LCicloId = LCicloId,
-                        LContratoId = 0,
-                        Usuario = Usuario
-                    });
-
-                    contactoId = patrocinadorId;
+                        case 1: Red.PadreN1 = padre; break;
+                        case 2: Red.PadreN2 = padre; break;
+                        case 3: Red.PadreN3 = padre; break;
+                        case 4: Red.PadreN4 = padre; break;
+                        case 5: Red.PadreN5 = padre; break;
+                        case 6: Red.PadreN6 = padre; break;
+                        case 7: Red.PadreN7 = padre; break;
+                    }
+                    actual = padre;
+                    
                 }
+                Lista.Add(Red);
+    
             }
-            var responseGuardarRedCompletaCuotas = await _repo.GuardarRedCompletaCuotas(logTransaccionId, Usuario, Lista);
-
+            var ResponseSave = await _repo.GuardarRedContactoTemporal(logTransaccionId, Usuario, Lista);
+            DateTime fin = DateTime.Now;
+            
             return Ok(new 
             {
-                status = ResponseClientesCuotas.Success,
-                mensaje = ResponseClientesCuotas.Mensaje,
+                status = ResponseSave.Success,
+                mensaje = ResponseSave.Mensaje,
                 data = new
                 {
-                    ClientesCuotas = ResponseClientesCuotas.ListadoContactosCuotas.Count()
+                    ClientesCuotas = Lista.Count,
+                    ini,
+                    fin
                 }
             });
         }

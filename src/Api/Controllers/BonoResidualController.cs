@@ -98,6 +98,7 @@ public class BonoResidualController : ControllerBase
         string nombreArchivo = "GuardarCartera()";
         try
         {
+            DateTime ini = DateTime.Now;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             if (PasosDiccionario.OBTENER_CARTERA != responseSiguientePaso.Data.nombre)
             {
@@ -110,17 +111,23 @@ public class BonoResidualController : ControllerBase
             }
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
             var responseCartera = await _bonoResidualRepository.GetCarteraAll(logTransaccionId.ToString(), Usuario);
-            var t = GuardarCarteraGrl (logTransaccionId.ToString(),  Usuario,  LCicloId, responseCartera.ListaCartera.ToList(), nombreArchivo);
+            var t =  GuardarCarteraGrl (logTransaccionId.ToString(),  Usuario,  LCicloId, responseCartera.ListaCartera.ToList(), nombreArchivo);
             /*var responseSaveCartera = _bonoResidualRepository.GuardarCartera(logTransaccionId.ToString(), Usuario, responseCartera.ListaCartera.ToList());
 
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
             await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.OBTENER_CARTERA);
             */
+            DateTime fin = DateTime.Now;
+
             return Ok(new
             {
                 status = true ,
                 mensaje = "Se esta guardando la cartera en segundo plano.",
-                data = ""
+                data = new
+                {
+                    ini
+                    , fin
+                }
             });
         }
         catch (Exception ex)
@@ -211,8 +218,9 @@ public class BonoResidualController : ControllerBase
         string nombreArchivo = "GetCuota()";
         try
         {
+            DateTime ini = DateTime.Now;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
-            if (PasosDiccionario.OBTENER_CUOTAS != responseSiguientePaso.Data.nombre)
+            /*if (PasosDiccionario.OBTENER_CUOTAS != responseSiguientePaso.Data.nombre)
             {
                 return Ok(new
                 {
@@ -220,7 +228,7 @@ public class BonoResidualController : ControllerBase
                     mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
                     data = ""
                 });
-            }
+            }*/
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [usuario: {Usuario} inicio: {inicio} fin: {fin}]");
             var responseCuota = await _bonoResidualRepository.GetCuota(logTransaccionId.ToString(), Usuario, inicio, fin);
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
@@ -234,13 +242,17 @@ public class BonoResidualController : ControllerBase
                 });
             }
             //var responseSaveCuota = _bonoResidualRepository.GuardarCuota(logTransaccionId.ToString(), Usuario, responseCuota.ListaCuota.ToList());
-            var t = GuardarCuotaGrl(logTransaccionId.ToString(), Usuario, LCicloId, responseCuota.ListaCuota.ToList(), nombreArchivo);
+            var t = await GuardarCuotaGrl(logTransaccionId.ToString(), Usuario, LCicloId, responseCuota.ListaCuota.ToList(), nombreArchivo);
+            DateTime fins = DateTime.Now;
 
             return Ok(new
             {
                 status = true,
                 mensaje = "Se estan guardando las cuotas en segundo plano.",
-                data = ""
+                data = new
+                {
+                    ini, fins
+                }
             });
         }
         catch (Exception ex)
