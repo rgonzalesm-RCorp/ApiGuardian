@@ -27,19 +27,21 @@ SELECT p.id, 'COMISION DIRECTA', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COM
 UNION ALL
 SELECT p.id, 'RED COMPRIMIDA', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION GRUPO', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'RED COMPLETA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CARTERA', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION GRUPO', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CUOTAS', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CARTERA', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER EXCEDENTE', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CUOTAS', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION RESIDUAL', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER EXCEDENTE', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION VENTA RESIDUAL', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION RESIDUAL', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'BONO PAR', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
+SELECT p.id, 'COMISION VENTA RESIDUAL', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'BONO PAR', 12, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
 
 -- ============================================
 -- 3. DEPENDENCIAS DINÁMICAS (por nombre)
@@ -66,7 +68,13 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'RED COMPRIMIDA' AND p2.nombre = 'COMISION GRUPO'
+WHERE p1.nombre = 'RED COMPRIMIDA' AND p2.nombre = 'RED COMPLETA'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'RED COMPLETA' AND p2.nombre = 'COMISION GRUPO'
 
 UNION ALL
 SELECT p2.id, p1.id

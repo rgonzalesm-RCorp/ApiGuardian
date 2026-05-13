@@ -133,6 +133,16 @@ public class RedesController : ControllerBase
         try
         {
             DateTime ini = DateTime.Now;
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.RED_COMPLETA != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
             var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
             var diccionario = ResponseContactoAll.ListadoContactosCuotas.ToDictionary(x => x.Hijo , x => x.Padre);
             List<ItemRedSieteNiveles> Lista = new List<ItemRedSieteNiveles>();
@@ -166,6 +176,16 @@ public class RedesController : ControllerBase
             }
             var ResponseSave = await _repo.GuardarRedContactoTemporal(logTransaccionId, Usuario, Lista);
             DateTime fin = DateTime.Now;
+            if (ResponseSave.Success)
+            {
+                await _controlProcesoRepository.EjecutarPaso(
+                    logTransaccionId.ToString(),
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    responseSiguientePaso.Data.nombre
+                );
+            }
             
             return Ok(new 
             {
