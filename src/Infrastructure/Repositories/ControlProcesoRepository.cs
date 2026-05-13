@@ -920,7 +920,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
                                                     SET m.cuot_pagadas = m.cuot_pagadas - d.total_cuotas;"; 
         const string deleteProductosDetalleCuotas = @"DELETE FROM t_productos_detalle_cuotas WHERE lciclo_id = @LCicloId;";
         const string updateVentaRezagadas = @"update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 1, FechaProceso = null where lciclo_id = @LCicloId;";
-        const string deleteProductosPagarMensuales = @"DELETE from t_productos_pagar_mensuales where dtfecha BETWEEN @Inicio AND @Fin'";
+        const string deleteProductosPagarMensuales = @"DELETE from t_productos_pagar_mensuales where dtfecha BETWEEN @Inicio AND @Fin";
         
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}]");
