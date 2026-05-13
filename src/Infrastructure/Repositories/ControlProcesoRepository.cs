@@ -948,7 +948,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
             await connection.ExecuteAsync(deleteRedCompletaCuotas, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteControlProceso, new { LCicloId }, transaction);
             await connection.ExecuteAsync(updateVentaRezagadas, new { LCicloId}, transaction);
-            await connection.ExecuteAsync(deleteProductosPagarMensuales, new { LCicloId}, transaction);
+            await connection.ExecuteAsync(deleteProductosPagarMensuales, new { Inicio, Fin}, transaction);
 
 
             var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId}, transaction);
