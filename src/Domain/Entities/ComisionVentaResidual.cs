@@ -36,6 +36,8 @@ public class VentaResidual
     public int IdRecibo { get; set; }
     public DateTime FechaRecibo { get; set; }
     public int NroCuota { get; set; }
+    public int NroCuotaPagables { get; set; }
+    
     public decimal ImporteTotal { get; set; }
     public int IdCliente { get; set; }
     public string NombreCliente
@@ -109,6 +111,7 @@ public class ListadoComisionCuotaResidual
     public int IdRecibo { get; set; }
     public DateTime FechaRecibo { get; set; }
     public int NroCuota { get; set; }
+    public int NroCuotaPagables { get; set; }
     public decimal ImporteTotal { get; set; }
     public int IdCliente { get; set; }
     public string NombreCliente { get; set; } = string.Empty;
@@ -134,6 +137,9 @@ public class ListadoComisionCuotaResidual
     public int? Terminado { get; set; }
     public int? LasesorId { get; set; }
     public bool Recibe { get; set; }
+    public decimal TotalComision { get; set; }
+    public int TotalCuotasComisionables { get; set; }
+    public int TotalCuotasContabilizar { get; set; }
 }
 public class ProductosDetalleCuotas
 {
@@ -179,5 +185,7 @@ public class ProductosPagarMensualUpdate
     public int? CuotasTotalesAPagar { get; set; }
     public bool ActivoMes { get; set; }
     public decimal MontoPagarMes { get; set; }
+    public decimal TotalComision { get; set; }
+    public int TotalCuotasContabilizar { get; set; }
     public List<ProductosDetalleCuotas> _ProductosDetalleCuotas {get; set;} = new List<ProductosDetalleCuotas>();
 }

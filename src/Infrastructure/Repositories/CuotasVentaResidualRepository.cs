@@ -20,9 +20,9 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
         _log = log;
         _contextSqlServer = contextSqlServer;
     }
-    public async Task<(bool Success, string Mensaje, IEnumerable<VentaResidual> ListadoCuotasVentasResidual)> GetCuotasVentasResidual(string LogTransaccionId, string Usuario, string Inicio, string Fin)
+    public async Task<(bool Success, string Mensaje, IEnumerable<VentaResidual> ListadoCuotasVentasResidual)> GetCuotasVentasResidual(string LogTransaccionId, string Usuario, string Inicio, string Fin, int LCicloId)
     {
-        string query = ScriptCnx.GetQueryVentaResidual;
+        string query = ScriptCnx.GetQueryVentaResidual(LCicloId);
         string nombreMetodo = "GetObetenerContactoVentasMes()";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
@@ -68,7 +68,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
             Mens_Pagar AS MensPagar,
             TRIM(TRAILING ' ' FROM ciclos_habilitados) AS CiclosHabilitados,
             Terminado AS Terminado
-        FROM t_productos_pagar_mensuales WHERE Terminado = 0;";
+        FROM t_productos_pagar_mensuales WHERE Terminado = 0 and Cuot_Pagadas < Cuot_Acc_Pen;";
         string nombreMetodo = "GetProductosPagarMensuales()";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
@@ -278,7 +278,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
     {
         const string queryUpdate = @"
             UPDATE t_productos_pagar_mensuales 
-            SET cuot_pagadas = @CuotasPagadas 
+            SET cuot_pagadas = cuot_pagadas + @CuotasPagadas 
             WHERE id_producto_pagar = @IdProductoPagar;";
 
         const string queryInsertDetalle = @"
@@ -378,9 +378,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
 
         if (productos == null || productos.Count == 0) return (false, "No existen productos para procesar.");
 
-        var productosActivos = productos.Where(x => x.ActivoMes && x.CuotasPagadas < x.CuotasTotalesAPagar).ToList();
-
-        if (productosActivos.Count == 0) return (false, "No existen productos activos con cuotas pendientes.");
+        if (productos.Count == 0) return (false, "No existen productos activos con cuotas pendientes.");
 
         using var connection = _context.CreateConnection();
         connection.Open();
@@ -396,11 +394,9 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
 
             string fechaActual = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
-            foreach (var item in productosActivos)
+            foreach (var item in productos)
             {
                 int cuotasFaltantes = (int)item.CuotasTotalesAPagar - (int)item.CuotasPagadas;
-
-                if (cuotasFaltantes <= 0) continue;
 
                 int cuotasAProcesar = Math.Min(item.CantidadNroCuotas, cuotasFaltantes);
 
@@ -410,7 +406,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                     queryUpdate,
                     new
                     {
-                        CuotasPagadas = nuevasCuotasPagadas,
+                        CuotasPagadas = item.TotalCuotasContabilizar,
                         IdProductoPagar = item.IdProductoPagar
                     },
                     transaction
@@ -457,6 +453,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                     );
                 }
                 //insertar administracion venta personal  
+                detalles = detalles.Where(d => d.Habilitado == "1").ToList();
                 var obj = detalles.GroupBy(x => new {x.LcontratoId, x.LcicloId}).Select(s => new AdministracionVentaPersonal
                 {
                     lventapersonal_id = 0,
@@ -470,7 +467,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                     lcontrato_id = (long) s.Key.LcontratoId,
                     lnrosemana =1,
                     lsemana_id = 1    
-                }).ToList();
+                }).ToList(); 
                 if (obj.Count > 0)
                 {
                     int AdministracionVentaPersonalId = await connection.ExecuteScalarAsync<int>(

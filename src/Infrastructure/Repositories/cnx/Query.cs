@@ -201,7 +201,7 @@ namespace Query.Cnx
             }
 
         }
-        public static string GetQueryVentaResidual = @$"
+        public static string GetQueryVentaResidual  (int LCicloId) => @$"
         SELECT 
             CONCAT(y.idventa, '-', y.LOTES) AS NroVenta,
             y.EMPRESA AS Empresa,
@@ -213,6 +213,7 @@ namespace Query.Cnx
             y.IDRECIBO AS IdRecibo,
             y.FECHA_RECIBO AS FechaRecibo,
             y.NROCUOTA AS NroCuota,
+            y.NROCUOTASPAGABLES AS NroCuotaPagables,
             y.IMPORTETOTAL AS ImporteTotal,
             y.IDCLIENTE AS IdCliente,
             y.NOMBRE_CLIENTE AS NombreCliente,
@@ -221,7 +222,7 @@ namespace Query.Cnx
             y.VENDEDOR AS Vendedor,
             y.CI_VENDEDOR AS CiVendedor,
             y.CONCEPTO1 AS Concepto1,
-            143 AS LcicloId
+            {LCicloId} AS LcicloId
         FROM vwLISTAVENTAS_RECIBOS y
         WHERE 
             y.FECHA BETWEEN '20240501' AND @Fin
