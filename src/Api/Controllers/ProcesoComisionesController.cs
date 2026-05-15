@@ -356,7 +356,7 @@ public class ProcesoComisionesController : ControllerBase
                     IdProductoPagar = 0,
                     LcontratoId = item.LcontratoId,
                     LcomplejoId = item.LComplejoId,
-                    Snroventa = item.NroVenta,
+                    Snroventa = item.NroVenta ?? "",
                     LcontactoId = item.LcontratoId,
                     LasesorId = item.LAsesorId,
                     Dtfecha = item.Fecha,

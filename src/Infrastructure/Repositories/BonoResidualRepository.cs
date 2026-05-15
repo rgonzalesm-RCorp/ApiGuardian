@@ -176,7 +176,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         {
             foreach (var item in ListadoCartera)
             {
-                item.Fecha = item.Fecha?.Replace("-", "");
+                item.Fecha = item.Fecha?.Replace("-", "") ?? "";
                 item.UltimoPago = item.UltimoPago?.Replace("-", "");
                 item.FUltimoVenc = item.FUltimoVenc?.Replace("-", "");
                 item.FVencMasAnt = item.FVencMasAnt?.Replace("-", "");
@@ -566,25 +566,6 @@ public class BonoResidualRepository : IBonoResidualRepository
                                     , lpatrocinante_id LPatrocinanteId
                                 from tmp_residual_contacto";
         string queryContactosActivos = @"select DISTINCT lcontacto_id LContactoId from administracionventapersonal where lciclo_id = @LCicloId";
-        
-        string queryInsertTempRed = @"
-                                        TRUNCATE TABLE tmp_residual_red;
-                                        insert into tmp_residual_red
-                                        SELECT 0,
-                                                    r.lcontacto_id
-                                                    , r.lpatrocinador1g
-                                                    , r.lpatrocinador2g
-                                                    , r.lpatrocinador3g
-                                                    , r.lpatrocinador4g
-                                                    , r.lpatrocinador5g
-                                                    , r.lpatrocinador6g
-                                                    , r.lpatrocinador7g
-                                                    FROM administracionred R  
-                                                    where r.lciclo_id = @LCicloId";
-        string queryInsertTempContacto = @"TRUNCATE TABLE tmp_residual_contacto;
-                                            insert into tmp_residual_contacto
-                                            select 0, lcontacto_id, scedulaidentidad, snombrecompleto, scodigo, lpatrocinante_id
-                                            from administracioncontacto ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [queryCuota: {queryCuota}, queryContacto: {queryContacto}, usuario: {Usuario}]");
 

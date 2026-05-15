@@ -50,11 +50,11 @@ namespace ApiGuardian.Models
     }
     public class ReporteComisionesDto
     {
-        public string? NombreAsesor { get; set; }
-        public string? CodigoAsesor { get; set; }
-        public string? Mes { get; set; }
-        public string? RangoFecha { get; set; }
-        public int MesesActividad { get; set; }
+        public string? NombreAsesor { get; set; } = "";
+        public string? CodigoAsesor { get; set; } = "";
+        public string? Mes { get; set; } = "";
+        public string? RangoFecha { get; set; } = "";
+        public int MesesActividad { get; set; } = 0;
         public Encabezado Encabezado { get; set; } = new Encabezado();
         public IEnumerable<VentaItem> VentasPersonales { get; set; } = new List<VentaItem>();
         public IEnumerable<VentaGrupoItem> VentasGrupo { get; set; }  = new List<VentaGrupoItem>();

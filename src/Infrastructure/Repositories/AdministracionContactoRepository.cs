@@ -49,7 +49,7 @@ public class AdministracionContactoRepository : IAdministracionContactoRepositor
 
             var data = await connection.QueryFirstOrDefaultAsync<ListaAdministracionContacto>(query, new {docId});
 
-            return (data, true, "Consulta realizada correctamente.");
+            return (data ?? new ListaAdministracionContacto(), true, "Consulta realizada correctamente.");
         }
         catch (Exception ex)
         {

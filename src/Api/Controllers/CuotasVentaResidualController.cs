@@ -83,8 +83,8 @@ public class CuotasVentaResidualController: ControllerBase
                 async (venta, producto) =>
                 {
                     var resultadoComision = await GetComision(
-                        (int)producto.CuotAccPen,
-                        (int)producto.CuotPagadas,
+                        Convert.ToInt32(producto.CuotAccPen),
+                        Convert.ToInt32(producto.CuotPagadas),
                         venta.NroCuota,
                         venta.NroCuotaPagables,
                         Convert.ToDecimal(producto.MensPagar)
@@ -129,7 +129,7 @@ public class CuotasVentaResidualController: ControllerBase
                         Terminado = producto.Terminado,
                         LasesorId = producto.LasesorId,
 
-                        Recibe = asesoresVentaPersonal.Contains((long)producto.LasesorId),
+                        Recibe = asesoresVentaPersonal.Contains((long)Convert.ToInt32(producto.LasesorId)),
 
                         TotalComision = resultadoComision.Comision,
                         TotalCuotasComisionables = resultadoComision.CuotasComisionables,
@@ -227,11 +227,11 @@ public class CuotasVentaResidualController: ControllerBase
                     async (venta, producto) =>
                     {
                         var resultadoComision = await GetComision(
-                            (int)producto.CuotAccPen,
-                            (int)producto.CuotPagadas,
+                            Convert.ToInt32(producto.CuotAccPen),
+                            Convert.ToInt32(producto.CuotPagadas),
                             venta.NroCuota,
                             venta.NroCuotaPagables,
-                            (decimal)producto.MensPagar
+                            Convert.ToDecimal(producto.MensPagar)
                         );
 
                         return new ListadoComisionCuotaResidual

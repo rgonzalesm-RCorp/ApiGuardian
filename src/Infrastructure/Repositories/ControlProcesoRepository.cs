@@ -4,6 +4,7 @@ using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Persistence;
 using Newtonsoft.Json;
 using DocumentFormat.OpenXml.Office.CoverPageProps;
+using DocumentFormat.OpenXml.Office.CustomUI;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -725,7 +726,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
                 $"Fin de metodo [mensaje: {mensaje}, Siguiente Paso:{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
 
-            return (success, mensaje, item);
+            return (success, mensaje, item ?? new ItemControlProcesoNext());
         }
         catch (Exception ex)
         {
@@ -753,7 +754,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
                 $"Fin de metodo [mensaje: {mensaje}, Response EjecutarPaso:{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
 
-            return (ok, mensaje, item);
+            return (ok, mensaje, item ?? new ItemControlProcesoPrincipal());
         }
         catch (Exception ex)
         {
@@ -1007,7 +1008,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
                 $"Fin de metodo [mensaje: {mensaje}, Response CerrarCiclo:{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
 
-            return (success, mensaje, item);
+            return (success, mensaje, item ?? new ItemControlProcesoPrincipal());
         }
         catch (Exception ex)
         {

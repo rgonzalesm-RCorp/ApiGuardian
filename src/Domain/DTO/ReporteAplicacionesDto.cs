@@ -14,5 +14,5 @@ public class AplicacionesItem
 }
 public class RptAplicaciones
 {
-    public IEnumerable<AplicacionesItem> Aplicaciones { get; set; }
+    public IEnumerable<AplicacionesItem> Aplicaciones { get; set; } = Enumerable.Empty<AplicacionesItem>();
 }

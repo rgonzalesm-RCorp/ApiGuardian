@@ -396,11 +396,11 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
 
             foreach (var item in productos)
             {
-                int cuotasFaltantes = (int)item.CuotasTotalesAPagar - (int)item.CuotasPagadas;
+                int cuotasFaltantes = Convert.ToInt32(item.CuotasTotalesAPagar) - Convert.ToInt32(item.CuotasPagadas);
 
                 int cuotasAProcesar = Math.Min(item.CantidadNroCuotas, cuotasFaltantes);
 
-                int nuevasCuotasPagadas = (int)item.CuotasPagadas + cuotasAProcesar;
+                int nuevasCuotasPagadas = Convert.ToInt32(item.CuotasPagadas + cuotasAProcesar);
 
                 await connection.ExecuteAsync(
                     queryUpdate,
@@ -422,7 +422,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                         break;
 
                     int cuotasDelDetalle = Math.Min(
-                        (int)detalleOriginal.CantCuotas,
+                        Convert.ToInt32(detalleOriginal.CantCuotas),
                         cuotasPendientesDetalle
                     );
 
@@ -464,7 +464,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                     dpreciolote = 1,
                     dporcentajecomision =0,
                     dcomision =  Convert.ToDecimal(s.Sum(z => z.CantCuotas)) * item.MontoPagarMes,
-                    lcontrato_id = (long) s.Key.LcontratoId,
+                    lcontrato_id = (long) Convert.ToInt32(s.Key.LcontratoId) ,
                     lnrosemana =1,
                     lsemana_id = 1    
                 }).ToList(); 
