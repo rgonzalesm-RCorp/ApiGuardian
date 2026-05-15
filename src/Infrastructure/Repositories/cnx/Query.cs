@@ -6,11 +6,9 @@ namespace Query.Cnx
     public class ScriptCnx
     {
        
-        public static string QueryVentaCnx(IConfiguration configuration)
+        public static string QueryVentaCnx(IConfiguration configuration, bool IsCasosEspeciales = false)
         {
-             
-            List<EmpresaCalculoComision> empresas = configuration.GetSection("EmpresaCalculoComisiones")
-                                    .Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
+            List<EmpresaCalculoComision> empresas = configuration.GetSection("EmpresaCalculoComisiones").Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
 
             string query = @"";
 
@@ -38,13 +36,13 @@ namespace Query.Cnx
                         , RTRIM(P.IDSECCION_PROD) SeccionId
                         , RTRIM(V.GLOSA) Glosa
                     FROM {item.DataBase}.dbo.INVENTA V
-                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE = 1
+                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE {(IsCasosEspeciales ? "NOT IN (0, 1)": " = 1")}
                     INNER JOIN {item.DataBase}.dbo.INVENTADETALLE AS VD ON V.IDVENTA = VD.IDVENTA
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
                     LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED                    
-                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2
+                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2 { (IsCasosEspeciales ? "": @$"
                     AND
                     (
                         ( VC.IDESTADO_VENTA <> 2 AND (V.NRODOC <> '' OR V.GLOSA LIKE '%upgrade%'))
@@ -59,8 +57,8 @@ namespace Query.Cnx
                                 WHERE wV.GLOSA LIKE '%upgrade%' AND wV.FECHA BETWEEN @inicio AND @fin AND wV_1.FECHA BETWEEN @inicio AND @fin
                             )
                         )
-                    )
-                    
+                    )"
+                    )}
                     UNION ALL";
                 
             }
@@ -99,7 +97,6 @@ namespace Query.Cnx
                         LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
                     ) V ON V.IDCLIENTE = SDAT.VendedorId ";
         }
-
         public static string QueryCllienteDocId()
         {
             return @"SELECT CL.*, V.* FROM  vwLOTES_GRL_DOCID SDAT
@@ -133,7 +130,6 @@ namespace Query.Cnx
             ) V ON V.IDCLIENTE = SDAT.IDVENDEDOR
             where cl.SCedulaIdentidad = @docId ORDER by v.IDCLIENTE ";
         }
-    
         public static string QueryObetnerCuotas(IConfiguration configuration)
         {
             try
@@ -199,9 +195,8 @@ namespace Query.Cnx
             {
                 return ex.Message;
             }
-
         }
-        public static string GetQueryVentaResidual  (int LCicloId) => @$"
+        public static string GetQueryVentaResidual (int LCicloId) => @$"
         SELECT 
             CONCAT(y.idventa, '-', y.LOTES) AS NroVenta,
             y.EMPRESA AS Empresa,
