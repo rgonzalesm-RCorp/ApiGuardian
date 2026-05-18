@@ -35,6 +35,7 @@ namespace Query.Cnx
                         END AS ValorCi
                         , RTRIM(P.IDSECCION_PROD) SeccionId
                         , RTRIM(V.GLOSA) Glosa
+                        , VC.COMISIONABLE TipoComisionable
                     FROM {item.DataBase}.dbo.INVENTA V
                     INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE {(IsCasosEspeciales ? "NOT IN (0, 1)": " = 1")}
                     INNER JOIN {item.DataBase}.dbo.INVENTADETALLE AS VD ON V.IDVENTA = VD.IDVENTA

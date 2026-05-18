@@ -74,6 +74,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , CF.LCicloId lciclo_id
                                     , ASCC.lsemana_id
                                     , ASCC.lnrosemana
+                                    , ATC.ltipocontrato_id TipoContratoId
+                                    , ATC.Snombre TipoContrato
                                 FROM administracioncontrato C
                                 LEFT JOIN (
                                     SELECT 
@@ -91,7 +93,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                 ) CF on CF.LComplejoId = C.lcomplejo_id AND c.porcentaje_inicial BETWEEN CF.PorcentajeInicialDesde and CF.PorcentajeInicialHasta AND CF.LCicloId = @LCicloId
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
                                 INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id 
-                                LEFT JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId 
+                                LEFT JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId
+                                LEFT JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
                                 WHERE dtfecha BETWEEN @Inicio and @Fin order by c.lcontrato_id desc";
             string queryVtaPersonl = @"SELECT 
                                     c.lcontrato_id
@@ -110,11 +113,14 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , VP.lciclo_id lciclo_id
                                     , ASCC.lsemana_id
                                     , ASCC.lnrosemana
+                                    , ATC.ltipocontrato_id TipoContratoId
+                                    , ATC.Snombre TipoContrato
                                 FROM administracioncontrato C
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
                                 INNER JOIN administracioncomplejo CP on cp.lcomplejo_id = c.lcomplejo_id 
                                 INNER JOIN administracionventapersonal VP ON VP.lcontrato_id = C.lcontrato_id AND VP.lciclo_id = @LCicloId
                                 INNER JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = @LCicloId 
+                                LEFT JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
                                 order by c.lcontrato_id desc
             ";
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");

@@ -26,13 +26,15 @@ public class ProcesoComisionesController : ControllerBase
     private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly IAdministracionSemanaCicloRepository _administracionSemanaCicloRepository;
     private readonly ICuotasVentaResidualRepository _cuotasVentaResidualRepository;
+    private readonly ICasosEspecialesRepository _casosEspecialesRepository;
     private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
     public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log
         , MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository
         , IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository
         , IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository
-        , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository, ICuotasVentaResidualRepository cuotasVentaResidualRepository)
+        , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository
+        , ICuotasVentaResidualRepository cuotasVentaResidualRepository, ICasosEspecialesRepository casosEspecialesRepository)
     {
         _ventasCnxRepository = ventasCnxRepository;
         _log = log;
@@ -45,6 +47,7 @@ public class ProcesoComisionesController : ControllerBase
         _administracionVentaGrupoRepository = administracionVentaGrupoRepository;
         _administracionSemanaCicloRepository = administracionSemanaCicloRepository;
         _cuotasVentaResidualRepository = cuotasVentaResidualRepository;
+        _casosEspecialesRepository = casosEspecialesRepository;
     }
     [HttpGet("vta/cnx")]
     public async Task<IActionResult> GetVentaCnx([FromHeader(Name = "lCicloId")] int lCicloId)
@@ -121,7 +124,7 @@ public class ProcesoComisionesController : ControllerBase
     {
         
 
-        var t = _miCronJob.ProcesoPrincipal("logTransaccionId.ToString()", null, "JOB", "", "", false, "EJEMPLO", "SYSTEM", 0);
+        //var t = _miCronJob.ProcesoPrincipal("logTransaccionId.ToString()", null, "JOB", "", "", false, "EJEMPLO", "SYSTEM", 0);
         
         return Ok(new
         {
@@ -182,83 +185,49 @@ public class ProcesoComisionesController : ControllerBase
     [HttpPost("save/vta/proceso")]
     public async Task<IActionResult> SaveVenta(RequestGuardarVentaGRD Data)
     {
-        string paso = "GUARDAR_VTA";
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         try
         {
             
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Data.Usuario, ProcesosDiccionario.COMISIONES, Data.LCicloId);
-            if (Data.Rezagada)
+            var pasoEsperado = (Data.Rezagada, Data.EsEspecial) switch
             {
-                if (PasosDiccionario.ADICIONAR_VENTAS != responseSiguientePaso.Data.nombre)
-                {
-                    return Ok(new
-                    {
-                        status = false,
-                        mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
-                        data = ""
-                    });
-                }
-            }
-            else
-            {
-                if (PasosDiccionario.OBTENER_VENTAS != responseSiguientePaso.Data.nombre)
-                {
-                    return Ok(new
-                    {
-                        status = false,
-                        mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
-                        data = ""
-                    });
-                }
-            }
-            
+                (true, _) => PasosDiccionario.ADICIONAR_VENTAS,
+                (false, true) => PasosDiccionario.VENTAS_ESPECIALES,
+                _ => PasosDiccionario.OBTENER_VENTAS
+            };
 
-            var responseControlProceso = await _controlProcesoRepository.GetControlProceso(logTransaccionId.ToString(), Data.Usuario, paso, Data.LCicloId );
-            if(responseControlProceso.Success)
-            {
-                if (responseControlProceso.Data.ControlProcesoId <= 0)
-                {
-                    ItemControlProceso item = new ItemControlProceso{
-                        Paso = paso,
-                        lciclo_id = Data.LCicloId,
-                        Inicio = DateTime.Now,
-                    };
-                    var responseGuardarControl = await _controlProcesoRepository.GuardarControlProceso(logTransaccionId.ToString(), Data.Usuario, item );
-                
-                }else
-                {
-                    if(responseControlProceso.Data.Fin == null)
-                    {
-                        return Ok(new
-                        {
-                            status = false,
-                            mensaje = "Debe esperar a que termine el proceso.",
-                            data = ""
-                        });
-                    }
-                    else
-                    {
-                        ItemControlProceso item = new ItemControlProceso{
-                            Paso = paso,
-                            lciclo_id = Data.LCicloId,
-                            Inicio = DateTime.Now,
-                        };
-                        var responseGuardarControl = await _controlProcesoRepository.GuardarControlProceso(logTransaccionId.ToString(), Data.Usuario, item );
-                    }
-                }
-            }
-            else
+            if (pasoEsperado != responseSiguientePaso.Data.nombre)
             {
                 return Ok(new
                 {
                     status = false,
-                    mensaje = "Hubo un problema para obtener el control de proceso.",
+                    mensaje = "Este paso ya se encuentra ejecutado para este ciclo, si quieres volver a procesar debes reiniciar el proceso para el ciclo",
                     data = ""
                 });
             }
-            var responseVentaPersonal = await _procesoComisionesRepository.GuardarVtaRezagadas(logTransaccionId.ToString(), Data.NoListaSeleccionado, "");
-            var t = _miCronJob.ProcesoPrincipal(logTransaccionId.ToString(), Data.ListaSeleccionado, "", "", "", Data.Rezagada, paso, Data.Usuario, Data.LCicloId);
+            
+
+            if (Data.Rezagada)
+            {
+                var responseVentaPersonal = await _procesoComisionesRepository.GuardarVtaRezagadas(logTransaccionId.ToString(), Data.NoListaSeleccionado, "");
+            }
+            if (Data.EsEspecial)
+            {
+                var ResponseVentaEspecial = await _casosEspecialesRepository.GetUpgradeSolicitudPorVentas(logTransaccionId.ToString(), Data.Usuario, string.Join(",", Data.ListaSeleccionado.Where(x => x.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE).Select(x => x.IdVenta)));
+                var responseSaveVentaEspecial = await _casosEspecialesRepository.SaveUpgradeSolicitud(logTransaccionId.ToString(), Data.Usuario, Data.LCicloId, ResponseVentaEspecial.Lista.ToList());
+            }
+            RequestProcesoPrincipal dat = new RequestProcesoPrincipal
+            {
+                Tipo = "API",
+                Inicio = "",
+                Fin = "",
+                Rezagada = Data.Rezagada,
+                Usuario = Data.Usuario,
+                LCicloId = Data.LCicloId,
+                Paso = Data.Rezagada ? PasosDiccionario.ADICIONAR_VENTAS : Data.EsEspecial? PasosDiccionario.VENTAS_ESPECIALES : PasosDiccionario.OBTENER_VENTAS
+            };
+            var t = _miCronJob.ProcesoPrincipal(logTransaccionId.ToString(),dat, Data.ListaSeleccionado);
             return Ok(new
             {
                 status = true,
@@ -511,28 +480,5 @@ public class ProcesoComisionesController : ControllerBase
         });
     }
 
-    public class RequestSaveVtaPersonal
-    {
-        public List<VentaPersonalComisionDto> ListaComision { get; set; } = new List<VentaPersonalComisionDto>();
-        public int LCicloId { get; set; }
-        public string Inicio { get; set; } = string.Empty; 
-        public string Fin { get; set; } = string.Empty; 
-        public string Usuario { get; set; } = string.Empty; 
-    }
-    public class RequestGuardarVentaGRD
-    {
-        public List<ItemVentaCnx> ListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
-        public List<ItemVentaCnx> NoListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
-        public string Usuario { get; set; } = string.Empty;
-        public bool Rezagada { get; set; } = false;
-        public int LCicloId { get; set; } = 0;
-    }
-    public class RequestGuardarVentaGrupo
-    {
-        public List<ItemComisionVentaGrupoDto> ListaComision { get; set; } = new List<ItemComisionVentaGrupoDto>();
-        public int LCicloId { get; set; }
-        public string Inicio { get; set; } = string.Empty; 
-        public string Fin { get; set; } = string.Empty; 
-        public string Usuario { get; set; } = string.Empty; 
-    }
+
 }

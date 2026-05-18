@@ -125,6 +125,7 @@ public static class PasosDiccionario
     public const string COMISION_LIDERAZGO = "COMISION LIDERAZGO";
     public const string COMISION_VENTA_RESIDUAL = "COMISION VENTA RESIDUAL";
     public const string BONO_PAR = "BONO PAR";
+    public const string VENTAS_ESPECIALES = "VENTAS ESPECIALES";
 
     public static bool EsBonoPar(string? paso)
     {
@@ -145,4 +146,56 @@ public static class PasosDiccionario
 public static class ProcesosDiccionario
 {
     public const string COMISIONES = "COMISIONES";
+}
+public static class TiposContratosDiccionario
+{
+    public static class TiposContratosDiccionarioGrd
+    {
+        public const int CREDITO = 1;
+        public const int CONTADO = 2;
+        public const int INTERCAMBIO = 3;
+        public const int FTV = 4;
+        public const int AMORTIZACION = 5;
+        public const int UPGRADE = 6;
+        public const int RECUPERACION = 7;
+        public const int RECOMPRA = 8;
+    }
+    public static class TiposContratosDiccionarioCnx
+    {
+        public const int CREDITO = 0;
+        public const int CONTADO = 0;
+        public const int INTERCAMBIO = 2;
+        public const int AMORTIZACION = 0;
+        public const int UPGRADE = 7;
+        public const int RECUPERACION = 5;
+        public const int RECOMPRA = 6;
+    }
+
+    public class TipoComision
+    {
+        public int Cnx { get; set; }
+        public int Grd { get; set; }
+    }
+    private static readonly List<TipoComision> Contratos = new()
+    {
+         new TipoComision { Cnx = 2, Grd = 3 },
+         new TipoComision { Cnx = 5, Grd = 7 },
+         new TipoComision { Cnx = 6, Grd = 8 },
+         new TipoComision { Cnx = 7, Grd = 6 },
+    };
+
+    public static int ObtenerGrd(int cnx, bool esContado, bool esCredito)
+    {
+        if (esContado && cnx <= 1)
+        {
+            return 2;
+        }else if (esCredito && cnx <= 1)
+        {
+            return 1;
+        }else{
+
+            var contrato = Contratos.FirstOrDefault(c => c.Cnx == cnx);
+            return contrato?.Grd ?? 0;
+        }
+    }
 }

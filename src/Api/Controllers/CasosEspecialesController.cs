@@ -38,7 +38,7 @@ public class CasosEspecialesController : ControllerBase
         {
             DateTime ini = DateTime.Now;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
-            /*if (PasosDiccionario.RED_COMPRIMIDA != responseSiguientePaso.Data.nombre)
+            /*if (PasosDiccionario.VENTAS_ESPECIALES != responseSiguientePaso.Data.nombre)
             {
                 return Ok(new
                 {

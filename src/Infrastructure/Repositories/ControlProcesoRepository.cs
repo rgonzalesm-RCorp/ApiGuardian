@@ -921,7 +921,9 @@ public class ControlProcesoRepository : IControlProcesoRepository
                                                     SET m.cuot_pagadas = m.cuot_pagadas - d.total_cuotas;"; 
         const string deleteProductosDetalleCuotas = @"DELETE FROM t_productos_detalle_cuotas WHERE lciclo_id = @LCicloId;";
         const string updateVentaRezagadas = @"update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 1, FechaProceso = null where lciclo_id = @LCicloId;";
+        const string deleteVentaRezagadas = @"delete from VentaRezagadasCiclo where dfecha BETWEEN @Inicio AND @Fin;";
         const string deleteProductosPagarMensuales = @"DELETE from t_productos_pagar_mensuales where dtfecha BETWEEN @Inicio AND @Fin";
+        const string deleteUpgradeSolicitud = @"delete from upgrade_solicitud where lciclo_id = @LCicloId or lciclo_id is null;";
         
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}]");
@@ -949,7 +951,9 @@ public class ControlProcesoRepository : IControlProcesoRepository
             await connection.ExecuteAsync(deleteRedCompletaCuotas, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteControlProceso, new { LCicloId }, transaction);
             await connection.ExecuteAsync(updateVentaRezagadas, new { LCicloId}, transaction);
+            await connection.ExecuteAsync(deleteVentaRezagadas, new { Inicio, Fin}, transaction);
             await connection.ExecuteAsync(deleteProductosPagarMensuales, new { Inicio, Fin}, transaction);
+            await connection.ExecuteAsync(deleteUpgradeSolicitud, new { LCicloId}, transaction);
 
 
             var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId}, transaction);
