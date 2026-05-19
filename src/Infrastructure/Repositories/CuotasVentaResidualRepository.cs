@@ -13,7 +13,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
     private readonly DapperContext _context;
     private readonly DapperContextSqlServer _contextSqlServer;
     private readonly ILogService _log;
-    private string NOMBREARCHIVO = "ControlProcesoRepository.CS";
+    private string NOMBREARCHIVO = "CuotasVentaResidualRepository.CS";
     public CuotasVentaResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSqlServer)
     {
         _context = context;
