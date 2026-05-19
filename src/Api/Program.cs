@@ -61,6 +61,7 @@ builder.Services.AddScoped<IAdministracionContactoRepository, AdministracionCont
 builder.Services.AddScoped<IUtilsRepository, UtilsRepository>();
 builder.Services.AddScoped<IAdministracionContratoRepository, AdministracionContratoRepository>();
 builder.Services.AddScoped<IAdministracionCicloFacturaRepository, AdministracionCicloFacturaRepository>();
+builder.Services.AddScoped<IAdministracionHabilitacionComisionRepository, AdministracionHabilitacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionObservacionComisionRepository, AdministracionObservacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionBuscarAsesorRepository, AdministracionBuscarAsesorRepository>();
 builder.Services.AddScoped<IAdministracionCuentaBancoRepository, AdministracionCuentaBancoRepository>();

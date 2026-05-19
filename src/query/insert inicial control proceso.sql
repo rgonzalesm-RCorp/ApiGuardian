@@ -32,23 +32,25 @@ SELECT p.id, 'VENTAS ESPECIALES', 3, 1 FROM conf_procesos p WHERE p.nombre = 'CO
 UNION ALL
 SELECT p.id, 'COMISION DIRECTA', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'RED COMPRIMIDA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'REGISTRO_HABILITACIONES', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'RED COMPLETA', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'RED COMPRIMIDA', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION GRUPO', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'RED COMPLETA', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CARTERA', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION GRUPO', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CUOTAS', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CARTERA', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER EXCEDENTE', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CUOTAS', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION RESIDUAL', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER EXCEDENTE', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION VENTA RESIDUAL', 12, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION RESIDUAL', 12, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'BONO PAR', 13, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
+SELECT p.id, 'COMISION VENTA RESIDUAL', 13, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'BONO PAR', 14, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
 
 -- ============================================
 -- 3. DEPENDENCIAS DINÁMICAS (por nombre)
@@ -75,7 +77,13 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'COMISION DIRECTA' AND p2.nombre = 'RED COMPRIMIDA'
+WHERE p1.nombre = 'COMISION DIRECTA' AND p2.nombre = 'REGISTRO_HABILITACIONES'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'REGISTRO_HABILITACIONES' AND p2.nombre = 'RED COMPRIMIDA'
 
 UNION ALL
 SELECT p2.id, p1.id

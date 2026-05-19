@@ -903,6 +903,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
         const string deleteBonoCompleto = @"DELETE FROM t_bonocompleto WHERE lciclo_id = @LCicloId;";
         const string deleteRedComprimida = @"DELETE FROM red_comprimida WHERE lciclo_id = @LCicloId;";
         const string deleteRedCompletaCuotas = @"DELETE FROM red_completa_cuotas WHERE lciclo_id = @LCicloId;";
+        const string deleteHabilitaciones = @"DELETE FROM administracionhabilitacioncomision WHERE lciclo_id = @LCicloId;";
         const string deleteControlProceso = @"DELETE FROM ControlProceso WHERE lciclo_id = @LCicloId;";
         const string deleteContrato = @"delete from administracioncontrato where dtfecha BETWEEN @Inicio and @Fin;";
         const string deleteCuotas = @"DELETE FROM T_ACCIONESCUOTASGRL WHERE FECHA_PAGO BETWEEN @Inicio AND @Fin;"; 
@@ -936,6 +937,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
 
             await connection.ExecuteAsync(deleteContrato, new { Inicio, Fin }, transaction);
             await connection.ExecuteAsync(deleteVentaPersonal, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteHabilitaciones, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteRedComprimida, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteVentaGrupo, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteCuotas, new { Inicio, Fin }, transaction);

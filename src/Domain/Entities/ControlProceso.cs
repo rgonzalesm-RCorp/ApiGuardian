@@ -126,6 +126,7 @@ public static class PasosDiccionario
     public const string COMISION_VENTA_RESIDUAL = "COMISION VENTA RESIDUAL";
     public const string BONO_PAR = "BONO PAR";
     public const string VENTAS_ESPECIALES = "VENTAS ESPECIALES";
+    public const string REGISTRO_HABILITACIONES = "REGISTRO_HABILITACIONES";
 
     public static bool EsBonoPar(string? paso)
     {
@@ -138,6 +139,11 @@ public static class PasosDiccionario
         if (EsBonoPar(paso))
         {
             return BONO_PAR;
+        }
+
+        if (string.Equals(paso, REGISTRO_HABILITACIONES, StringComparison.OrdinalIgnoreCase))
+        {
+            return "REGISTRO DE HABILITACIONES";
         }
 
         return paso ?? string.Empty;
