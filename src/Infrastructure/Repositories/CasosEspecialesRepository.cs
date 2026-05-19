@@ -51,7 +51,7 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
             return (Enumerable.Empty<ItemVentaCnx>(), false, $"Error al obtener los casos especiales: {ex.Message}");
         } 
     }
-    public async Task<(IEnumerable<UpgradeSolicitudDto> Lista, bool Success, string Mensaje)> GetUpgradeSolicitudPorVentas(string LogTransaccionId, string Usuario, string UpgVentaIds)
+    public async Task<(IEnumerable<UpgradeSolicitudDto> Lista, bool Success, string Mensaje)> GetUpgradeSolicitudPorVentasCnx(string LogTransaccionId, string Usuario, string UpgVentaIds)
     {
         string nombreMetodo = "GetUpgradeSolicitudPorVentas()";
 
@@ -66,9 +66,9 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
                 SoliVentaId AS VentaHoldId,
                 SoliCodigoProducto AS ProductoHoldId,
 
-                MontoVenta AS MontoHoldId,
-                MontoPagado AS PagadoHoldId,
-                MontoDeuda AS DeudaHoldId,
+                MontoVenta AS MontoHold,
+                MontoPagado AS PagadoHold,
+                MontoDeuda AS DeudaHold,
 
                 UpgEmpresaId AS EmpresaId,
                 UpgProyectoId AS ProyectoId,
@@ -165,9 +165,9 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
                 @VentaHoldId,
                 @ProductoHoldId,
 
-                @MontoHoldId,
-                @PagadoHoldId,
-                @DeudaHoldId,
+                @MontoHold,
+                @PagadoHold,
+                @DeudaHold,
 
                 @EmpresaId,
                 @ProyectoId,
@@ -219,9 +219,9 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
                         item.VentaHoldId,
                         item.ProductoHoldId,
 
-                        item.MontoHoldId,
-                        item.PagadoHoldId,
-                        item.DeudaHoldId,
+                        item.MontoHold,
+                        item.PagadoHold,
+                        item.DeudaHold,
 
                         item.EmpresaId,
                         item.ProyectoId,
@@ -260,5 +260,63 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
             return (false, ex.Message);
         }
     }
+    public async Task<(IEnumerable<UpgradeSolicitudDto> Lista, bool Success, string Mensaje)> GetUpgradeSolicitudGrd(string LogTransaccionId, string Usuario, int LCicloId)
+    {
+        string metodo = "GetUpgradeSolicitud()";
 
+        string query = @"
+            SELECT
+                upgrade_solicitud_id AS UpgradeSolicitudId,
+
+                solicitud_id AS SolicitudId,
+                doc_id AS DocId,
+                doc_id_vendedor AS DocIdVendedor,
+
+                empresa_hold_id AS EmpresaHoldId,
+                proyecto_hold_id AS ProyectoHoldId,
+                venta_hold_id AS VentaHoldId,
+                producto_hold_id AS ProductoHoldId,
+
+                monto_hold AS MontoHold,
+                pagado_hold AS PagadoHold,
+                deuda_hold AS DeudaHold,
+
+                empresa_id AS EmpresaId,
+                proyecto_id AS ProyectoId,
+                venta_id AS VentaId,
+                producto_id AS ProductoId,
+
+                monto AS Monto,
+                deuda AS Deuda,
+                cuota AS Cuota
+            FROM upgrade_solicitud
+            WHERE lciclo_id = @LCicloId;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio de método [Usuario:{Usuario}, LCicloId:{LCicloId}]");
+
+        try
+        {
+            using var con = _context.CreateConnection();
+
+            var lista = await con.QueryAsync<UpgradeSolicitudDto>(
+                query,
+                new { LCicloId }
+            );
+
+            bool success = lista.Any();
+
+            string mensaje = success ? "Registros obtenidos correctamente." : "No se encontraron registros.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Fin de método [mensaje:{mensaje}]");
+
+            return (lista ?? Enumerable.Empty<UpgradeSolicitudDto>(), success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, metodo, "Fin con error", ex);
+
+            return (Enumerable.Empty<UpgradeSolicitudDto>(), false, ex.Message);
+        }
+    }
 }

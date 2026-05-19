@@ -165,6 +165,40 @@ public class ProcesoComisionesController : ControllerBase
 
         var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
 
+        List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
+        List<VentaPersonalComisionDto> CantidadUpgrade = responseVentaPersonal.Data.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
+        if (CantidadUpgrade.Count > 0)
+        {
+            var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), Usuario, lCicloId);
+            ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
+
+            //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
+            foreach (var item in responseVentaPersonal.Data)
+            {
+                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
+                {
+                    item.dporcentajecomision = 67;
+                    UpgradeSolicitudDto? upgradeSolicitud = ListaUpgradeSolicitud.Where(x => x.VentaId + "-" + x.ProductoId == item.snroventa).FirstOrDefault();
+                    if (upgradeSolicitud != null)
+                    {
+                        decimal DiferenciaUpgrade = item.dprecio - upgradeSolicitud.MontoHold;
+                        decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
+                        decimal MontoATomar = item.inicial < TresPorCientoDiferencia ? item.inicial : TresPorCientoDiferencia;
+                        item.dcomision = MontoATomar * 67 / 100;
+                        item.inicial = MontoATomar;
+                    }
+                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                }
+                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION)
+                {
+                    item.dporcentajecomision = 67;
+                 
+                    item.dcomision = item.inicial * 67 / 100;
+                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                }
+            }
+        }
+
         ComisionVentadirectaXls Comi = new ComisionVentadirectaXls();
         var responseXls = await Comi.GetComicionVentaPersonalXls(responseVentaPersonal.Data.ToList());
         return Ok(new{
@@ -214,7 +248,7 @@ public class ProcesoComisionesController : ControllerBase
             }
             if (Data.EsEspecial)
             {
-                var ResponseVentaEspecial = await _casosEspecialesRepository.GetUpgradeSolicitudPorVentas(logTransaccionId.ToString(), Data.Usuario, string.Join(",", Data.ListaSeleccionado.Where(x => x.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE).Select(x => x.IdVenta)));
+                var ResponseVentaEspecial = await _casosEspecialesRepository.GetUpgradeSolicitudPorVentasCnx(logTransaccionId.ToString(), Data.Usuario, string.Join(",", Data.ListaSeleccionado.Where(x => x.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE).Select(x => x.IdVenta)));
                 var responseSaveVentaEspecial = await _casosEspecialesRepository.SaveUpgradeSolicitud(logTransaccionId.ToString(), Data.Usuario, Data.LCicloId, ResponseVentaEspecial.Lista.ToList());
             }
             RequestProcesoPrincipal dat = new RequestProcesoPrincipal
@@ -263,6 +297,40 @@ public class ProcesoComisionesController : ControllerBase
         }
 
         var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+
+        List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
+        List<VentaPersonalComisionDto> CantidadUpgrade = responseVentaPersonalComision.Data.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
+        if (CantidadUpgrade.Count > 0)
+        {
+            var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
+            ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
+
+            //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
+            foreach (var item in responseVentaPersonalComision.Data)
+            {
+                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
+                {
+                    item.dporcentajecomision = 67;
+                    UpgradeSolicitudDto? upgradeSolicitud = ListaUpgradeSolicitud.Where(x => x.VentaId + "-" + x.ProductoId == item.snroventa).FirstOrDefault();
+                    if (upgradeSolicitud != null)
+                    {
+                        decimal DiferenciaUpgrade = item.dprecio - upgradeSolicitud.MontoHold;
+                        decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
+                        decimal MontoATomar = item.inicial < TresPorCientoDiferencia ? item.inicial : TresPorCientoDiferencia;
+                        item.dcomision = MontoATomar * 67 / 100;
+                        item.inicial = MontoATomar;
+                    }
+                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                }
+                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION)
+                {
+                    item.dporcentajecomision = 67;
+                 
+                    item.dcomision = item.inicial * 67 / 100;
+                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                }
+            }
+        }
 
         if (responseVentaPersonalComision.Data.Count() != request.ListaComision.Count)
         {

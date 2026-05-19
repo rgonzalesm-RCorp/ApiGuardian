@@ -51,6 +51,7 @@ public class ItemVentaCnx
     public decimal ValorCi { get; set; }
     public string SeccionId { get; set; } = "";
     public string Glosa { get; set; } = "";
+    public string NombreTipoComision { get; set; } = "";
     public int TipoComisionable { get; set; } = 0;
     
 }
