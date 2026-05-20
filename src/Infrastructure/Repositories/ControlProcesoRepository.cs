@@ -18,6 +18,161 @@ public class ControlProcesoRepository : IControlProcesoRepository
         _context = context;
         _log = log;
     }
+    private sealed class ControlProcesoPasoContext
+    {
+        public int ProcesoId { get; set; }
+        public int ProcesoInstanciaId { get; set; }
+        public int ProcesoCicloId { get; set; }
+        public int PasoId { get; set; }
+    }
+    private sealed class ControlProcesoPasoEstadoRow
+    {
+        public int id { get; set; }
+        public string estado { get; set; } = string.Empty;
+    }
+
+    private static ItemControlProcesoPrincipal BuildPasoResponse(bool status, string mensaje, bool next = true)
+    {
+        return new ItemControlProcesoPrincipal
+        {
+            status = status,
+            mensaje = mensaje,
+            mensajes = mensaje,
+            next = next
+        };
+    }
+
+    private async Task<(bool Success, string Mensaje, ControlProcesoPasoContext Data)> ResolvePasoContextAsync(
+        System.Data.IDbConnection connection,
+        string proceso,
+        int LCicloId,
+        string paso,
+        bool crearInstanciaSiNoExiste,
+        System.Data.IDbTransaction? transaction = null
+    )
+    {
+        const string queryInstancia = @"
+            SELECT id
+            FROM conf_proceso_instancias
+            WHERE proceso_id = @ProcesoId
+            ORDER BY CASE WHEN estado = 'EN_PROCESO' THEN 0 ELSE 1 END, id DESC
+            LIMIT 1;
+        ";
+
+        const string insertInstancia = @"
+            INSERT INTO conf_proceso_instancias (proceso_id, estado, fecha_inicio)
+            VALUES (@ProcesoId, 'EN_PROCESO', NOW());
+            SELECT LAST_INSERT_ID();
+        ";
+
+        const string queryCicloExistente = @"
+            SELECT
+                CPI.id ProcesoInstanciaId,
+                CPC.id ProcesoCicloId
+            FROM conf_proceso_ciclos CPC
+            INNER JOIN conf_proceso_instancias CPI ON CPI.id = CPC.proceso_instancia_id
+            WHERE CPI.proceso_id = @ProcesoId
+              AND CPC.numero_ciclo = @LCicloId
+            ORDER BY CASE WHEN CPC.estado = 'EN_PROCESO' THEN 0 ELSE 1 END, CPC.id DESC
+            LIMIT 1;
+        ";
+
+        const string insertCiclo = @"
+            INSERT INTO conf_proceso_ciclos (proceso_instancia_id, numero_ciclo, estado, fecha_inicio)
+            VALUES (@ProcesoInstanciaId, @LCicloId, 'EN_PROCESO', NOW());
+            SELECT LAST_INSERT_ID();
+        ";
+
+        const string queryPaso = @"
+            SELECT id
+            FROM conf_pasos
+            WHERE proceso_id = @ProcesoId
+              AND nombre = @paso
+              AND estado = 1
+            ORDER BY id DESC
+            LIMIT 1;
+        ";
+
+        var procesoConfigurado = await GetProcesoConfiguradoAsync(connection, proceso, LCicloId, transaction);
+        if (procesoConfigurado == null || procesoConfigurado.ProcesoId <= 0)
+        {
+            return (false, "El proceso no existe.", new ControlProcesoPasoContext());
+        }
+
+        int procesoId = procesoConfigurado.ProcesoId;
+        int procesoInstanciaId = 0;
+        int procesoCicloId = 0;
+
+        var cicloExistente = await connection.QueryFirstOrDefaultAsync<ControlProcesoPasoContext>(
+            queryCicloExistente,
+            new { ProcesoId = procesoId, LCicloId },
+            transaction
+        );
+
+        if (cicloExistente != null && cicloExistente.ProcesoCicloId > 0)
+        {
+            procesoInstanciaId = cicloExistente.ProcesoInstanciaId;
+            procesoCicloId = cicloExistente.ProcesoCicloId;
+        }
+        else
+        {
+            procesoInstanciaId = await connection.QueryFirstOrDefaultAsync<int>(
+                queryInstancia,
+                new { ProcesoId = procesoId },
+                transaction
+            );
+
+            if (procesoInstanciaId <= 0 && crearInstanciaSiNoExiste)
+            {
+                procesoInstanciaId = await connection.ExecuteScalarAsync<int>(
+                    insertInstancia,
+                    new { ProcesoId = procesoId },
+                    transaction
+                );
+            }
+
+            if (procesoCicloId <= 0 && crearInstanciaSiNoExiste)
+            {
+                if (procesoInstanciaId <= 0)
+                {
+                    return (false, "No se pudo inicializar la instancia del proceso.", new ControlProcesoPasoContext());
+                }
+
+                procesoCicloId = await connection.ExecuteScalarAsync<int>(
+                    insertCiclo,
+                    new { ProcesoInstanciaId = procesoInstanciaId, LCicloId },
+                    transaction
+                );
+            }
+        }
+
+        int pasoId = 0;
+        if (!string.IsNullOrWhiteSpace(paso))
+        {
+            pasoId = await connection.QueryFirstOrDefaultAsync<int>(
+                queryPaso,
+                new { ProcesoId = procesoId, paso },
+                transaction
+            );
+
+            if (pasoId <= 0)
+            {
+                return (false, "El paso no existe.", new ControlProcesoPasoContext());
+            }
+        }
+
+        return (
+            true,
+            "Contexto obtenido correctamente.",
+            new ControlProcesoPasoContext
+            {
+                ProcesoId = procesoId,
+                ProcesoInstanciaId = procesoInstanciaId,
+                ProcesoCicloId = procesoCicloId,
+                PasoId = pasoId
+            }
+        );
+    }
     private async Task<ControlProcesoConfiguracion?> GetProcesoConfiguradoAsync(
         System.Data.IDbConnection connection,
         string proceso,
@@ -30,16 +185,12 @@ public class ControlProcesoRepository : IControlProcesoRepository
                 CP.id ProcesoId,
                 CP.nombre Nombre,
                 IFNULL(CP.descripcion, '') Descripcion,
-                IFNULL(CP.lciclo_id, 0) LCicloId,
-                IFNULL(UPPER(AC.snombre), CASE WHEN IFNULL(CP.lciclo_id, 0) = 0 THEN 'SIN CICLO' ELSE CONCAT('CICLO ', CP.lciclo_id) END) NombreCiclo,
                 CP.estado Estado,
                 CP.fecha_creacion FechaCreacion
             FROM conf_procesos CP
-            LEFT JOIN administracionciclo AC ON AC.lciclo_id = CP.lciclo_id
             WHERE CP.nombre = @proceso
               AND CP.estado = 1
-              AND (IFNULL(CP.lciclo_id, 0) = @LCicloId OR IFNULL(CP.lciclo_id, 0) = 0)
-            ORDER BY CASE WHEN IFNULL(CP.lciclo_id, 0) = @LCicloId THEN 0 ELSE 1 END, CP.id DESC
+            ORDER BY CP.id DESC
             LIMIT 1;
         ";
 
@@ -152,7 +303,6 @@ public class ControlProcesoRepository : IControlProcesoRepository
                 id ProcesoId,
                 nombre Nombre,
                 IFNULL(descripcion, '') Descripcion,
-                IFNULL(lciclo_id, 0) LCicloId,
                 estado Estado,
                 fecha_creacion FechaCreacion
             FROM conf_procesos
@@ -710,15 +860,94 @@ public class ControlProcesoRepository : IControlProcesoRepository
     {
         string nombreMetodo = "GetSiguientePaso()";
 
-        const string query = @"CALL sp_obtener_siguientes_pasos(@proceso, @LCicloId);";
-
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}]");
 
         try
         {
             using var connection = _context.CreateConnection();
-            var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoNext>(query, new {proceso, LCicloId});
+            var contextResponse = await ResolvePasoContextAsync(
+                connection,
+                proceso,
+                LCicloId,
+                string.Empty,
+                false
+            );
 
+            if (!contextResponse.Success)
+            {
+                return (false, contextResponse.Mensaje, new ItemControlProcesoNext());
+            }
+
+            var context = contextResponse.Data;
+
+            const string queryPasoEnProceso = @"
+                SELECT
+                    TRUE status,
+                    'Paso en proceso.' mensajes,
+                    TRUE next,
+                    CP.id,
+                    CP.nombre,
+                    CP.orden,
+                    CP.es_obligatorio EsObligatoria
+                FROM conf_proceso_pasos CPP
+                INNER JOIN conf_pasos CP ON CP.id = CPP.paso_id
+                WHERE CPP.proceso_ciclo_id = @ProcesoCicloId
+                  AND CPP.estado = 'EN_PROCESO'
+                ORDER BY CPP.fecha_inicio DESC, CPP.id DESC
+                LIMIT 1;
+            ";
+
+            const string querySiguientePaso = @"
+                SELECT
+                    TRUE status,
+                    'OK' mensajes,
+                    TRUE next,
+                    CP.id,
+                    CP.nombre,
+                    CP.orden,
+                    CP.es_obligatorio EsObligatoria
+                FROM conf_pasos CP
+                WHERE CP.proceso_id = @ProcesoId
+                  AND CP.estado = 1
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM conf_proceso_pasos CPP
+                        WHERE CPP.proceso_ciclo_id = @ProcesoCicloId
+                          AND CPP.paso_id = CP.id
+                  )
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM conf_paso_dependencias PD
+                        LEFT JOIN conf_proceso_pasos CPP
+                            ON CPP.paso_id = PD.paso_requerido_id
+                           AND CPP.proceso_ciclo_id = @ProcesoCicloId
+                        WHERE PD.paso_id = CP.id
+                          AND (CPP.estado IS NULL OR CPP.estado <> 'COMPLETADO')
+                  )
+                ORDER BY CP.orden
+                LIMIT 1;
+            ";
+
+            ItemControlProcesoNext item = new ItemControlProcesoNext();
+            if (context.ProcesoCicloId > 0)
+            {
+                item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoNext>(
+                    queryPasoEnProceso,
+                    new { context.ProcesoCicloId }
+                ) ?? new ItemControlProcesoNext();
+            }
+
+            if (item.id <= 0)
+            {
+                item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoNext>(
+                    querySiguientePaso,
+                    new
+                    {
+                        context.ProcesoId,
+                        ProcesoCicloId = context.ProcesoCicloId > 0 ? context.ProcesoCicloId : 0
+                    }
+                ) ?? new ItemControlProcesoNext();
+            }
 
             bool success = true;
             string mensaje =  "Procedimiento ejecutado correctamente";
@@ -734,27 +963,260 @@ public class ControlProcesoRepository : IControlProcesoRepository
             return (false, $"Error al obtener el siguiente paso: {ex.Message}", new ItemControlProcesoNext());
         }
     }
-    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> EjecutarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso)
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> IniciarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso)
     {
-        string nombreMetodo = "EjecutarPaso()";
+        string nombreMetodo = "IniciarPaso()";
 
-         string query = $@"CALL sp_conf_ejecutar_paso(@proceso, @LCicloId, @paso);";
+        const string queryPasoExistente = @"
+            SELECT id, estado
+            FROM conf_proceso_pasos
+            WHERE proceso_ciclo_id = @ProcesoCicloId
+              AND paso_id = @PasoId
+            ORDER BY id DESC
+            LIMIT 1;
+        ";
 
- 
+        const string queryDependenciasPendientes = @"
+            SELECT COUNT(*)
+            FROM conf_paso_dependencias PD
+            LEFT JOIN conf_proceso_pasos CPP
+                ON CPP.paso_id = PD.paso_requerido_id
+               AND CPP.proceso_ciclo_id = @ProcesoCicloId
+            WHERE PD.paso_id = @PasoId
+              AND (CPP.estado IS NULL OR CPP.estado <> 'COMPLETADO');
+        ";
+
+        const string insertPaso = @"
+            INSERT INTO conf_proceso_pasos (proceso_ciclo_id, paso_id, estado, fecha_inicio, fecha_fin)
+            VALUES (@ProcesoCicloId, @PasoId, 'EN_PROCESO', NOW(), NULL);
+        ";
+
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}, paso:{paso}]");
 
         try
         {
             using var connection = _context.CreateConnection();
-            var item = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoPrincipal>(query, new {proceso, LCicloId, paso});  
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
 
-            bool ok = true;
-            string mensaje =  "Procedimiento ejecutado correctamente";
+            var contextResponse = await ResolvePasoContextAsync(
+                connection,
+                proceso,
+                LCicloId,
+                paso,
+                true,
+                transaction
+            );
+
+            if (!contextResponse.Success)
+            {
+                transaction.Rollback();
+                return (false, contextResponse.Mensaje, BuildPasoResponse(false, contextResponse.Mensaje, false));
+            }
+
+            var context = contextResponse.Data;
+
+            var pasoExistente = await connection.QueryFirstOrDefaultAsync<ControlProcesoPasoEstadoRow>(
+                queryPasoExistente,
+                new { context.ProcesoCicloId, context.PasoId },
+                transaction
+            ) ?? new ControlProcesoPasoEstadoRow();
+
+            if (pasoExistente.id > 0)
+            {
+                transaction.Rollback();
+                string mensajeExistente = string.Equals(pasoExistente.estado, "EN_PROCESO", StringComparison.OrdinalIgnoreCase)
+                    ? "El paso ya se encuentra en proceso."
+                    : "Paso ya ejecutado.";
+
+                return (false, mensajeExistente, BuildPasoResponse(false, mensajeExistente, false));
+            }
+
+            int dependenciasPendientes = await connection.ExecuteScalarAsync<int>(
+                queryDependenciasPendientes,
+                new { context.ProcesoCicloId, context.PasoId },
+                transaction
+            );
+
+            if (dependenciasPendientes > 0)
+            {
+                transaction.Rollback();
+                const string mensajeDependencias = "Dependencias no cumplidas.";
+                return (false, mensajeDependencias, BuildPasoResponse(false, mensajeDependencias, false));
+            }
+
+            await connection.ExecuteAsync(
+                insertPaso,
+                new { context.ProcesoCicloId, context.PasoId },
+                transaction
+            );
+
+            transaction.Commit();
+
+            const string mensaje = "Paso iniciado correctamente.";
+            return (true, mensaje, BuildPasoResponse(true, mensaje));
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al iniciar el paso: {ex.Message}", BuildPasoResponse(false, $"Error al iniciar el paso: {ex.Message}", false));
+        }
+    }
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> FinalizarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso)
+    {
+        string nombreMetodo = "FinalizarPaso()";
+
+        const string queryPasoExistente = @"
+            SELECT id, estado
+            FROM conf_proceso_pasos
+            WHERE proceso_ciclo_id = @ProcesoCicloId
+              AND paso_id = @PasoId
+            ORDER BY id DESC
+            LIMIT 1;
+        ";
+
+        const string updatePaso = @"
+            UPDATE conf_proceso_pasos
+            SET estado = 'COMPLETADO',
+                fecha_fin = NOW()
+            WHERE id = @PasoRegistroId
+              AND estado = 'EN_PROCESO';
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}, paso:{paso}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var contextResponse = await ResolvePasoContextAsync(
+                connection,
+                proceso,
+                LCicloId,
+                paso,
+                false
+            );
+
+            if (!contextResponse.Success)
+            {
+                return (false, contextResponse.Mensaje, BuildPasoResponse(false, contextResponse.Mensaje, false));
+            }
+
+            var context = contextResponse.Data;
+            var pasoExistente = await connection.QueryFirstOrDefaultAsync<ControlProcesoPasoEstadoRow>(
+                queryPasoExistente,
+                new { context.ProcesoCicloId, context.PasoId }
+            ) ?? new ControlProcesoPasoEstadoRow();
+
+            if (pasoExistente.id <= 0)
+            {
+                const string mensajeNoIniciado = "El paso no fue iniciado.";
+                return (false, mensajeNoIniciado, BuildPasoResponse(false, mensajeNoIniciado, false));
+            }
+
+            if (string.Equals(pasoExistente.estado, "COMPLETADO", StringComparison.OrdinalIgnoreCase))
+            {
+                const string mensajeYaCompletado = "El paso ya estaba completado.";
+                return (true, mensajeYaCompletado, BuildPasoResponse(true, mensajeYaCompletado));
+            }
+
+            var rows = await connection.ExecuteAsync(
+                updatePaso,
+                new { PasoRegistroId = pasoExistente.id }
+            );
+
+            bool success = rows > 0;
+            string mensaje = success ? "Paso ejecutado correctamente." : "No se pudo completar el paso.";
+
+            return (success, mensaje, BuildPasoResponse(success, mensaje, success));
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al finalizar el paso: {ex.Message}", BuildPasoResponse(false, $"Error al finalizar el paso: {ex.Message}", false));
+        }
+    }
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> CancelarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso)
+    {
+        string nombreMetodo = "CancelarPaso()";
+
+        const string queryPasoExistente = @"
+            SELECT id, estado
+            FROM conf_proceso_pasos
+            WHERE proceso_ciclo_id = @ProcesoCicloId
+              AND paso_id = @PasoId
+            ORDER BY id DESC
+            LIMIT 1;
+        ";
+
+        const string deletePaso = @"
+            DELETE FROM conf_proceso_pasos
+            WHERE id = @PasoRegistroId
+              AND estado = 'EN_PROCESO';
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}, paso:{paso}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var contextResponse = await ResolvePasoContextAsync(
+                connection,
+                proceso,
+                LCicloId,
+                paso,
+                false
+            );
+
+            if (!contextResponse.Success)
+            {
+                return (true, contextResponse.Mensaje, BuildPasoResponse(true, contextResponse.Mensaje));
+            }
+
+            var context = contextResponse.Data;
+            var pasoExistente = await connection.QueryFirstOrDefaultAsync<ControlProcesoPasoEstadoRow>(
+                queryPasoExistente,
+                new { context.ProcesoCicloId, context.PasoId }
+            ) ?? new ControlProcesoPasoEstadoRow();
+
+            if (pasoExistente.id <= 0 || !string.Equals(pasoExistente.estado, "EN_PROCESO", StringComparison.OrdinalIgnoreCase))
+            {
+                const string mensajeSinPaso = "No existe un paso en proceso para cancelar.";
+                return (true, mensajeSinPaso, BuildPasoResponse(true, mensajeSinPaso));
+            }
+
+            await connection.ExecuteAsync(deletePaso, new { PasoRegistroId = pasoExistente.id });
+
+            const string mensaje = "Paso cancelado correctamente.";
+            return (true, mensaje, BuildPasoResponse(true, mensaje));
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al cancelar el paso: {ex.Message}", BuildPasoResponse(false, $"Error al cancelar el paso: {ex.Message}", false));
+        }
+    }
+    public async Task<(bool Success, string Mensaje, ItemControlProcesoPrincipal Data)> EjecutarPaso(string LogTransaccionId, string Usuario, string proceso, int LCicloId, string paso)
+    {
+        string nombreMetodo = "EjecutarPaso()";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}, paso:{paso}]");
+
+        try
+        {
+            var responseInicio = await IniciarPaso(LogTransaccionId, Usuario, proceso, LCicloId, paso);
+            if (!responseInicio.Success || !(responseInicio.Data?.status ?? false))
+            {
+                return responseInicio;
+            }
+
+            var responseFin = await FinalizarPaso(LogTransaccionId, Usuario, proceso, LCicloId, paso);
 
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
-                $"Fin de metodo [mensaje: {mensaje}, Response EjecutarPaso:{JsonConvert.SerializeObject(item, Formatting.Indented)}]");
+                $"Fin de metodo [Response EjecutarPaso:{JsonConvert.SerializeObject(responseFin.Data, Formatting.Indented)}]");
 
-            return (ok, mensaje, item ?? new ItemControlProcesoPrincipal());
+            return responseFin;
         }
         catch (Exception ex)
         {
@@ -765,16 +1227,6 @@ public class ControlProcesoRepository : IControlProcesoRepository
     public async Task<(bool Success, string Mensaje, ItemControlProcesoResumen Data)> GetResumenProcesoCiclo(string LogTransaccionId, string Usuario, string proceso, int LCicloId)
     {
         string nombreMetodo = "GetResumenProcesoCiclo()";
-        const string queryProceso = @"
-            SELECT
-                id ProcesoId,
-                nombre Proceso,
-                IFNULL(descripcion, '') Descripcion
-            FROM conf_procesos
-            WHERE nombre = @proceso
-              AND estado = 1
-            LIMIT 1;
-        ";
         const string queryHistorial = @"
             SELECT
                 CPC.id ProcesoCicloId,
@@ -784,9 +1236,8 @@ public class ControlProcesoRepository : IControlProcesoRepository
                 CPC.fecha_fin FechaFin
             FROM conf_proceso_ciclos CPC
             INNER JOIN conf_proceso_instancias CPI ON CPI.id = CPC.proceso_instancia_id
-            INNER JOIN conf_procesos CP ON CP.id = CPI.proceso_id
-            WHERE CP.nombre = @proceso
-              AND CP.estado = 1
+            WHERE CPI.proceso_id = @ProcesoId
+              AND CPC.numero_ciclo = @LCicloId
             ORDER BY CPC.id DESC;
         ";
 
@@ -814,14 +1265,24 @@ public class ControlProcesoRepository : IControlProcesoRepository
         try
         {
             using var connection = _context.CreateConnection();
-
-             var resumen = await connection.QueryFirstOrDefaultAsync<ItemControlProcesoResumen>(queryProceso, new { proceso });
-
-            if (resumen == null || resumen.ProcesoId <= 0)
+            var procesoConfigurado = await GetProcesoConfiguradoAsync(connection, proceso, LCicloId);
+            if (procesoConfigurado == null || procesoConfigurado.ProcesoId <= 0)
             {
                 return (false, "El proceso no existe.", new ItemControlProcesoResumen());
             }
-            var historial = (await connection.QueryAsync<ItemControlProcesoHistorial>(queryHistorial, new { proceso, LCicloId })).ToList();
+
+            var resumen = new ItemControlProcesoResumen
+            {
+                ProcesoId = procesoConfigurado.ProcesoId,
+                Proceso = procesoConfigurado.Nombre,
+                Descripcion = procesoConfigurado.Descripcion
+            };
+
+            var historial = (await connection.QueryAsync<ItemControlProcesoHistorial>(queryHistorial, new
+            {
+                ProcesoId = procesoConfigurado.ProcesoId,
+                LCicloId
+            })).ToList();
             
             
             var cicloActual = historial.FirstOrDefault(x => string.Equals(x.Estado, "EN_PROCESO", StringComparison.OrdinalIgnoreCase))

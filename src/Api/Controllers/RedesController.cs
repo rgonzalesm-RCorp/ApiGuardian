@@ -32,6 +32,7 @@ public class RedesController : ControllerBase
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         _log.Info(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
+        bool pasoIniciado = false;
 
         try
         {
@@ -46,6 +47,27 @@ public class RedesController : ControllerBase
                     data = ""
                 });
             }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPRIMIDA
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
             var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
 
@@ -85,22 +107,52 @@ public class RedesController : ControllerBase
                 }
             }
             var ResponseGuardarRedComprimida = await _repo.GuardarRedComprimida(logTransaccionId, Usuario, Lista);
-            if (ResponseGuardarRedComprimida.Success)
+
+            if (!ResponseGuardarRedComprimida.Success)
             {
-                await _controlProcesoRepository.EjecutarPaso(
-                    logTransaccionId.ToString(),
+                await _controlProcesoRepository.CancelarPaso(
+                    logTransaccionId,
                     Usuario,
                     ProcesosDiccionario.COMISIONES,
                     LCicloId,
-                    responseSiguientePaso.Data.nombre
+                    PasosDiccionario.RED_COMPRIMIDA
                 );
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ResponseGuardarRedComprimida.Mensaje,
+                    data = ""
+                });
             }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPRIMIDA
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
             DateTime fin = DateTime.Now;
 
             return Ok(new 
             {
-                status = ResponseContactoVentaMes.Success,
-                mensaje = ResponseContactoVentaMes.Mensaje,
+                status = ResponseGuardarRedComprimida.Success,
+                mensaje = ResponseGuardarRedComprimida.Mensaje,
                 data = new
                 {
                     ini,
@@ -115,6 +167,11 @@ public class RedesController : ControllerBase
         }
         catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.RED_COMPRIMIDA);
+            }
+
             _log.Error(logTransaccionId, NOMBREARCHIVO, "Get", "Error", ex);
             return Ok(new 
             {
@@ -129,6 +186,7 @@ public class RedesController : ControllerBase
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         _log.Info(logTransaccionId, NOMBREARCHIVO, "GetClientesCuotas", $"Inicio GetClientesCuotas() Usuario: {Usuario}");
+        bool pasoIniciado = false;
 
         try
         {
@@ -143,6 +201,27 @@ public class RedesController : ControllerBase
                     data = ""
                 });
             }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPLETA
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
             var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
             var diccionario = ResponseContactoAll.ListadoContactosCuotas.ToDictionary(x => x.Hijo , x => x.Padre);
             List<ItemRedSieteNiveles> Lista = new List<ItemRedSieteNiveles>();
@@ -176,16 +255,46 @@ public class RedesController : ControllerBase
             }
             var ResponseSave = await _repo.GuardarRedContactoTemporal(logTransaccionId, Usuario, Lista);
             DateTime fin = DateTime.Now;
-            if (ResponseSave.Success)
+
+            if (!ResponseSave.Success)
             {
-                await _controlProcesoRepository.EjecutarPaso(
-                    logTransaccionId.ToString(),
+                await _controlProcesoRepository.CancelarPaso(
+                    logTransaccionId,
                     Usuario,
                     ProcesosDiccionario.COMISIONES,
                     LCicloId,
-                    responseSiguientePaso.Data.nombre
+                    PasosDiccionario.RED_COMPLETA
                 );
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ResponseSave.Mensaje,
+                    data = ""
+                });
             }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPLETA
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
             
             return Ok(new 
             {
@@ -201,6 +310,11 @@ public class RedesController : ControllerBase
         }
         catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.RED_COMPLETA);
+            }
+
             _log.Error(logTransaccionId, NOMBREARCHIVO, "GetClientesCuotas", "Error", ex);
             return Ok(new 
             {

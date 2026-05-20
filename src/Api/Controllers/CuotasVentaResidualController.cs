@@ -179,6 +179,7 @@ public class CuotasVentaResidualController: ControllerBase
     {
         string logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         const string nombreMetodo = "Guardar()";
+        bool pasoIniciado = false;
 
         _log.Info(logTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio {nombreMetodo} Usuario: {Usuario}");
 
@@ -194,10 +195,34 @@ public class CuotasVentaResidualController: ControllerBase
                     data = ""
                 });
             }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.COMISION_VENTA_RESIDUAL
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
             var responseCuotasResidual = await _repo.GetCuotasVentasResidual(logTransaccionId, Usuario, Inicio, Fin, LCicloId);
 
             if (!responseCuotasResidual.Success)
             {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.COMISION_VENTA_RESIDUAL);
+                pasoIniciado = false;
+
                 return Ok(new
                 {
                     status = false,
@@ -330,7 +355,39 @@ public class CuotasVentaResidualController: ControllerBase
             })
             .ToList();
             var ResponseControlProductoCuotas = await _repo.SaveControlProductos(logTransaccionId, Usuario, listaProductoPagarMensualUpdate);
-            await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId,  PasosDiccionario.COMISION_VENTA_RESIDUAL);
+
+            if (!ResponseControlProductoCuotas.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.COMISION_VENTA_RESIDUAL);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ResponseControlProductoCuotas.Mensaje,
+                    data = ""
+                });
+            }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.COMISION_VENTA_RESIDUAL
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
 
             return Ok(new
             {
@@ -341,6 +398,11 @@ public class CuotasVentaResidualController: ControllerBase
         }
         catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.COMISION_VENTA_RESIDUAL);
+            }
+
             _log.Error(logTransaccionId, NOMBREARCHIVO, nombreMetodo, "Error", ex);
 
             return Ok(new

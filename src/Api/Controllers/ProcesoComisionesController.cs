@@ -8,6 +8,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -17,7 +18,6 @@ public class ProcesoComisionesController : ControllerBase
 {
     private readonly ILogService _log;
     private readonly IVentasCnxRepository _ventasCnxRepository;
-    private readonly MiCronJob _miCronJob;
     private readonly IProcesoComisionesRepository _procesoComisionesRepository;
     private readonly IAdministracionCicloRepository _administracionCicloRepository;
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
@@ -27,19 +27,20 @@ public class ProcesoComisionesController : ControllerBase
     private readonly IAdministracionSemanaCicloRepository _administracionSemanaCicloRepository;
     private readonly ICuotasVentaResidualRepository _cuotasVentaResidualRepository;
     private readonly ICasosEspecialesRepository _casosEspecialesRepository;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly string NOMBREARCHIVO = "UtilsController.cs";
 
     public ProcesoComisionesController(IVentasCnxRepository ventasCnxRepository, ILogService log
-        , MiCronJob miCronJob, IProcesoComisionesRepository procesoComisionesRepository
+        , IProcesoComisionesRepository procesoComisionesRepository
         , IAdministracionCicloRepository administracionCicloRepository, IAdministracionContratoRepository administracionContratoRepository
         , IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository
         , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository
-        , ICuotasVentaResidualRepository cuotasVentaResidualRepository, ICasosEspecialesRepository casosEspecialesRepository)
+        , ICuotasVentaResidualRepository cuotasVentaResidualRepository, ICasosEspecialesRepository casosEspecialesRepository
+        , IServiceScopeFactory serviceScopeFactory)
     {
         _ventasCnxRepository = ventasCnxRepository;
         _log = log;
         _procesoComisionesRepository = procesoComisionesRepository;
-        _miCronJob = miCronJob;
         _administracionCicloRepository = administracionCicloRepository;
         _administracionContratoRepository = administracionContratoRepository;
         _administracionVentaPersonalRepository = administracionVentaPersonalRepository;
@@ -48,6 +49,7 @@ public class ProcesoComisionesController : ControllerBase
         _administracionSemanaCicloRepository = administracionSemanaCicloRepository;
         _cuotasVentaResidualRepository = cuotasVentaResidualRepository;
         _casosEspecialesRepository = casosEspecialesRepository;
+        _serviceScopeFactory = serviceScopeFactory;
     }
     [HttpGet("vta/cnx")]
     public async Task<IActionResult> GetVentaCnx([FromHeader(Name = "lCicloId")] int lCicloId)
@@ -240,6 +242,24 @@ public class ProcesoComisionesController : ControllerBase
                     data = ""
                 });
             }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId.ToString(),
+                Data.Usuario,
+                ProcesosDiccionario.COMISIONES,
+                Data.LCicloId,
+                pasoEsperado
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
             
 
             if (Data.Rezagada)
@@ -261,7 +281,24 @@ public class ProcesoComisionesController : ControllerBase
                 LCicloId = Data.LCicloId,
                 Paso = Data.Rezagada ? PasosDiccionario.ADICIONAR_VENTAS : Data.EsEspecial? PasosDiccionario.VENTAS_ESPECIALES : PasosDiccionario.OBTENER_VENTAS
             };
-            var t = _miCronJob.ProcesoPrincipal(logTransaccionId.ToString(),dat, Data.ListaSeleccionado);
+
+            var requestProceso = dat;
+            var ventasSeleccionadas = Data.ListaSeleccionado?.ToList() ?? new List<ItemVentaCnx>();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var cronJob = scope.ServiceProvider.GetRequiredService<MiCronJob>();
+                    await cronJob.ProcesoPrincipal(logTransaccionId.ToString(), requestProceso, ventasSeleccionadas);
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, "SaveVenta()", "Error en procesamiento en segundo plano", ex);
+                }
+            });
+
             return Ok(new
             {
                 status = true,
@@ -285,92 +322,165 @@ public class ProcesoComisionesController : ControllerBase
     public async Task<IActionResult> SaveVtaPersonal(RequestSaveVtaPersonal request)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
-        if (PasosDiccionario.COMISION_DIRECTA != responseSiguientePaso.Data.nombre)
+        bool pasoIniciado = false;
+
+        try
         {
-            return Ok(new
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
+            if (PasosDiccionario.COMISION_DIRECTA != responseSiguientePaso.Data.nombre)
             {
-                status = false,
-                mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
-                data = ""
-            });
-        }
-
-        var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
-
-        List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
-        List<VentaPersonalComisionDto> CantidadUpgrade = responseVentaPersonalComision.Data.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
-        if (CantidadUpgrade.Count > 0)
-        {
-            var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
-            ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
-
-            //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
-            foreach (var item in responseVentaPersonalComision.Data)
-            {
-                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
+                return Ok(new
                 {
-                    item.dporcentajecomision = 67;
-                    UpgradeSolicitudDto? upgradeSolicitud = ListaUpgradeSolicitud.Where(x => x.VentaId + "-" + x.ProductoId == item.snroventa).FirstOrDefault();
-                    if (upgradeSolicitud != null)
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId.ToString(),
+                request.Usuario,
+                ProcesosDiccionario.COMISIONES,
+                request.LCicloId,
+                PasosDiccionario.COMISION_DIRECTA
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
+            var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+
+            List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
+            List<VentaPersonalComisionDto> CantidadUpgrade = responseVentaPersonalComision.Data.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
+            if (CantidadUpgrade.Count > 0)
+            {
+                var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
+                ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
+
+                //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
+                foreach (var item in responseVentaPersonalComision.Data)
+                {
+                    if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
                     {
-                        decimal DiferenciaUpgrade = item.dprecio - upgradeSolicitud.MontoHold;
-                        decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
-                        decimal MontoATomar = item.inicial < TresPorCientoDiferencia ? item.inicial : TresPorCientoDiferencia;
-                        item.dcomision = MontoATomar * 67 / 100;
-                        item.inicial = MontoATomar;
+                        item.dporcentajecomision = 67;
+                        UpgradeSolicitudDto? upgradeSolicitud = ListaUpgradeSolicitud.Where(x => x.VentaId + "-" + x.ProductoId == item.snroventa).FirstOrDefault();
+                        if (upgradeSolicitud != null)
+                        {
+                            decimal DiferenciaUpgrade = item.dprecio - upgradeSolicitud.MontoHold;
+                            decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
+                            decimal MontoATomar = item.inicial < TresPorCientoDiferencia ? item.inicial : TresPorCientoDiferencia;
+                            item.dcomision = MontoATomar * 67 / 100;
+                            item.inicial = MontoATomar;
+                        }
+                        item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
                     }
-                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
-                }
-                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION)
-                {
-                    item.dporcentajecomision = 67;
-                 
-                    item.dcomision = item.inicial * 67 / 100;
-                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                    if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION)
+                    {
+                        item.dporcentajecomision = 67;
+
+                        item.dcomision = item.inicial * 67 / 100;
+                        item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                    }
                 }
             }
-        }
 
-        if (responseVentaPersonalComision.Data.Count() != request.ListaComision.Count)
-        {
+            if (responseVentaPersonalComision.Data.Count() != request.ListaComision.Count)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_DIRECTA);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "La cantidad de registro enviada no coincide con la cantidad obtenida de DB",
+                    data = ""
+                });
+            }
+            List<AdministracionVentaPersonal> ListadoVtaPersonal = new List<AdministracionVentaPersonal>();
+            foreach (var item in responseVentaPersonalComision.Data)
+            {
+                AdministracionVentaPersonal row = new AdministracionVentaPersonal
+                {
+                    susuarioadd = request.Usuario,
+                    susuariomod = request.Usuario,
+                    lciclo_id = request.LCicloId,
+                    lcontacto_id = item.lcontacta_id,
+                    dpreciolote = item.inicial,
+                    dporcentajecomision = item.dporcentajecomision,
+                    dcomision = item.dcomision,
+                    lcontrato_id = item.lcontrato_id,
+                    lnrosemana = 1,
+                    lsemana_id = 124,
+                };
+                ListadoVtaPersonal.Add(row);
+            }
+
+            var responseVtaPersonsal = await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal);
+            var responseCalculoVentaResidual = await CalculoVentaResidual(request.LCicloId, request.Inicio, request.Fin, request.Usuario);
+
+            if (!responseVtaPersonsal.Success || !responseCalculoVentaResidual)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_DIRECTA);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseVtaPersonsal.Success ? "No se pudo calcular la venta residual asociada al paso." : responseVtaPersonsal.Mensaje,
+                    data = ""
+                });
+            }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId.ToString(),
+                request.Usuario,
+                ProcesosDiccionario.COMISIONES,
+                request.LCicloId,
+                PasosDiccionario.COMISION_DIRECTA
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
+
             return Ok(new
             {
-                status = false,
-                mensaje = "La cantidad de registro enviada no coincide con la cantidad obtenida de DB",
+                status = responseVtaPersonsal.Success,
+                mensaje = responseVtaPersonsal.Mensaje,
                 data = ""
             });
         }
-        List<AdministracionVentaPersonal> ListadoVtaPersonal = new List<AdministracionVentaPersonal>();
-        foreach (var item in responseVentaPersonalComision.Data)
+        catch (Exception ex)
         {
-            AdministracionVentaPersonal row = new AdministracionVentaPersonal
+            if (pasoIniciado)
             {
-                susuarioadd = request.Usuario,
-                susuariomod = request.Usuario,
-                lciclo_id = request.LCicloId,
-                lcontacto_id = item.lcontacta_id,
-                dpreciolote = item.inicial,
-                dporcentajecomision = item.dporcentajecomision,
-                dcomision = item.dcomision,
-                lcontrato_id = item.lcontrato_id,
-                lnrosemana = 1,
-                lsemana_id = 124,
-            };
-            ListadoVtaPersonal.Add(row);
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_DIRECTA);
+            }
+
+            return Ok(new
+            {
+                status = false,
+                mensaje = ex.Message,
+                data = ""
+            });
         }
-        
-        var responseVtaPersonsal = await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal);
-        var responseCalculoVentaResidual = await CalculoVentaResidual(request.LCicloId, request.Inicio, request.Fin, request.Usuario);
-
-        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_DIRECTA);
-
-        return Ok(new
-        {
-            status = responseVtaPersonsal.Success,
-            mensaje = responseVtaPersonsal.Mensaje,
-            data = ""
-        });
     }
     private async Task<bool> CalculoVentaResidual( int lCicloId, string inicio, string fin, string usuario)
     {
@@ -492,60 +602,133 @@ public class ProcesoComisionesController : ControllerBase
     public async Task<IActionResult> SaveVtaGrupo(RequestGuardarVentaGrupo request)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        bool pasoIniciado = false;
 
-        var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
-        if (PasosDiccionario.COMISION_GRUPO != responseSiguientePaso.Data.nombre)
+        try
         {
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
+            if (PasosDiccionario.COMISION_GRUPO != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId.ToString(),
+                request.Usuario,
+                ProcesosDiccionario.COMISIONES,
+                request.LCicloId,
+                PasosDiccionario.COMISION_GRUPO
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
+            var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+
+            if (responseGetVentaGrupo.Data.Count() != request.ListaComision.Count)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_GRUPO);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "La cantidad de registro enviada no coincide con la cantidad obtenida de DB",
+                    data = ""
+                });
+            }
+            var responseAdministracionSemanaciclo = await _administracionSemanaCicloRepository.GetSemanaCicloId(logTransaccionId.ToString(), request.LCicloId);
+            List<ItemVentaGrupo> ListadoVentaGrupo = new List<ItemVentaGrupo>();
+            foreach (var item in responseGetVentaGrupo.Data)
+            {
+                ItemVentaGrupo row = new ItemVentaGrupo
+                {
+                    usuario = request.Usuario,
+                    lciclo_id = request.LCicloId,
+                    lcontacto_id = item.LGanadorId,
+                    lgeneracion = item.Nivel,
+                    lasesor_id = item.LVendedorId,
+                    dporcentajecomision = item.Porcentaje,
+                    dcomision = item.Comision,
+                    dventapersonal = item.DCuotaInicial,
+                    dventapersonalinicial = item.DCuotaInicial,
+                    lcontrato_id = item.LContratoId,
+                    lnrosemana = responseAdministracionSemanaciclo.Semanas.ToList()[0].LNroSemana,
+                    lsemana_id = responseAdministracionSemanaciclo.Semanas.ToList()[0].LSemanaId,
+                };
+                ListadoVentaGrupo.Add(row);
+            }
+
+            var responseVtaPersonsal = await _administracionVentaGrupoRepository.InsertAdministracionVentaGrupo(logTransaccionId.ToString(), ListadoVentaGrupo);
+
+            if (!responseVtaPersonsal.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_GRUPO);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseVtaPersonsal.Mensaje,
+                    data = ""
+                });
+            }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId.ToString(),
+                request.Usuario,
+                ProcesosDiccionario.COMISIONES,
+                request.LCicloId,
+                PasosDiccionario.COMISION_GRUPO
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
+
             return Ok(new
             {
-                status = false,
-                mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                status = responseVtaPersonsal.Success,
+                mensaje = responseVtaPersonsal.Mensaje,
                 data = ""
             });
         }
-
-        var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
-
-        if (responseGetVentaGrupo.Data.Count() != request.ListaComision.Count)
+        catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_GRUPO);
+            }
+
             return Ok(new
             {
                 status = false,
-                mensaje = "La cantidad de registro enviada no coincide con la cantidad obtenida de DB",
+                mensaje = ex.Message,
                 data = ""
             });
         }
-        var responseAdministracionSemanaciclo = await _administracionSemanaCicloRepository.GetSemanaCicloId(logTransaccionId.ToString(), request.LCicloId);
-        List<ItemVentaGrupo> ListadoVentaGrupo = new List<ItemVentaGrupo>();
-        foreach (var item in responseGetVentaGrupo.Data)
-        {
-            ItemVentaGrupo row = new ItemVentaGrupo
-            {
-                usuario = request.Usuario,
-                lciclo_id = request.LCicloId,
-                lcontacto_id = item.LGanadorId,
-                lgeneracion = item.Nivel,
-                lasesor_id = item.LVendedorId,
-                dporcentajecomision = item.Porcentaje,
-                dcomision = item.Comision,
-                dventapersonal = item.DCuotaInicial,
-                dventapersonalinicial = item.DCuotaInicial,
-                lcontrato_id = item.LContratoId,
-                lnrosemana = responseAdministracionSemanaciclo.Semanas.ToList()[0].LNroSemana,
-                lsemana_id = responseAdministracionSemanaciclo.Semanas.ToList()[0].LSemanaId,
-            };
-            ListadoVentaGrupo.Add(row);
-        }
-        
-        var responseVtaPersonsal = await _administracionVentaGrupoRepository.InsertAdministracionVentaGrupo(logTransaccionId.ToString(), ListadoVentaGrupo);
-        await _controlProcesoRepository.EjecutarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId,  PasosDiccionario.COMISION_GRUPO);
-
-        return Ok(new
-        {
-            status = responseVtaPersonsal.Success,
-            mensaje = responseVtaPersonsal.Mensaje,
-            data = ""
-        });
     }
 
 

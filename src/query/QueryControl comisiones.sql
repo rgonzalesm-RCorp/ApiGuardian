@@ -70,7 +70,7 @@ CREATE TABLE conf_proceso_pasos (
 -- ÍNDICES RECOMENDADOS (MEJOR PERFORMANCE)
 -- ============================================
 CREATE INDEX idx_pasos_proceso ON conf_pasos(proceso_id);
-CREATE INDEX idx_procesos_ciclo ON conf_procesos(lciclo_id);
+CREATE INDEX idx_procesos_nombre_estado ON conf_procesos(nombre, estado);
 CREATE INDEX idx_dependencias_paso ON conf_paso_dependencias(paso_id);
 CREATE INDEX idx_dependencias_requerido ON conf_paso_dependencias(paso_requerido_id);
 CREATE INDEX idx_proceso_instancia ON conf_proceso_instancias(proceso_id);

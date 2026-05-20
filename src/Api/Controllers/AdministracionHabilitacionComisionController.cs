@@ -95,6 +95,7 @@ public class AdministracionHabilitacionComisionController : ControllerBase
             ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()
             : LogTransaccionId;
         string nombreMetodo = "SaveHabilitaciones()";
+        bool pasoIniciado = false;
 
         try
         {
@@ -122,18 +123,6 @@ public class AdministracionHabilitacionComisionController : ControllerBase
                 });
             }
 
-            var response = await _repository.SaveHabilitaciones(logTransaccionId, Usuario, LCicloId, listado);
-
-            if (!response.Success)
-            {
-                return Ok(new
-                {
-                    status = response.Success,
-                    mensaje = response.Mensaje,
-                    data = ""
-                });
-            }
-
             bool debeEjecutarPaso = string.Equals(
                 responseSiguientePaso.Data?.nombre,
                 PasosDiccionario.REGISTRO_HABILITACIONES,
@@ -142,7 +131,48 @@ public class AdministracionHabilitacionComisionController : ControllerBase
 
             if (debeEjecutarPaso)
             {
-                var responsePaso = await _controlProcesoRepository.EjecutarPaso(
+                var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                    logTransaccionId,
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    PasosDiccionario.REGISTRO_HABILITACIONES
+                );
+
+                if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                        data = ""
+                    });
+                }
+
+                pasoIniciado = true;
+            }
+
+            var response = await _repository.SaveHabilitaciones(logTransaccionId, Usuario, LCicloId, listado);
+
+            if (!response.Success)
+            {
+                if (pasoIniciado)
+                {
+                    await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.REGISTRO_HABILITACIONES);
+                    pasoIniciado = false;
+                }
+
+                return Ok(new
+                {
+                    status = response.Success,
+                    mensaje = response.Mensaje,
+                    data = ""
+                });
+            }
+
+            if (debeEjecutarPaso)
+            {
+                var responsePaso = await _controlProcesoRepository.FinalizarPaso(
                     logTransaccionId,
                     Usuario,
                     ProcesosDiccionario.COMISIONES,
@@ -163,6 +193,8 @@ public class AdministracionHabilitacionComisionController : ControllerBase
                         data = ""
                     });
                 }
+
+                pasoIniciado = false;
             }
 
             return Ok(new
@@ -174,6 +206,11 @@ public class AdministracionHabilitacionComisionController : ControllerBase
         }
         catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.REGISTRO_HABILITACIONES);
+            }
+
             _log.Error(logTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return Ok(new
             {
