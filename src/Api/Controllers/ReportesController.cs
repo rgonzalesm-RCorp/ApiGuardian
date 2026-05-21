@@ -38,6 +38,12 @@ namespace ApiGuardian.Controllers
                 var reporteComision = await _repo.GetReporteComision(logId.ToString(), lCicloId, lContactoId);
                 var comision = await _comision.GetComision(logId.ToString(), lContactoId, lCicloId, 1);
                 reporteComision.Data.Comisiones = comision.Data;
+                bool tieneComicion = reporteComision.Data.Comisiones.TotalComision > 0
+                    || reporteComision.Data.VentasPersonales.Any()
+                    || reporteComision.Data.VentasGrupo.Any()
+                    || reporteComision.Data.BonoRedisual.Any()
+                    || reporteComision.Data.BonoPar.Any()
+                    || reporteComision.Data.BonoCarrera.Any();
 
                 var documento = new ReporteComisionesDocumento(reporteComision.Data);
 
@@ -56,7 +62,7 @@ namespace ApiGuardian.Controllers
                         FileName = $"REPORTE DE COMISIONES {reporteComision.Data.Encabezado.NombreCompleto} - {reporteComision.Data.Encabezado.Ciclo}.pdf",
                         FileBase64 = base64Pdf,
                         ContentType = "application/pdf",
-                        tieneComicion = reporteComision.Data.Comisiones.TotalComision > 0,
+                        tieneComicion,
                     }
                     
                 });

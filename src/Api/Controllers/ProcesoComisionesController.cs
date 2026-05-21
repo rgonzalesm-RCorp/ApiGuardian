@@ -23,6 +23,7 @@ public class ProcesoComisionesController : ControllerBase
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IAdministracionVentaPersonalRepository _administracionVentaPersonalRepository;
     private readonly IAdministracionVentaGrupoRepository _administracionVentaGrupoRepository;
+    private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly IAdministracionSemanaCicloRepository _administracionSemanaCicloRepository;
     private readonly ICuotasVentaResidualRepository _cuotasVentaResidualRepository;
@@ -36,6 +37,7 @@ public class ProcesoComisionesController : ControllerBase
         , IAdministracionVentaPersonalRepository administracionVentaPersonalRepository, IControlProcesoRepository controlProcesoRepository
         , IAdministracionVentaGrupoRepository administracionVentaGrupoRepository, IAdministracionSemanaCicloRepository administracionSemanaCicloRepository
         , ICuotasVentaResidualRepository cuotasVentaResidualRepository, ICasosEspecialesRepository casosEspecialesRepository
+        , IAdministracionHabilitacionComisionRepository habilitacionRepository
         , IServiceScopeFactory serviceScopeFactory)
     {
         _ventasCnxRepository = ventasCnxRepository;
@@ -46,6 +48,7 @@ public class ProcesoComisionesController : ControllerBase
         _administracionVentaPersonalRepository = administracionVentaPersonalRepository;
         _controlProcesoRepository = controlProcesoRepository;
         _administracionVentaGrupoRepository = administracionVentaGrupoRepository;
+        _habilitacionRepository = habilitacionRepository;
         _administracionSemanaCicloRepository = administracionSemanaCicloRepository;
         _cuotasVentaResidualRepository = cuotasVentaResidualRepository;
         _casosEspecialesRepository = casosEspecialesRepository;
@@ -578,17 +581,38 @@ public class ProcesoComisionesController : ControllerBase
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var responseVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, lCicloId);
         var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
+
+        if (!responseHabilitaciones.Success)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = responseHabilitaciones.Mensaje,
+                data = ""
+            });
+        }
+
+        var personasHabilitadas = responseHabilitaciones.Data.ToList();
+        var habilitadosSet = personasHabilitadas.Select(x => x.LContactoId).ToHashSet();
+        var listadoVentaGrupo = responseVentaGrupo.Data.ToList();
+
+        foreach (var item in listadoVentaGrupo)
+        {
+            item.EsHabilitado = habilitadosSet.Contains(item.LGanadorId);
+        }
 
         ComisionVentaGrupoXls comi = new ComisionVentaGrupoXls();
 
-        var responseXls = await comi.GetComicionVentaGrupoXls(responseVentaGrupo.Data.ToList());
+        var responseXls = await comi.GetComicionVentaGrupoXls(listadoVentaGrupo);
         return Ok(new{
             status = responseVentaGrupo.Success,
             mensaje = responseVentaGrupo.Mensaje,
             data = new
             {
-                listado = responseVentaGrupo.Data,
+                listado = listadoVentaGrupo,
+                personasHabilitadas,
                 base64Xls = responseXls.base64,
                 controlPasos = new {
                                     ejecutado = PasosDiccionario.COMISION_GRUPO == responseSiguientePaso.Data.nombre ? false : true,

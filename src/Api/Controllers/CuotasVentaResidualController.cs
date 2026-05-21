@@ -16,16 +16,24 @@ public class CuotasVentaResidualController: ControllerBase
 {
     private readonly ICuotasVentaResidualRepository _repo;
     private readonly IAdministracionVentaPersonalRepository _ventaPersonal;
+    private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly ILogService _log;
     private readonly IControlProcesoRepository _controlProcesoRepository; 
 
     private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
 
-    public CuotasVentaResidualController(ICuotasVentaResidualRepository repo, ILogService log, IAdministracionVentaPersonalRepository ventaPersonal, IControlProcesoRepository controlProcesoRepository)
+    public CuotasVentaResidualController(
+        ICuotasVentaResidualRepository repo,
+        ILogService log,
+        IAdministracionVentaPersonalRepository ventaPersonal,
+        IAdministracionHabilitacionComisionRepository habilitacionRepository,
+        IControlProcesoRepository controlProcesoRepository
+    )
     {
         _repo = repo;
         _log = log;
         _ventaPersonal = ventaPersonal;
+        _habilitacionRepository = habilitacionRepository;
         _controlProcesoRepository = controlProcesoRepository;
     }
     private async Task<(decimal Comision, int CuotasComisionables, int CuotasContabilizar)> GetComision(int Tope, int CantidadComisionPagadas, int CuotasPagadasCiclo, int CuotasPagablesCiclo, decimal MesComision)
@@ -66,15 +74,29 @@ public class CuotasVentaResidualController: ControllerBase
             var ResponseCuotasVentaRecidual = await _repo.GetCuotasVentasResidual(logTransaccionId, Usuario, Inicio, Fin, LCicloId);
             var ResponseProductosPagarMensuales = await _repo.GetProductosPagarMensuales(logTransaccionId, Usuario);
             var ResponseComisionVentaPersonas = await _ventaPersonal.GetVentaPersonal(logTransaccionId, Usuario, LCicloId);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId, Usuario, LCicloId);
 
              var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+
+            if (!responseHabilitaciones.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
 
 
             var ListadoCuotasVentasResidual = ResponseCuotasVentaRecidual.ListadoCuotasVentasResidual;
             var ListadoProductosPagarMensual = ResponseProductosPagarMensuales.ListadoProductosPagarMensuales;
             var ListadoVentaPersonal = ResponseComisionVentaPersonas.ListadoAdministracionVentaPersonal;
+            var personasHabilitadas = responseHabilitaciones.Data.ToList();
 
             var asesoresVentaPersonal = ListadoVentaPersonal.Select(x => x.lcontacto_id).ToHashSet();
+            var asesoresHabilitados = personasHabilitadas.Select(x => (long)x.LContactoId).ToHashSet();
+            var asesoresQueReciben = asesoresVentaPersonal.Concat(asesoresHabilitados).ToHashSet();
 
             var tareas = ListadoCuotasVentasResidual.Join(
                 ListadoProductosPagarMensual,
@@ -129,7 +151,10 @@ public class CuotasVentaResidualController: ControllerBase
                         Terminado = producto.Terminado,
                         LasesorId = producto.LasesorId,
 
-                        Recibe = asesoresVentaPersonal.Contains((long)Convert.ToInt32(producto.LasesorId)),
+                        Recibe = producto.LasesorId.HasValue
+                            && asesoresQueReciben.Contains(producto.LasesorId.Value),
+                        EsHabilitado = producto.LasesorId.HasValue
+                            && asesoresHabilitados.Contains(producto.LasesorId.Value),
 
                         TotalComision = resultadoComision.Comision,
                         TotalCuotasComisionables = resultadoComision.CuotasComisionables,
@@ -139,13 +164,6 @@ public class CuotasVentaResidualController: ControllerBase
             );
 
             var ListadoComisionCuotaResidual = (await Task.WhenAll(tareas)).ToList();
- 
-
-
-           foreach (var item in ListadoComisionCuotaResidual)
-           {
-                item.Recibe = ListadoVentaPersonal.Where(a => a.lcontacto_id == item.LasesorId).ToList().Count > 0 ? true : false;
-           }
             ComisionVentaResidualXls xls = new ComisionVentaResidualXls();
             var ResponseXLS = await xls.GetComisionVentaResidualXlS(ListadoComisionCuotaResidual);
             return Ok(new 
@@ -155,6 +173,7 @@ public class CuotasVentaResidualController: ControllerBase
                 data = new
                 {
                     ListadoComisionCuotaResidual,
+                    personasHabilitadas,
                     base64Xls = ResponseXLS.base64,
                     controlPasos = new {
                                     ejecutado = PasosDiccionario.COMISION_VENTA_RESIDUAL == responseSiguientePaso.Data.nombre ? false : true,
@@ -234,6 +253,20 @@ public class CuotasVentaResidualController: ControllerBase
             var responseProductosPagar = await _repo.GetProductosPagarMensuales(logTransaccionId, Usuario);
 
             var responseVentaPersonal = await _ventaPersonal.GetVentaPersonal(logTransaccionId, Usuario, LCicloId);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId, Usuario, LCicloId);
+
+            if (!responseHabilitaciones.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.COMISION_VENTA_RESIDUAL);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
 
             await _repo.SaveCuotasVentasProductosPagarMensual(logTransaccionId, Usuario, responseCuotasResidual.ListadoCuotasVentasResidual.ToList());
 
@@ -241,8 +274,12 @@ public class CuotasVentaResidualController: ControllerBase
             var listadoCuotasVentasResidual = responseCuotasResidual.ListadoCuotasVentasResidual.ToList();
             var listadoProductosPagarMensual = responseProductosPagar.ListadoProductosPagarMensuales.ToList();
             var listadoVentaPersonal = responseVentaPersonal.ListadoAdministracionVentaPersonal.ToList();
+            var asesoresHabilitados = responseHabilitaciones.Data.Select(x => (long)x.LContactoId).ToHashSet();
 
-            var asesoresQueReciben = listadoVentaPersonal.Select(x => x.lcontacto_id).ToHashSet();
+            var asesoresQueReciben = listadoVentaPersonal
+                .Select(x => x.lcontacto_id)
+                .Concat(asesoresHabilitados)
+                .ToHashSet();
 
             var tareasComision = listadoCuotasVentasResidual
                 .Join(
@@ -299,6 +336,8 @@ public class CuotasVentaResidualController: ControllerBase
 
                             Recibe = producto.LasesorId.HasValue 
                                 && asesoresQueReciben.Contains(producto.LasesorId.Value),
+                            EsHabilitado = producto.LasesorId.HasValue
+                                && asesoresHabilitados.Contains(producto.LasesorId.Value),
 
                             TotalComision = resultadoComision.Comision,
                             TotalCuotasComisionables = resultadoComision.CuotasComisionables,

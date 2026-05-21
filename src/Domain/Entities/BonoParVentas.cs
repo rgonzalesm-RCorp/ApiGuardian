@@ -3,6 +3,7 @@ public class ItemBonoPar
     public int LContctoGanadorId { get; set; }
     public string SNombreGanador { get; set; } = "";
     public string SCedulaIdentidadGanador { get; set; } = "";
+    public bool EsHabilitado { get; set; }
     public int PersonaQueVendieron { get; set; }
     public decimal Bono { get; set; }
     public int CantidadVenta { get; set; }

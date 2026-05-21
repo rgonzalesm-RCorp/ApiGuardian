@@ -20,6 +20,7 @@ public class BonoResidualController : ControllerBase
     private readonly IVentasCnxRepository _ventasCnxRepository;
     private readonly IBrConfiguracionRepository _brConfiguracionRepository;
     private readonly IAdministracionBonoResidualRepository _adminBonoResidualRepository;
+    private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly IBonoParRepository _bonoParRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
@@ -28,6 +29,7 @@ public class BonoResidualController : ControllerBase
         , IVentasCnxRepository ventasCnxRepository
         , IBrConfiguracionRepository brConfiguracionRepository
         , IAdministracionBonoResidualRepository administracionBonoResidualRepository
+        , IAdministracionHabilitacionComisionRepository habilitacionRepository
         , IControlProcesoRepository controlProcesoRepository
         , IBonoParRepository bonoParRepository)
     {
@@ -35,6 +37,7 @@ public class BonoResidualController : ControllerBase
         _ventasCnxRepository = ventasCnxRepository;
         _brConfiguracionRepository = brConfiguracionRepository;
         _adminBonoResidualRepository = administracionBonoResidualRepository;
+        _habilitacionRepository = habilitacionRepository;
         _controlProcesoRepository = controlProcesoRepository;
         _bonoParRepository = bonoParRepository;
         _log = log;
@@ -617,14 +620,30 @@ public class BonoResidualController : ControllerBase
         try
         {
             var responserGetBonoResidual = await _bonoResidualRepository.GetDataCalculoBonoResidual(logTransaccionId.ToString(), Usuario, LCicloId);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, LCicloId);
             var responseConfiguracionBr = await _brConfiguracionRepository.GetConfiguracion(logTransaccionId.ToString(), Usuario);
+
+            if (!responseHabilitaciones.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
 
             List<DetailsBrConfiguracion> configuracions = responseConfiguracionBr.Data.Where(x => x.LCicloId == LCicloId).ToList();
             List<BrCalculoItem> listadoResidual = new List<BrCalculoItem>(); 
 
             var contactosDict = responserGetBonoResidual.ListaContacto.ToDictionary(x => x.LContactoId, x => x);
+            var personasHabilitadas = responseHabilitaciones.Data.ToList();
+            var habilitadosSet = personasHabilitadas.Select(x => x.LContactoId).ToHashSet();
 
-            var activosSet = responserGetBonoResidual.ListaContactosActivos.Select(x => x.LContactoId).ToHashSet();
+            var activosSet = responserGetBonoResidual.ListaContactosActivos
+                .Select(x => x.LContactoId)
+                .Concat(habilitadosSet)
+                .ToHashSet();
 
             var configDict = configuracions.Where(x => x.TipoProductoId == 1).ToDictionary(x => x.Nivel, x => x);
 
@@ -701,6 +720,7 @@ public class BonoResidualController : ControllerBase
                 {
                     ListadoResumenPorEmpresa,
                     counter = listadoResidual.Count,
+                    personasHabilitadas,
                     base64 = reponseXLS.base64,
                     controlPasos = new {
                                         ejecutado = PasosDiccionario.COMISION_RESIDUAL == responseSiguientePaso.Data.nombre ? false : true,
@@ -762,16 +782,19 @@ public class BonoResidualController : ControllerBase
             pasoIniciado = true;
 
             var responserGetBonoResidual = await _bonoResidualRepository.GetDataCalculoBonoResidual(logTransaccionId.ToString(), Usuario, LCicloId);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, LCicloId);
             var responseConfiguracionBr = await _brConfiguracionRepository.GetConfiguracion(logTransaccionId.ToString(), Usuario);
 
-            if (!responserGetBonoResidual.Success || !responseConfiguracionBr.Success)
+            if (!responserGetBonoResidual.Success || !responseConfiguracionBr.Success || !responseHabilitaciones.Success)
             {
                 await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.COMISION_RESIDUAL);
                 pasoIniciado = false;
 
                 string mensajeError = !responserGetBonoResidual.Success
                     ? responserGetBonoResidual.Mensaje
-                    : responseConfiguracionBr.Mensaje;
+                    : !responseConfiguracionBr.Success
+                        ? responseConfiguracionBr.Mensaje
+                        : responseHabilitaciones.Mensaje;
 
                 return Ok(new
                 {
@@ -785,8 +808,12 @@ public class BonoResidualController : ControllerBase
             List<BrCalculoItem> listadoResidual = new List<BrCalculoItem>();
 
             var contactosDict = responserGetBonoResidual.ListaContacto.ToDictionary(x => x.LContactoId, x => x);
+            var habilitadosSet = responseHabilitaciones.Data.Select(x => x.LContactoId).ToHashSet();
 
-            var activosSet = responserGetBonoResidual.ListaContactosActivos.Select(x => x.LContactoId).ToHashSet();
+            var activosSet = responserGetBonoResidual.ListaContactosActivos
+                .Select(x => x.LContactoId)
+                .Concat(habilitadosSet)
+                .ToHashSet();
 
             var configDict = configuracions.Where(x => x.TipoProductoId == 1).ToDictionary(x => x.Nivel, x => x);
 
@@ -961,8 +988,28 @@ public class BonoResidualController : ControllerBase
         {
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             var ResponseObtenerBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, LCicloId);
+
+            if (!responseHabilitaciones.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
+
+            var habilitadosSet = responseHabilitaciones.Data.Select(x => x.LContactoId).ToHashSet();
+            var listaBonoPar = ResponseObtenerBonoPar.Data.ToList();
+
+            foreach (var item in listaBonoPar)
+            {
+                item.EsHabilitado = habilitadosSet.Contains(item.LContctoGanadorId);
+            }
+
             BonoParXls bonoParXls = new BonoParXls();
-            var ResponseObtenerXls = await bonoParXls.GetBonoParXls(ResponseObtenerBonoPar.Data.ToList());
+            var ResponseObtenerXls = await bonoParXls.GetBonoParXls(listaBonoPar);
             
             return Ok(new
             {
@@ -970,7 +1017,7 @@ public class BonoResidualController : ControllerBase
                 mensaje = ResponseObtenerBonoPar.Mensaje,
                 data =new
                 {
-                    ListaBonoPar = ResponseObtenerBonoPar.Data,
+                    ListaBonoPar = listaBonoPar,
                     xls = ResponseObtenerXls.base64,
                     controlPasos = new
                     {

@@ -15,14 +15,21 @@ namespace CleanDapperApi.Api.Controllers;
 public class RedesController : ControllerBase
 {
     private readonly IRedesRepository _repo;
+    private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly ILogService _log;
     private readonly IControlProcesoRepository _controlProcesoRepository;
 
     private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
 
-    public RedesController(IRedesRepository repo, ILogService log, IControlProcesoRepository controlProcesoRepository)
+    public RedesController(
+        IRedesRepository repo,
+        IAdministracionHabilitacionComisionRepository habilitacionRepository,
+        ILogService log,
+        IControlProcesoRepository controlProcesoRepository
+    )
     {
         _repo = repo;
+        _habilitacionRepository = habilitacionRepository;
         _log = log;
         _controlProcesoRepository = controlProcesoRepository;
     }
@@ -68,11 +75,55 @@ public class RedesController : ControllerBase
 
             pasoIniciado = true;
 
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId, Usuario, LCicloId);
+            if (!responseHabilitaciones.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(
+                    logTransaccionId,
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    PasosDiccionario.RED_COMPRIMIDA
+                );
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
+
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
             var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
+            var personasHabilitadas = responseHabilitaciones.Data.ToList();
+
+            var contactosActivos = ResponseContactoVentaMes.ListadoContactosActivos
+                .Select(item => new ItemContactoActivo
+                {
+                    LContactoId = item.LContactoId > 0 ? item.LContactoId : item.LVendedorId,
+                    LVendedorId = item.LVendedorId > 0 ? item.LVendedorId : item.LContactoId
+                })
+                .ToList();
+
+            foreach (var habilitado in personasHabilitadas)
+            {
+                if (contactosActivos.Any(x => x.LVendedorId == habilitado.LContactoId))
+                {
+                    continue;
+                }
+
+                contactosActivos.Add(new ItemContactoActivo
+                {
+                    LContactoId = habilitado.LContactoId,
+                    LVendedorId = habilitado.LContactoId
+                });
+            }
 
             List<ItemContactoRed> Lista = new List<ItemContactoRed>();
-            foreach (var item in ResponseContactoVentaMes.ListadoContactosActivos)
+            foreach (var item in contactosActivos)
             {
                 int LContactoId = item.LVendedorId;
                 int LPatrocinadorId = 0;
@@ -85,7 +136,7 @@ public class RedesController : ControllerBase
                     LPatrocinadorId = responsePatrocinador.Padre;
                     if(LPatrocinadorId <= 0)
                         break;
-                    int EstaActivo = ResponseContactoVentaMes.ListadoContactosActivos.Where(x => x.LVendedorId == LPatrocinadorId).Count();
+                    int EstaActivo = contactosActivos.Count(x => x.LVendedorId == LPatrocinadorId);
                     if (EstaActivo > 0)
                     {
                         Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.Padre}");
@@ -157,8 +208,9 @@ public class RedesController : ControllerBase
                 {
                     ini,
                     fin,
-                    Nivel = ResponseContactoVentaMes.ListadoContactosActivos,
+                    Nivel = contactosActivos,
                     RedComprimida = Lista,
+                    personasHabilitadas,
                     ResponseGuardarRedComprimida.Success,
                     ResponseGuardarRedComprimida.Mensaje
 

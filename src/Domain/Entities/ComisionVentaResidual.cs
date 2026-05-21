@@ -137,6 +137,7 @@ public class ListadoComisionCuotaResidual
     public int? Terminado { get; set; }
     public int? LasesorId { get; set; }
     public bool Recibe { get; set; }
+    public bool EsHabilitado { get; set; }
     public decimal TotalComision { get; set; }
     public int TotalCuotasComisionables { get; set; }
     public int TotalCuotasContabilizar { get; set; }

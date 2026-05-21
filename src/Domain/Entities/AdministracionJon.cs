@@ -54,5 +54,6 @@ public class ItemComisionVentaGrupoDto
     public decimal Comision { get; set; }
 
     public bool EsCero { get; set; }
-}
 
+    public bool EsHabilitado { get; set; }
+}
