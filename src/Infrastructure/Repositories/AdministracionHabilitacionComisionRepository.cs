@@ -33,6 +33,7 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
                 AHC.lciclo_id LCicloId,
                 AHC.monto_venta MontoVenta,
                 IFNULL(AHC.observacion, '') Observacion,
+                IFNULL(AHC.genera_comisiones, 1) GeneraComisiones,
                 AHC.estado Estado,
                 AHC.usuario_creacion UsuarioCreacion,
                 AHC.fecha_creacion FechaCreacion,
@@ -109,6 +110,13 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
             return (false, "Todas las habilitaciones deben tener un monto de venta mayor a 0.");
         }
 
+        if (Listado
+            .GroupBy(item => item.LContactoId)
+            .Any(group => group.Key > 0 && group.Count() > 1))
+        {
+            return (false, "No puede registrar la misma persona más de una vez en el mismo ciclo.");
+        }
+
         const string deleteQuery = @"
             DELETE FROM administracionhabilitacioncomision
             WHERE lciclo_id = @LCicloId;
@@ -127,6 +135,7 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
                 lciclo_id,
                 monto_venta,
                 observacion,
+                genera_comisiones,
                 estado,
                 usuario_creacion,
                 fecha_creacion,
@@ -140,6 +149,7 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
                 @LCicloId,
                 @MontoVenta,
                 @Observacion,
+                @GeneraComisiones,
                 @Estado,
                 @UsuarioCreacion,
                 @FechaCreacion,
@@ -180,6 +190,7 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
                 item.LCicloId = LCicloId;
                 item.Estado = 1;
                 item.Observacion = item.Observacion?.Trim() ?? string.Empty;
+                item.GeneraComisiones = item.GeneraComisiones;
                 item.UsuarioCreacion = Usuario;
                 item.FechaCreacion = fechaActual;
                 item.UsuarioModificacion = Usuario;
@@ -192,6 +203,20 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
             {
                 transaction.Rollback();
                 return (false, "No se guardó ninguna habilitación.");
+            }
+
+            var contactosBloqueados = HabilitacionComisionHelper
+                .GetContactosBloqueadosParaComision(Listado)
+                .ToList();
+
+            if (contactosBloqueados.Count > 0)
+            {
+                await LimpiarComisionesNoPermitidasAsync(
+                    connection,
+                    transaction,
+                    LCicloId,
+                    contactosBloqueados
+                );
             }
 
             transaction.Commit();
@@ -251,6 +276,7 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
                 lciclo_id = @LCicloId,
                 monto_venta = @MontoVenta,
                 observacion = @Observacion,
+                genera_comisiones = @GeneraComisiones,
                 usuario_modificacion = @UsuarioModificacion,
                 fecha_modificacion = @FechaModificacion
             WHERE lhabilitacion_id = @LHabilitacionId
@@ -345,5 +371,83 @@ public class AdministracionHabilitacionComisionRepository : IAdministracionHabil
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (false, $"Error al eliminar la habilitación: {ex.Message}");
         }
+    }
+
+    private static async Task LimpiarComisionesNoPermitidasAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction transaction,
+        int LCicloId,
+        List<int> contactosBloqueados
+    )
+    {
+        if (contactosBloqueados.Count == 0)
+        {
+            return;
+        }
+
+        const string deleteBonoParDetalle = @"
+            DELETE BPD
+            FROM bonopardetalle BPD
+            INNER JOIN bonopar BP ON BP.id = BPD.bonopar_id
+            WHERE BP.lciclo_id = @LCicloId
+              AND BP.l_contacto_ganador_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteBonoPar = @"
+            DELETE FROM bonopar
+            WHERE lciclo_id = @LCicloId
+              AND l_contacto_ganador_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteBonoResidual = @"
+            DELETE FROM administracionbonoresidual
+            WHERE lciclo_id = @LCicloId
+              AND lcontacto_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteBonoCompleto = @"
+            DELETE FROM t_bonocompleto
+            WHERE lciclo_id = @LCicloId
+              AND lcontacto_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteRedEmpresaComplejo = @"
+            DELETE FROM administracionredempresacomplejo
+            WHERE lciclo_id = @LCicloId
+              AND lcontacto_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteVentaGrupo = @"
+            DELETE FROM administracionventagrupo
+            WHERE lciclo_id = @LCicloId
+              AND lcontacto_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteVentaPersonal = @"
+            DELETE FROM administracionventapersonal
+            WHERE lciclo_id = @LCicloId
+              AND lcontacto_id IN @ContactosBloqueados;
+        ";
+
+        const string deleteBonoCarrera = @"
+            DELETE FROM administracionbonocarrera
+            WHERE lciclo_id = @LCicloId
+              AND lcontacto_id IN @ContactosBloqueados;
+        ";
+
+        var parameters = new
+        {
+            LCicloId,
+            ContactosBloqueados = contactosBloqueados
+        };
+
+        await connection.ExecuteAsync(deleteBonoParDetalle, parameters, transaction);
+        await connection.ExecuteAsync(deleteBonoPar, parameters, transaction);
+        await connection.ExecuteAsync(deleteBonoResidual, parameters, transaction);
+        await connection.ExecuteAsync(deleteBonoCompleto, parameters, transaction);
+        await connection.ExecuteAsync(deleteRedEmpresaComplejo, parameters, transaction);
+        await connection.ExecuteAsync(deleteVentaGrupo, parameters, transaction);
+        await connection.ExecuteAsync(deleteVentaPersonal, parameters, transaction);
+        await connection.ExecuteAsync(deleteBonoCarrera, parameters, transaction);
     }
 }

@@ -93,9 +93,14 @@ public class CuotasVentaResidualController: ControllerBase
             var ListadoProductosPagarMensual = ResponseProductosPagarMensuales.ListadoProductosPagarMensuales;
             var ListadoVentaPersonal = ResponseComisionVentaPersonas.ListadoAdministracionVentaPersonal;
             var personasHabilitadas = responseHabilitaciones.Data.ToList();
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(personasHabilitadas);
+            var habilitadosComision = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(personasHabilitadas);
 
-            var asesoresVentaPersonal = ListadoVentaPersonal.Select(x => x.lcontacto_id).ToHashSet();
-            var asesoresHabilitados = personasHabilitadas.Select(x => (long)x.LContactoId).ToHashSet();
+            var asesoresVentaPersonal = ListadoVentaPersonal
+                .Select(x => x.lcontacto_id)
+                .Where(id => !contactosBloqueados.Contains(Convert.ToInt32(id)))
+                .ToHashSet();
+            var asesoresHabilitados = habilitadosComision.Select(x => (long)x).ToHashSet();
             var asesoresQueReciben = asesoresVentaPersonal.Concat(asesoresHabilitados).ToHashSet();
 
             var tareas = ListadoCuotasVentasResidual.Join(
@@ -274,10 +279,15 @@ public class CuotasVentaResidualController: ControllerBase
             var listadoCuotasVentasResidual = responseCuotasResidual.ListadoCuotasVentasResidual.ToList();
             var listadoProductosPagarMensual = responseProductosPagar.ListadoProductosPagarMensuales.ToList();
             var listadoVentaPersonal = responseVentaPersonal.ListadoAdministracionVentaPersonal.ToList();
-            var asesoresHabilitados = responseHabilitaciones.Data.Select(x => (long)x.LContactoId).ToHashSet();
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+            var asesoresHabilitados = HabilitacionComisionHelper
+                .GetContactosHabilitadosQueGeneranComision(responseHabilitaciones.Data)
+                .Select(x => (long)x)
+                .ToHashSet();
 
             var asesoresQueReciben = listadoVentaPersonal
                 .Select(x => x.lcontacto_id)
+                .Where(id => !contactosBloqueados.Contains(Convert.ToInt32(id)))
                 .Concat(asesoresHabilitados)
                 .ToHashSet();
 

@@ -5,6 +5,7 @@ public class ItemHabilitacionComision
     public int LCicloId { get; set; }
     public decimal MontoVenta { get; set; }
     public string Observacion { get; set; } = string.Empty;
+    public bool GeneraComisiones { get; set; } = true;
     public int Estado { get; set; } = 1;
     public string UsuarioCreacion { get; set; } = string.Empty;
     public DateTime FechaCreacion { get; set; }

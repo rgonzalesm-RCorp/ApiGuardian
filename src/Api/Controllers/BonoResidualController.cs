@@ -21,6 +21,7 @@ public class BonoResidualController : ControllerBase
     private readonly IBrConfiguracionRepository _brConfiguracionRepository;
     private readonly IAdministracionBonoResidualRepository _adminBonoResidualRepository;
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
+    private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly IBonoParRepository _bonoParRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
@@ -30,6 +31,7 @@ public class BonoResidualController : ControllerBase
         , IBrConfiguracionRepository brConfiguracionRepository
         , IAdministracionBonoResidualRepository administracionBonoResidualRepository
         , IAdministracionHabilitacionComisionRepository habilitacionRepository
+        , IAdministracionContratoRepository administracionContratoRepository
         , IControlProcesoRepository controlProcesoRepository
         , IBonoParRepository bonoParRepository)
     {
@@ -38,6 +40,7 @@ public class BonoResidualController : ControllerBase
         _brConfiguracionRepository = brConfiguracionRepository;
         _adminBonoResidualRepository = administracionBonoResidualRepository;
         _habilitacionRepository = habilitacionRepository;
+        _administracionContratoRepository = administracionContratoRepository;
         _controlProcesoRepository = controlProcesoRepository;
         _bonoParRepository = bonoParRepository;
         _log = log;
@@ -638,10 +641,12 @@ public class BonoResidualController : ControllerBase
 
             var contactosDict = responserGetBonoResidual.ListaContacto.ToDictionary(x => x.LContactoId, x => x);
             var personasHabilitadas = responseHabilitaciones.Data.ToList();
-            var habilitadosSet = personasHabilitadas.Select(x => x.LContactoId).ToHashSet();
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(personasHabilitadas);
+            var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(personasHabilitadas);
 
             var activosSet = responserGetBonoResidual.ListaContactosActivos
                 .Select(x => x.LContactoId)
+                .Where(id => !contactosBloqueados.Contains(id))
                 .Concat(habilitadosSet)
                 .ToHashSet();
 
@@ -808,10 +813,12 @@ public class BonoResidualController : ControllerBase
             List<BrCalculoItem> listadoResidual = new List<BrCalculoItem>();
 
             var contactosDict = responserGetBonoResidual.ListaContacto.ToDictionary(x => x.LContactoId, x => x);
-            var habilitadosSet = responseHabilitaciones.Data.Select(x => x.LContactoId).ToHashSet();
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+            var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(responseHabilitaciones.Data);
 
             var activosSet = responserGetBonoResidual.ListaContactosActivos
                 .Select(x => x.LContactoId)
+                .Where(id => !contactosBloqueados.Contains(id))
                 .Concat(habilitadosSet)
                 .ToHashSet();
 
@@ -860,6 +867,45 @@ public class BonoResidualController : ControllerBase
                 }
             }
             listadoResidual = listadoResidual.Where(x => x.ActivoMes).ToList();
+
+            if (listadoResidual.Count == 0)
+            {
+                var responseFinPasoSinDatos = await _controlProcesoRepository.FinalizarPaso(
+                    logTransaccionId.ToString(),
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    PasosDiccionario.COMISION_RESIDUAL
+                );
+
+                if (!responseFinPasoSinDatos.Success || !(responseFinPasoSinDatos.Data?.status ?? false))
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = responseFinPasoSinDatos.Data?.mensaje ?? responseFinPasoSinDatos.Mensaje,
+                        data = ""
+                    });
+                }
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = true,
+                    mensaje = "No existen registros habilitados para generar bono residual.",
+                    data = new
+                    {
+                        listaCuota = responserGetBonoResidual.ListaCuotaRed.Count(),
+                        contacto = responserGetBonoResidual.ListaContacto.Count(),
+                        Residual = 0,
+                        ResidualActivos = 0,
+                        ResidualInactivos = 0,
+                        inicio,
+                        fin = DateTime.Now
+                    }
+                });
+            }
 
             var listadoBonoCompleto = listadoResidual.GroupBy(x => new {x.Nivel, x.LContactoId, x.LContactoIdHijo, x.DocumentoHijo, x.LComplejoId})
             .Select(g => new ItemBonoCompleto
@@ -989,6 +1035,7 @@ public class BonoResidualController : ControllerBase
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             var ResponseObtenerBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
             var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, LCicloId);
+            var responseContratos = await _administracionContratoRepository.GetAdministracionContratoFechaVentaResidual(logTransaccionId.ToString(), Inicio, Fin);
 
             if (!responseHabilitaciones.Success)
             {
@@ -1000,12 +1047,22 @@ public class BonoResidualController : ControllerBase
                 });
             }
 
-            var habilitadosSet = responseHabilitaciones.Data.Select(x => x.LContactoId).ToHashSet();
-            var listaBonoPar = ResponseObtenerBonoPar.Data.ToList();
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+            var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(responseHabilitaciones.Data);
+            var contratosNormalesSet = responseContratos.Data
+                .Where(item => !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(item.LTipoContratoId))
+                .Select(item => item.LAsesorId)
+                .ToHashSet();
+            var listaBonoPar = ResponseObtenerBonoPar.Data
+                .Where(item =>
+                    !contactosBloqueados.Contains(item.LContctoGanadorId)
+                    && (contratosNormalesSet.Contains(item.LContctoGanadorId) || habilitadosSet.Contains(item.LContctoGanadorId)))
+                .ToList();
 
             foreach (var item in listaBonoPar)
             {
-                item.EsHabilitado = habilitadosSet.Contains(item.LContctoGanadorId);
+                item.EsHabilitado = !contratosNormalesSet.Contains(item.LContctoGanadorId)
+                    && habilitadosSet.Contains(item.LContctoGanadorId);
             }
 
             BonoParXls bonoParXls = new BonoParXls();
@@ -1083,8 +1140,10 @@ public class BonoResidualController : ControllerBase
             pasoIniciado = true;
 
             var responseBonoPar = await _bonoParRepository.GetBonoPar(logTransaccionId.ToString(), Usuario, Inicio, Fin);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, LCicloId);
+            var responseContratos = await _administracionContratoRepository.GetAdministracionContratoFechaVentaResidual(logTransaccionId.ToString(), Inicio, Fin);
 
-            if (!responseBonoPar.Success)
+            if (!responseBonoPar.Success || !responseHabilitaciones.Success)
             {
                 await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId, pasoActual);
                 pasoIniciado = false;
@@ -1092,12 +1151,56 @@ public class BonoResidualController : ControllerBase
                 return Ok(new
                 {
                     status = false,
-                    mensaje = responseBonoPar.Mensaje,
+                    mensaje = !responseBonoPar.Success
+                        ? responseBonoPar.Mensaje
+                        : responseHabilitaciones.Mensaje,
                     data = ""
                 });
             }
 
-            var responseSaveBonoPar = await _bonoParRepository.SaveBonoPar(logTransaccionId.ToString(), Usuario,LCicloId, responseBonoPar.Data.ToList());
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+            var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(responseHabilitaciones.Data);
+            var contratosNormalesSet = responseContratos.Data
+                .Where(item => !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(item.LTipoContratoId))
+                .Select(item => item.LAsesorId)
+                .ToHashSet();
+            var listadoBonoPar = responseBonoPar.Data
+                .Where(item =>
+                    !contactosBloqueados.Contains(item.LContctoGanadorId)
+                    && (contratosNormalesSet.Contains(item.LContctoGanadorId) || habilitadosSet.Contains(item.LContctoGanadorId)))
+                .ToList();
+
+            if (listadoBonoPar.Count == 0)
+            {
+                var responseFinPasoSinDatos = await _controlProcesoRepository.FinalizarPaso(
+                    logTransaccionId.ToString(),
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    pasoActual
+                );
+
+                if (!responseFinPasoSinDatos.Success || !(responseFinPasoSinDatos.Data?.status ?? false))
+                {
+                    return Ok(new
+                    {
+                        status = false,
+                        mensaje = responseFinPasoSinDatos.Data?.mensaje ?? responseFinPasoSinDatos.Mensaje,
+                        data = ""
+                    });
+                }
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = true,
+                    mensaje = "No existen ganadores habilitados para generar bono par.",
+                    data = ""
+                });
+            }
+
+            var responseSaveBonoPar = await _bonoParRepository.SaveBonoPar(logTransaccionId.ToString(), Usuario,LCicloId, listadoBonoPar);
 
             if (!responseSaveBonoPar.Success)
             {

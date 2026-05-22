@@ -167,18 +167,39 @@ public class ProcesoComisionesController : ControllerBase
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
+        var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, lCicloId);
 
         var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, lCicloId);
 
+        if (!responseHabilitaciones.Success)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = responseHabilitaciones.Mensaje,
+                data = ""
+            });
+        }
+
+        var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+        var listadoVentaPersonal = responseVentaPersonal.Data
+            .Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id)))
+            .ToList();
+        var listadoVentaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal
+            .Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id)))
+            .ToList();
+
         List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
-        List<VentaPersonalComisionDto> CantidadUpgrade = responseVentaPersonal.Data.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
+        List<VentaPersonalComisionDto> CantidadUpgrade = listadoVentaPersonal
+            .Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
+            .ToList();
         if (CantidadUpgrade.Count > 0)
         {
             var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), Usuario, lCicloId);
             ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
 
             //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
-            foreach (var item in responseVentaPersonal.Data)
+            foreach (var item in listadoVentaPersonal)
             {
                 if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
                 {
@@ -205,13 +226,13 @@ public class ProcesoComisionesController : ControllerBase
         }
 
         ComisionVentadirectaXls Comi = new ComisionVentadirectaXls();
-        var responseXls = await Comi.GetComicionVentaPersonalXls(responseVentaPersonal.Data.ToList());
+        var responseXls = await Comi.GetComicionVentaPersonalXls(listadoVentaPersonal);
         return Ok(new{
             status = responseVentaPersonal.Success,
             mensaje = responseVentaPersonal.Mensaje,
             data = new {
-                ventaPersonal = responseVentaPersonal.Data, 
-                ventaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal,
+                ventaPersonal = listadoVentaPersonal,
+                ventaPersonalCalculado = listadoVentaPersonalCalculado,
                 base64Xls = responseXls.base64,
                 controlPasos = new {
                             ejecutado = PasosDiccionario.COMISION_DIRECTA == responseSiguientePaso.Data.nombre ? false : true,
@@ -361,16 +382,37 @@ public class ProcesoComisionesController : ControllerBase
             pasoIniciado = true;
 
             var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
+
+            if (!responseHabilitaciones.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_DIRECTA);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
+
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+            var listadoVentaPersonalComision = responseVentaPersonalComision.Data
+                .Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id)))
+                .ToList();
 
             List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
-            List<VentaPersonalComisionDto> CantidadUpgrade = responseVentaPersonalComision.Data.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
+            List<VentaPersonalComisionDto> CantidadUpgrade = listadoVentaPersonalComision
+                .Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
+                .ToList();
             if (CantidadUpgrade.Count > 0)
             {
                 var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
                 ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
 
                 //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
-                foreach (var item in responseVentaPersonalComision.Data)
+                foreach (var item in listadoVentaPersonalComision)
                 {
                     if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
                     {
@@ -396,7 +438,7 @@ public class ProcesoComisionesController : ControllerBase
                 }
             }
 
-            if (responseVentaPersonalComision.Data.Count() != request.ListaComision.Count)
+            if (listadoVentaPersonalComision.Count != request.ListaComision.Count)
             {
                 await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_DIRECTA);
                 pasoIniciado = false;
@@ -409,7 +451,7 @@ public class ProcesoComisionesController : ControllerBase
                 });
             }
             List<AdministracionVentaPersonal> ListadoVtaPersonal = new List<AdministracionVentaPersonal>();
-            foreach (var item in responseVentaPersonalComision.Data)
+            foreach (var item in listadoVentaPersonalComision)
             {
                 AdministracionVentaPersonal row = new AdministracionVentaPersonal
                 {
@@ -427,7 +469,9 @@ public class ProcesoComisionesController : ControllerBase
                 ListadoVtaPersonal.Add(row);
             }
 
-            var responseVtaPersonsal = await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal);
+            (bool Success, string Mensaje) responseVtaPersonsal = ListadoVtaPersonal.Count > 0
+                ? await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal)
+                : (true, "No existen ventas personales que generen comisión para guardar.");
             var responseCalculoVentaResidual = await CalculoVentaResidual(request.LCicloId, request.Inicio, request.Fin, request.Usuario);
 
             if (!responseVtaPersonsal.Success || !responseCalculoVentaResidual)
@@ -494,8 +538,22 @@ public class ProcesoComisionesController : ControllerBase
             var complejosMembresia = new HashSet<int> { 85, 29, 58, 95, 98, 101, 102 };
 
             var responseContrato = await _administracionContratoRepository.GetAdministracionContratoFechaVentaResidual(logTransaccionId.ToString(), inicio, fin);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), usuario, lCicloId);
 
-            var listado = responseContrato.Data.Select(item =>
+            if (!responseHabilitaciones.Success)
+            {
+                return false;
+            }
+
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+
+            // Las ventas especiales no deben generar base para el bono residual y
+            // una habilitación con GeneraComisiones = false no debe generar bonos.
+            var listado = responseContrato.Data
+                .Where(item =>
+                    !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(item.LTipoContratoId)
+                    && !contactosBloqueados.Contains(item.LAsesorId))
+                .Select(item =>
             {
                 bool esMembresia = complejosMembresia.Contains(item.LComplejoId);
 
@@ -595,8 +653,11 @@ public class ProcesoComisionesController : ControllerBase
         }
 
         var personasHabilitadas = responseHabilitaciones.Data.ToList();
-        var habilitadosSet = personasHabilitadas.Select(x => x.LContactoId).ToHashSet();
-        var listadoVentaGrupo = responseVentaGrupo.Data.ToList();
+        var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(personasHabilitadas);
+        var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(personasHabilitadas);
+        var listadoVentaGrupo = responseVentaGrupo.Data
+            .Where(item => !contactosBloqueados.Contains(item.LGanadorId))
+            .ToList();
 
         foreach (var item in listadoVentaGrupo)
         {
@@ -662,8 +723,27 @@ public class ProcesoComisionesController : ControllerBase
             pasoIniciado = true;
 
             var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
 
-            if (responseGetVentaGrupo.Data.Count() != request.ListaComision.Count)
+            if (!responseHabilitaciones.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_GRUPO);
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
+
+            var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
+            var listadoVentaGrupoCalculado = responseGetVentaGrupo.Data
+                .Where(item => !contactosBloqueados.Contains(item.LGanadorId))
+                .ToList();
+
+            if (listadoVentaGrupoCalculado.Count != request.ListaComision.Count)
             {
                 await _controlProcesoRepository.CancelarPaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId, PasosDiccionario.COMISION_GRUPO);
                 pasoIniciado = false;
@@ -677,7 +757,7 @@ public class ProcesoComisionesController : ControllerBase
             }
             var responseAdministracionSemanaciclo = await _administracionSemanaCicloRepository.GetSemanaCicloId(logTransaccionId.ToString(), request.LCicloId);
             List<ItemVentaGrupo> ListadoVentaGrupo = new List<ItemVentaGrupo>();
-            foreach (var item in responseGetVentaGrupo.Data)
+            foreach (var item in listadoVentaGrupoCalculado)
             {
                 ItemVentaGrupo row = new ItemVentaGrupo
                 {
@@ -697,7 +777,9 @@ public class ProcesoComisionesController : ControllerBase
                 ListadoVentaGrupo.Add(row);
             }
 
-            var responseVtaPersonsal = await _administracionVentaGrupoRepository.InsertAdministracionVentaGrupo(logTransaccionId.ToString(), ListadoVentaGrupo);
+            (bool Success, string Mensaje) responseVtaPersonsal = ListadoVentaGrupo.Count > 0
+                ? await _administracionVentaGrupoRepository.InsertAdministracionVentaGrupo(logTransaccionId.ToString(), ListadoVentaGrupo)
+                : (true, "No existen comisiones de grupo habilitadas para guardar.");
 
             if (!responseVtaPersonsal.Success)
             {

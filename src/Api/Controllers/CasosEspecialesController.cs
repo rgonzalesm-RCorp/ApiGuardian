@@ -49,6 +49,8 @@ public class CasosEspecialesController : ControllerBase
             }*/
             var ResponseVentasEspeciales = await _casosEspecialesRepository.GetVentasCasosEspeciales(logTransaccionId, Usuario, Inicio, Fin);
             var responseContratofecha = await _administracionContratoRepository.GetContratoFecha(logTransaccionId.ToString(), Inicio, Fin);
+            var xls = new CasosEspecialesXls();
+            var responseXls = await xls.GetCasosEspecialesXls(ResponseVentasEspeciales.VentasCasosEspeciales.ToList());
 
     
 
@@ -59,7 +61,8 @@ public class CasosEspecialesController : ControllerBase
                 data = new
                 {
                     VentasCasosEspeciales = ResponseVentasEspeciales.VentasCasosEspeciales,
-                    VtaGrd = responseContratofecha.Data
+                    VtaGrd = responseContratofecha.Data,
+                    base64Xls = responseXls.base64
                 }
             });
         }

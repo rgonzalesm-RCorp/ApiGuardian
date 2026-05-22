@@ -565,7 +565,13 @@ public class BonoResidualRepository : IBonoResidualRepository
                                     , scodigo Codigo
                                     , lpatrocinante_id LPatrocinanteId
                                 from tmp_residual_contacto";
-        string queryContactosActivos = @"select DISTINCT lcontacto_id LContactoId from administracionventapersonal where lciclo_id = @LCicloId";
+        string queryContactosActivos = @$"
+            SELECT DISTINCT VP.lcontacto_id LContactoId
+            FROM administracionventapersonal VP
+            INNER JOIN administracioncontrato AC ON AC.lcontrato_id = VP.lcontrato_id
+            WHERE VP.lciclo_id = @LCicloId
+              AND AC.ltipocontrato_id NOT IN ({string.Join(", ", HabilitacionComisionHelper.TiposContratoEspeciales)});
+        ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [queryCuota: {queryCuota}, queryContacto: {queryContacto}, usuario: {Usuario}]");
 

@@ -4,12 +4,35 @@ CREATE TABLE IF NOT EXISTS administracionhabilitacioncomision (
     lciclo_id INT NOT NULL,
     monto_venta DECIMAL(18,2) NOT NULL,
     observacion VARCHAR(500) NULL,
+    genera_comisiones TINYINT(1) NOT NULL DEFAULT 1,
     estado INT NOT NULL DEFAULT 1,
     usuario_creacion VARCHAR(100) NOT NULL,
     fecha_creacion DATETIME NOT NULL,
     usuario_modificacion VARCHAR(100) NULL,
     fecha_modificacion DATETIME NULL
 );
+
+SET @column_exists := (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'administracionhabilitacioncomision'
+      AND COLUMN_NAME = 'genera_comisiones'
+);
+
+SET @sql := IF(
+    @column_exists = 0,
+    'ALTER TABLE administracionhabilitacioncomision ADD COLUMN genera_comisiones TINYINT(1) NOT NULL DEFAULT 1 AFTER observacion;',
+    'SELECT ''La columna genera_comisiones ya existe.'';'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+UPDATE administracionhabilitacioncomision
+SET genera_comisiones = 1
+WHERE genera_comisiones IS NULL;
 
 UPDATE conf_pasos CP
 INNER JOIN conf_procesos PR ON PR.id = CP.proceso_id

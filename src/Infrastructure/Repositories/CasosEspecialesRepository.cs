@@ -35,15 +35,66 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
         try
         {
             using var connection = _contextSql.CreateConnection();
+            using var connectionMySql = _context.CreateConnection();
 
-            var Lista = await connection.QueryAsync<ItemVentaCnx>(query, new {Inicio, Fin});
+            var listaEspeciales = (await connection.QueryAsync<ItemVentaCnx>(query, new {Inicio, Fin}))
+                .Where(item => HabilitacionComisionHelper.TiposComisionablesEspecialesCnx.Contains(item.TipoComisionable))
+                .ToList();
+
+            var documentosVendedores = listaEspeciales
+                .Select(item => item.SCedulaIdentidadVendedor?.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct()
+                .ToList();
+
+            var vendedoresConVentaNormal = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (documentosVendedores.Count > 0)
+            {
+                const string queryVentasNormales = @"
+                    SELECT DISTINCT TRIM(ACON.scedulaidentidad) DocumentoVendedor
+                    FROM administracioncontrato ACT
+                    INNER JOIN administracioncontacto ACON ON ACON.lcontacto_id = ACT.lasesor_id
+                    WHERE ACT.dtfecha BETWEEN @Inicio AND @Fin
+                      AND ACT.ltipocontrato_id NOT IN @TiposContratoEspeciales
+                      AND TRIM(ACON.scedulaidentidad) IN @DocumentosVendedores;
+                ";
+
+                var vendedoresNormales = await connectionMySql.QueryAsync<string>(
+                    queryVentasNormales,
+                    new
+                    {
+                        Inicio,
+                        Fin,
+                        TiposContratoEspeciales = HabilitacionComisionHelper.TiposContratoEspeciales,
+                        DocumentosVendedores = documentosVendedores
+                    }
+                );
+
+                vendedoresConVentaNormal = vendedoresNormales.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+
+            // Regla nueva:
+            // - con al menos una venta normal, se incluyen todos sus especiales;
+            // - sin venta normal, solo se incluyen si el vendedor tiene 2 o más especiales.
+            var listaFiltrada = listaEspeciales
+                .GroupBy(item => !string.IsNullOrWhiteSpace(item.SCedulaIdentidadVendedor)
+                    ? item.SCedulaIdentidadVendedor.Trim()
+                    : $"VEN-{item.VendedorId}")
+                .Where(group =>
+                    vendedoresConVentaNormal.Contains(group.Key) || group.Count() >= 2
+                )
+                .SelectMany(group => group)
+                .ToList();
 
             bool success = true;
-            string mensaje = success ? "Casos especiales obtenidos correctamente." : "No se encontraron casos especiales.";
+            string mensaje = listaFiltrada.Count > 0
+                ? "Casos especiales obtenidos correctamente."
+                : "No se encontraron casos especiales que cumplan la regla del proceso.";
 
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [mensaje: {mensaje}]");
 
-            return (Lista ?? Enumerable.Empty<ItemVentaCnx>(), success, mensaje);
+            return (listaFiltrada, success, mensaje);
         }
         catch (Exception ex)
         {
