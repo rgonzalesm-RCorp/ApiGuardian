@@ -24,6 +24,7 @@ public class BonoResidualController : ControllerBase
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
     private readonly IBonoParRepository _bonoParRepository;
+    private readonly IAdministracionComplejoRepository _administracionComplejoRepository;
     private readonly string NOMBREARCHIVO = "BonoResidualController.cs";
     public BonoResidualController(ILogService log
         , IBonoResidualRepository bonoResidualRepository
@@ -33,7 +34,9 @@ public class BonoResidualController : ControllerBase
         , IAdministracionHabilitacionComisionRepository habilitacionRepository
         , IAdministracionContratoRepository administracionContratoRepository
         , IControlProcesoRepository controlProcesoRepository
-        , IBonoParRepository bonoParRepository)
+        , IBonoParRepository bonoParRepository
+        , IAdministracionComplejoRepository administracionComplejoRepository
+        )
     {
         _bonoResidualRepository = bonoResidualRepository;
         _ventasCnxRepository = ventasCnxRepository;
@@ -43,6 +46,7 @@ public class BonoResidualController : ControllerBase
         _administracionContratoRepository = administracionContratoRepository;
         _controlProcesoRepository = controlProcesoRepository;
         _bonoParRepository = bonoParRepository;
+        _administracionComplejoRepository = administracionComplejoRepository;
         _log = log;
     }
     [HttpGet("get/cartera")]
@@ -295,7 +299,7 @@ public class BonoResidualController : ControllerBase
         {
             DateTime ini = DateTime.Now;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
-            /*if (PasosDiccionario.OBTENER_CUOTAS != responseSiguientePaso.Data.nombre)
+            if (PasosDiccionario.OBTENER_CUOTAS != responseSiguientePaso.Data.nombre)
             {
                 return Ok(new
                 {
@@ -303,7 +307,7 @@ public class BonoResidualController : ControllerBase
                     mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
                     data = ""
                 });
-            }*/
+            }
 
             var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
                 logTransaccionId.ToString(),
@@ -340,6 +344,7 @@ public class BonoResidualController : ControllerBase
                     data = ""
                 });
             }
+            List<TCuota> ListaCuota = responseCuota.ListaCuota.ToList();
             var responseGuardarCuota = await GuardarCuotaGrl(logTransaccionId.ToString(), Usuario, responseCuota.ListaCuota.ToList(), nombreArchivo);
 
             if (!responseGuardarCuota.Success)
@@ -523,6 +528,7 @@ public class BonoResidualController : ControllerBase
                 {
                     Idproducto = item.Lote,
                     Idproyecto = item.LComplejoId,
+                    LComplejoId = item.LComplejoId,
                     Proyecto =  item.Complejo ?? "",
                     Idrecibo = 0,
                     Idventa = item.IdVenta,
@@ -548,6 +554,7 @@ public class BonoResidualController : ControllerBase
                     Montodeuda = 0,
                     Pagosacuenta = 0,
                     Nrocuota = 0,
+                    Empresa = item.Empresa ?? "",
 
                 };
                 ListaExcedente.Add(row);

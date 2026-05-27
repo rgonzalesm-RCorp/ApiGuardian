@@ -15,7 +15,7 @@ namespace Query.Cnx
             foreach (var item in empresas)
             {
                 query += @$"
-                    SELECT {item.EmpresaId} EmpresaId,'{item.Nombre}' Nombre, V.FECHA DFecha
+                    SELECT {item.EmpresaId} EmpresaId,'{item.Nombre}' Empresa, V.FECHA DFecha
                         , PC.NROMANZANO SManzano, RTRIM(P.CODFABRICA) SLote
                         , V.IDALMACEN LComplejoId, V.IDVENTA IdVenta, RTRIM(VC.LOTES) Lote , PC.UV SUV
                         , ISNULL(VC.PRECIO_LISTA, V.TOTALVENTA) PrecioInicial
@@ -181,12 +181,12 @@ namespace Query.Cnx
                 query =  query.Substring(0, query.Length - 10);
 
                 query = $@"SELECT 
-                            ISNULL(CG.LCOMPLEJO_ID, 0) LComplejoId ,
+                            ISNULL(T.IDPROYECTO, 0) LComplejoId ,
                             T.*
                         FROM
                         ({query})T
                         LEFT JOIN BDBPMSION.dbo.SolicitudReprogramacion D ON D.IDVENTA =T.IDVENTA AND D.IdEstadoSolicitud IN (2,3,4,5)
-                        LEFT JOIN BDComisiones.dbo.T_EMPRESACOMPLEJO CG ON CG.IDPROYECTO = T.IDPROYECTO
+                        
                         WHERE
                             T.FECHA_PAGO >= @inicio 
                             AND T.FECHA_PAGO <= @fin 

@@ -264,17 +264,18 @@ public class ReportesRepository : IReportesRepository
                                                         dat.lciclo_id LCicloId
                                                     FROM
                                                     (
-                                                        SELECT
+                                                        SELECT 
                                                             vtaGrupo.lcontacto_id,
                                                             contrato.lcomplejo_id,
-                                                            em.empresa_id AS lempresa_id,
-                                                            em.empresa_nombre AS empresa,
+                                                            em.lempresa_id AS lempresa_id,
+                                                            em.snombre AS empresa,
                                                             vtaGrupo.dcomision AS comision_vta_grupo_residual,
                                                             0 AS comision_vta_personal,
                                                             vtaGrupo.lciclo_id
                                                         FROM administracionventagrupo vtaGrupo
                                                             INNER JOIN administracioncontrato contrato USING (lcontrato_id)
-                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = contrato.lcomplejo_id
+                                                            INNER JOIN (SELECT DISTINCT empresa_id, complejo_id FROM EMPRESA_COMPLEJO) ac on ac.complejo_id = contrato.lcomplejo_id
+                                                            INNER JOIN administracionempresa em ON em.lempresa_id = ac.empresa_id 
                                                         WHERE vtaGrupo.lciclo_id = @LCicloId
                                                         AND vtaGrupo.lcontacto_id > 1
                                                         AND vtaGrupo.lcontacto_id = @LContactoId
@@ -284,14 +285,14 @@ public class ReportesRepository : IReportesRepository
                                                         SELECT
                                                             residual.lcontacto_id,
                                                             residual.lcomplejo_id,
-                                                            em.empresa_id AS lempresa_id,
-                                                            em.empresa_nombre AS empresa,
+                                                            em.lempresa_id AS lempresa_id,
+                                                            em.snombre AS empresa,
                                                             residual.dmonto AS comision_vta_grupo_residual,
                                                             0 AS comision_vta_personal,
                                                             residual.lciclo_id
                                                         FROM administracionredempresacomplejo residual
-                                                            INNER JOIN administracioncomplejo complejo USING (lcomplejo_id)
-                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = residual.lcomplejo_id
+                                                            INNER JOIN (SELECT DISTINCT empresa_id, complejo_id FROM EMPRESA_COMPLEJO) complejo on complejo.complejo_id = residual.lcomplejo_id
+                                                            INNER JOIN administracionempresa em ON em.lempresa_id = complejo.empresa_id
                                                         WHERE residual.lciclo_id = @LCicloId
                                                         AND residual.lcontacto_id = @LContactoId
 
@@ -300,14 +301,15 @@ public class ReportesRepository : IReportesRepository
                                                         SELECT
                                                             vtaPersonal.lcontacto_id,
                                                             contrato.lcomplejo_id,
-                                                            em.empresa_id AS lempresa_id,
-                                                            em.empresa_nombre AS empresa,
+                                                            em.lempresa_id AS lempresa_id,
+                                                            em.snombre AS empresa,
                                                             0 AS comision_vta_grupo_residual,
                                                             vtaPersonal.dcomision AS comision_vta_personal,
                                                             vtaPersonal.lciclo_id
                                                         FROM administracionventapersonal vtaPersonal
                                                             INNER JOIN administracioncontrato contrato USING (lcontrato_id)
-                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = contrato.lcomplejo_id
+                                                            INNER JOIN (SELECT DISTINCT empresa_id, complejo_id FROM EMPRESA_COMPLEJO) ec on ec.complejo_id = contrato.lcomplejo_id
+                                                            INNER JOIN administracionempresa em ON em.lempresa_id = ec.empresa_id
                                                         WHERE vtaPersonal.lciclo_id = @LCicloId
                                                         AND vtaPersonal.lcontacto_id = @LContactoId
 
@@ -329,21 +331,7 @@ public class ReportesRepository : IReportesRepository
                                                         AND bonopar.l_contacto_ganador_id = @LContactoId
                                                         GROUP BY bonopar.l_contacto_ganador_id, contrato.lcomplejo_id, em.empresa_id, em.empresa_nombre, bonopar.lciclo_id
 
-                                                        UNION ALL
-
-                                                        SELECT
-                                                            top_vend.vendedor_lcontacto_id AS lcontacto_id,
-                                                            top_vend.lcomplejo_id,
-                                                            em.empresa_id AS lempresa_id,
-                                                            em.empresa_nombre AS empresa,
-                                                            top_vend.pagar AS comision_vta_grupo_residual,
-                                                            0 AS comision_vta_personal,
-                                                            top_vend.lciclo_id
-                                                        FROM t_top_vendedores top_vend
-                                                            INNER JOIN administracioncomplejo complejo USING (lcomplejo_id)
-                                                            INNER JOIN complejosempresa em ON em.lcomplejo_id = top_vend.lcomplejo_id
-                                                        WHERE top_vend.lciclo_id = @LCicloId
-                                                        AND top_vend.vendedor_lcontacto_id = @LContactoId
+                                                        
 
                                                     ) dat
                                                         INNER JOIN administracioncontacto contacto 

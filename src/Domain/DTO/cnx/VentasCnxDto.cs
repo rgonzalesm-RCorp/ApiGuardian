@@ -5,6 +5,7 @@ public class ItemVentaCnx
     public int LContratoId { get; set; }
     public DateTime DFecha { get; set; }
     public string? SManzano { get; set; }
+    public string? Empresa { get; set; }
     public string? SLote { get; set; }
     public decimal DPrecio { get; set; }
     public int LComplejoId { get; set; }

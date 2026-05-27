@@ -263,7 +263,7 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                         @LCicloId{j},
                         @LContactoIdHijo{j},
                         @DocumentoHijo{j},
-                        @LComplejoId{j},
+                        COALESCE((SELECT complejo_id FROM empresa_complejo WHERE id_almacen_conexion = @LComplejoId{j} LIMIT 1),0),
                         @TotalBono{j},
                         1,
                         @TotalPago{j},
@@ -396,7 +396,7 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                         @LRedEmpresaComplejoId{j},
                         @LCicloId{j},
                         @LContactoId{j},
-                        @LComplejoId{j},
+                        COALESCE((SELECT complejo_id FROM empresa_complejo WHERE id_almacen_conexion = @LComplejoId{j} LIMIT 1),0),
                         @DMonto{j}
                     )");
 
