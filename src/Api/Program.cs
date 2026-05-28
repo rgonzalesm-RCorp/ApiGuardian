@@ -52,6 +52,7 @@ builder.Services.AddQuartzHostedService(q =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient();
 //builder.Services.AddHostedService<MiCronJob>();
 
 builder.Services.AddSingleton<DapperContext>();
@@ -91,6 +92,7 @@ builder.Services.AddScoped<IRedesRepository, RedesRepository>();
 builder.Services.AddScoped<IBonoParRepository, BonoParRepository>();
 builder.Services.AddScoped<ICuotasVentaResidualRepository, CuotasVentaResidualRepository>();
 builder.Services.AddScoped<ICasosEspecialesRepository, CasosEspecialesRepository>();
+builder.Services.AddScoped<IAplicacionesRepository, AplicacionesRepository>();
 
 builder.Services.AddSingleton<ILogService, LogService>();
 

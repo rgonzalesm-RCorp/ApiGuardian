@@ -645,6 +645,147 @@ flowchart TD
     N --> O[status=true]
 ```
 
+## Controller: AplicacionesController
+Patrón: orquestación del proceso legado de aplicaciones en una carpeta aislada `Aplicaciones`, con dos modos: `preview` para simulación y `apply` para ejecución real.
+
+| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Preview` | `GET /api/aplicaciones/preview` | Header `lCicloId` | Ejecuta el flujo en memoria; no limpia tablas, no inserta en `AplicacionesComisionado` y no marca procesados | `IAplicacionesRepository.Preview` | Reutiliza fuentes de Guardian, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, comisionados y operaciones planificadas |
+| `Apply` | `POST /api/aplicaciones/apply` | Body `AplicacionesExecuteRequest` con `lCicloId` | Valida conexiones, limpia tablas del ciclo en `grdsion` y `BDQISHUR`, recarga datos base, sincroniza comisiones, procesa cada comisionado y marca procesados | `IAplicacionesRepository.Apply` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesComisionado`, `AplicacionesPagos`, `AplicacionesProrrateo` y tablas CNX/Guardian del flujo | Estado final del proceso, comisionados procesados, errores y operaciones ejecutadas |
+
+### Método: Apply
+
+- Endpoint: `POST /api/aplicaciones/apply`
+- Descripción: ejecuta el flujo completo de aplicaciones sin `Neizan`, preservando Grupo Sion, Carta, Descuentos, Prorrateo y el marcado final del comisionado.
+- Parámetros:
+  - Body `AplicacionesExecuteRequest`
+  - Campo obligatorio `lCicloId`
+- Validaciones principales:
+  - Deben responder la conexión Guardian y la conexión SQL Server/Conexion.
+  - Antes de aplicar, se eliminan los datos derivados del ciclo en `grdsion` y `BDQISHUR`.
+  - Si `AplicacionesComisionPorEmpresa` no existe para el ciclo, se reconstruye desde `tbl_retencionempresa` y `tbl_retencionempresa_exterior`.
+  - Si `AplicacionesComisionado` no existe para el ciclo, se registra antes de buscar pendientes.
+  - Si un comisionado produce error grave en Grupo Sion, Carta, Descuentos o Prorrateo, el proceso se detiene.
+- Servicio o repositorio que invoca:
+  - `IAplicacionesRepository.Apply`
+  - Orquestación en `AplicacionesRepository.RunProcessAsync(...)`
+- Métodos internos llamados:
+  - `ValidateConnectionsAsync`
+  - `ClearCycleDataAsync`
+  - `LoadLatestCommissionDataAsync`
+  - `LoadMissingPrioritiesAsync`
+  - `ExistsCompanyCommissionsAsync`
+  - `SyncCompanyCommissionsAsync`
+  - `GetGuardianCommissionAgentsAsync`
+  - `ExistsCommissionedAgentsAsync`
+  - `RegisterCommissionedAgentsAsync`
+  - `GetPendingCommissionedAgentsAsync`
+  - `ProcessAgentAsync`
+  - `ApplyGroupSionAsync`
+  - `ApplyCartaAsync`
+  - `ApplyDiscountsAsync`
+  - `ApplyProrationAsync`
+  - `MarkProcessedAsync`
+- Archivos `.cs` involucrados:
+  - `src/Api/Controllers/Aplicaciones/AplicacionesController.cs`
+  - `src/Application/Interface/Aplicaciones/IAplicacionesRepository.cs`
+  - `src/Domain/Entities/Aplicaciones/AplicacionesModels.cs`
+  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepository.cs`
+  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepository.Data.cs`
+  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepository.Queries.cs`
+- Flujo agrupado:
+  - Grupo 1. Entrada HTTP y delegación:
+    `AplicacionesController.cs` recibe `lCicloId`, registra logs y delega a `IAplicacionesRepository.Apply(...)`.
+  - Grupo 2. Validación y limpieza del ciclo:
+    `AplicacionesRepository.cs` llama `RunProcessAsync(...)` y `AplicacionesRepository.Data.cs` ejecuta `ValidateConnectionsAsync(...)` y `ClearCycleDataAsync(...)`.
+    Se limpian `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `BDQISHUR.dbo.AplicacionesProrrateo`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesComisionado` y `BDQISHUR.dbo.AplicacionesComisionPorEmpresa`.
+  - Grupo 3. Preparación base:
+    `LoadLatestCommissionDataAsync(...)` ejecuta `CALL RetencionEmpresa();` y `LoadMissingPrioritiesAsync(...)` inserta prioridades faltantes.
+  - Grupo 4. Sincronización de comisiones y comisionados:
+    `ExistsCompanyCommissionsAsync(...)`, `SyncCompanyCommissionsAsync(...)`, `GetGuardianCommissionAgentsAsync(...)`, `ExistsCommissionedAgentsAsync(...)`, `RegisterCommissionedAgentsAsync(...)` y `GetPendingCommissionedAgentsAsync(...)`.
+    Aquí se alimentan `AplicacionesComisionPorEmpresa` y `AplicacionesComisionado` si aún no existen para el ciclo.
+  - Grupo 5. Aplicación por comisionado:
+    `ProcessAgentAsync(...)` ejecuta en orden `ApplyGroupSionAsync(...)`, `ApplyCartaAsync(...)`, `ApplyDiscountsAsync(...)`, `ApplyProrationAsync(...)` y `MarkProcessedAsync(...)`.
+    Grupo Sion resuelve cartera, cuotas, productos reprogramados, pago completo o pago a cuenta, recibo y facturación; Carta aplica pagos por beneficiario; Descuentos registra cargos por prioridad; Prorrateo reparte el saldo entre empresas y deja trazabilidad en `AplicacionesProrrateo`.
+  - Grupo 6. Cierre:
+    Se consolida la respuesta `AplicacionesApplyResponse` desde `AplicacionesModels.cs` y se devuelve el resumen del proceso.
+- Tablas o vistas consultadas si se puede identificar:
+  - Preparación y limpieza:
+    `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `BDQISHUR.dbo.AplicacionesProrrateo`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesComisionado`, `BDQISHUR.dbo.AplicacionesComisionPorEmpresa`, `BDQISHUR.dbo.AplicacionesPrioridad`
+  - Sincronización:
+    `BDQISHUR.dbo.AplicacionesEmpresaGuardianAsumeSion`, `administracioncontacto`, `administracionventapersonal`, `administracionventagrupo`, `administracionredempresacomplejo`, `t_ganadores_bonoliderazgo_empresa_pagar`, `t_bono_liderazgo`, `t_top_vendedores`
+  - Pago y aplicación:
+    `BDComisiones.dbo.vwLOTES_GRL_DOCID`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesProrrateo` y consultas CNX definidas en `AplicacionesRepository.Queries.cs`
+- Respuesta final esperada:
+  - `status=true|false`
+  - `mensaje`
+  - `data` con `LCicloId`, `Preview=false`, `ErrorGrave`, notas del proceso, conteos y detalle por comisionado/operación
+
+```mermaid
+flowchart TD
+    A[Cliente POST /api/aplicaciones/apply] --> B[AplicacionesController.cs Apply]
+    B --> C[AplicacionesRepository.cs RunProcessAsync]
+    C --> D[AplicacionesRepository.Data.cs ValidateConnectionsAsync]
+    C --> E[AplicacionesRepository.Data.cs ClearCycleDataAsync]
+    E --> E1[(grdsion.tbl_retencionempresa)]
+    E --> E2[(grdsion.tbl_retencionempresa_exterior)]
+    E --> E3[(BDQISHUR.dbo.AplicacionesComisionPorEmpresa)]
+    E --> E4[(BDQISHUR.dbo.AplicacionesComisionado)]
+    E --> E5[(BDQISHUR.dbo.AplicacionesPagos)]
+    E --> E6[(BDQISHUR.dbo.AplicacionesProrrateo)]
+    C --> F[LoadLatestCommissionDataAsync]
+    F --> F1["CALL RetencionEmpresa()"]
+    C --> G[LoadMissingPrioritiesAsync]
+    C --> H[SyncCompanyCommissionsAsync si falta]
+    C --> I[GetGuardianCommissionAgentsAsync]
+    C --> J[RegisterCommissionedAgentsAsync si falta]
+    C --> K[GetPendingCommissionedAgentsAsync]
+    K --> L[ProcessAgentAsync]
+    L --> M[ApplyGroupSionAsync]
+    L --> N[ApplyCartaAsync]
+    L --> O[ApplyDiscountsAsync]
+    L --> P[ApplyProrationAsync]
+    L --> Q[MarkProcessedAsync]
+    Q --> R[AplicacionesApplyResponse]
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant CT as AplicacionesController.cs
+    participant ORQ as AplicacionesRepository.cs
+    participant DATA as AplicacionesRepository.Data.cs
+    participant SQL as AplicacionesRepository.Queries.cs
+    participant DB as Guardian/BDQISHUR/CNX
+    C->>CT: POST /api/aplicaciones/apply
+    CT->>ORQ: Apply(logId, lCicloId)
+    ORQ->>DATA: RunProcessAsync(...)
+    DATA->>DB: validar conexiones
+    DATA->>DB: limpiar tablas por ciclo
+    DATA->>DB: CALL RetencionEmpresa()
+    DATA->>DB: insertar prioridades faltantes
+    DATA->>DB: sincronizar AplicacionesComisionPorEmpresa
+    DATA->>DB: leer comisionados Guardian
+    DATA->>DB: insertar AplicacionesComisionado si no existe
+    DATA->>DB: leer pendientes
+    loop por comisionado
+        ORQ->>DATA: Grupo Sion
+        DATA->>DB: cartera, cuotas, pago, recibo, factura
+        ORQ->>DATA: Carta
+        DATA->>DB: cuotas por carta y pagos
+        ORQ->>DATA: Descuentos
+        DATA->>DB: descuentos activos y registro de pago
+        ORQ->>DATA: Prorrateo
+        DATA->>DB: insertar/actualizar AplicacionesProrrateo
+        ORQ->>DATA: MarkProcessedAsync
+        DATA->>DB: update AplicacionesComisionado
+    end
+    ORQ-->>CT: AplicacionesApplyResponse
+    CT-->>C: status/mensaje/data
+```
+
+Nota: la mejor interpretación del flujo de pago fino, facturación y consultas CNX está centralizada en `AplicacionesRepository.Data.cs` y `AplicacionesRepository.Queries.cs`, porque el módulo separa la orquestación del acceso a SQL/procedimientos/web service.
+
 ## Controller: RedesController
 Patrón: generación de red comprimida y red completa temporal para bonos de grupo/residual.
 
