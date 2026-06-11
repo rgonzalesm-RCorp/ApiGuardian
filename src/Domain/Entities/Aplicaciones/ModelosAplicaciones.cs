@@ -1,16 +1,16 @@
 namespace ApiGuardian.Domain.Entities;
 
-public class AplicacionesExecuteRequest
+public class SolicitudEjecucionAplicaciones
 {
     public int LCicloId { get; set; }
 }
 
-public class AplicacionesPreviewResponse
+public class RespuestaVistaPreviaAplicaciones
 {
     public int LCicloId { get; set; }
-    public bool Preview { get; set; }
+    public bool VistaPrevia { get; set; }
     public bool AplicacionesComisionadoExiste { get; set; }
-    public bool CompanyCommissionsExist { get; set; }
+    public bool ExistenComisionesPorEmpresa { get; set; }
     public bool RequiereRegistrarComisionados { get; set; }
     public bool ErrorGrave { get; set; }
     public string ErrorGraveMensaje { get; set; } = string.Empty;
@@ -18,16 +18,16 @@ public class AplicacionesPreviewResponse
     public int TotalPendientes { get; set; }
     public decimal TotalPendienteAplicar { get; set; }
     public List<string> Notas { get; set; } = new();
-    public List<AplicacionesAgentResult> Comisionados { get; set; } = new();
+    public List<ResultadoComisionadoAplicaciones> Comisionados { get; set; } = new();
 }
 
-public class AplicacionesApplyResponse : AplicacionesPreviewResponse
+public class RespuestaEjecucionAplicaciones : RespuestaVistaPreviaAplicaciones
 {
     public int TotalProcesados { get; set; }
     public int TotalErrores { get; set; }
 }
 
-public class AplicacionesAgentResult
+public class ResultadoComisionadoAplicaciones
 {
     public string Carnet { get; set; } = string.Empty;
     public string NombreCompleto { get; set; } = string.Empty;
@@ -37,10 +37,10 @@ public class AplicacionesAgentResult
     public bool Procesado { get; set; }
     public bool ErrorGrave { get; set; }
     public string Mensaje { get; set; } = string.Empty;
-    public List<AplicacionesOperation> Operaciones { get; set; } = new();
+    public List<OperacionAplicacion> Operaciones { get; set; } = new();
 }
 
-public class AplicacionesOperation
+public class OperacionAplicacion
 {
     public string Paso { get; set; } = string.Empty;
     public string Estado { get; set; } = string.Empty;

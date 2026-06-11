@@ -165,6 +165,8 @@ public static class TiposContratosDiccionario
         public const int UPGRADE = 6;
         public const int RECUPERACION = 7;
         public const int RECOMPRA = 8;
+        public const int CASOSESPECIALES = 9;
+
     }
     public static class TiposContratosDiccionarioCnx
     {
@@ -175,6 +177,7 @@ public static class TiposContratosDiccionario
         public const int UPGRADE = 7;
         public const int RECUPERACION = 5;
         public const int RECOMPRA = 6;
+        public const int CASOSESPECIALES = 8;
     }
 
     public class TipoComision
@@ -188,6 +191,7 @@ public static class TiposContratosDiccionario
          new TipoComision { Cnx = 5, Grd = 7 },
          new TipoComision { Cnx = 6, Grd = 8 },
          new TipoComision { Cnx = 7, Grd = 6 },
+         new TipoComision { Cnx = 8, Grd = 9 },
     };
 
     public static int ObtenerGrd(int cnx, bool esContado, bool esCredito)

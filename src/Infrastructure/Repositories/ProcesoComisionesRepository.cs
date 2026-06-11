@@ -435,7 +435,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     union ALL
                                     select 7, dporcentaje7g from administraciontipocontacto where ltipocontacto_id = 9
                                 ) cm on cm.Nivel = RC.nivel
-                    where ACTR. dtfecha BETWEEN @Inicio and @Fin ";
+                    where ACTR. dtfecha BETWEEN @Inicio and @Fin and ACTR.ltipocontrato_id in (1,2) ";
             
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
             using var connection = _context.CreateConnection();

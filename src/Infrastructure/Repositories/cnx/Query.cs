@@ -39,16 +39,16 @@ namespace Query.Cnx
                         , RTRIM(P.IDSECCION_PROD) SeccionId
                         , RTRIM(V.GLOSA) Glosa
                         , VC.COMISIONABLE TipoComisionable
-                        , TC.DESCRIPCION NombreTipoComision
+                        , CASE WHEN VC.COMISIONABLE = 8 THEN 'CASOS ESPECIALES' ELSE TC.DESCRIPCION END NombreTipoComision
                     FROM {item.DataBase}.dbo.INVENTA V
-                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE {(IsCasosEspeciales ? "IN (5, 6, 7)": " = 1")}
+                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE {(IsCasosEspeciales ? "IN (5, 6, 7, 8)": " = 1")}
                     INNER JOIN {item.DataBase}.dbo.INVENTADETALLE AS VD ON V.IDVENTA = VD.IDVENTA
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
                     LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED
                     LEFT JOIN {item.DataBase}.dbo.INTIPOVENTACOMISION TC ON TC.IDTIPOVENTACOMISION = VC.COMISIONABLE
-                    LEFT JOIN {item.DataBase}.dbo.INCUOTA IC ON IC.IDVENTA = V.IDVENTA  AND IC.NROCUOTA = 1
+                    LEFT JOIN {item.DataBase}.dbo.INCUOTA IC ON IC.IDVENTA = V.IDVENTA  AND IC.NROCUOTA = 2
                     WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2 { (IsCasosEspeciales ? "": @$"
                     AND
                     (

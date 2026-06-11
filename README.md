@@ -50,7 +50,7 @@ flowchart TD
 ## Controller: AdministracionBancoController
 Patrón: CRUD simple contra catálogo de bancos y monedas.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAllCuentaBanco` | `GET /api/AdministracionBanco` | Sin body | Sin validaciones visibles | `IAdministracionBancoRepository.GetAllBanco` | `administracionbanco`, `administracionmoneda` | `data.listaBanco` |
 | `GetAllMoneda` | `GET /api/AdministracionBanco/moneda` | Sin body | Sin validaciones visibles | `IAdministracionBancoRepository.GetAllMoneda` | `administracionmoneda` | `data.listaMoneda` |
@@ -61,7 +61,7 @@ Patrón: CRUD simple contra catálogo de bancos y monedas.
 ## Controller: AdministracionBuscarAsesorController
 Patrón: lectura especializada vía procedimientos almacenados.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAsesoreSieteNiveles` | `GET /api/AdministracionBuscarAsesor` | Header `lContactoId` | Sin validaciones visibles | `IAdministracionBuscarAsesorRepository.GetAsesoreSieteNiveles` | `sp_GetPadresHasta7Fijos`, `sp_GetPadresHasta7Activos` | Listas de asesores fijos y activos hasta 7 niveles |
 
@@ -70,7 +70,7 @@ Nota: el detalle de tablas depende de los procedimientos almacenados; no se expa
 ## Controller: AdministracionCicloController
 Patrón: mantenimiento del catálogo de ciclos.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `Get` | `GET /api/AdministracionCiclo` | Sin body | Sin validaciones visibles | `IAdministracionCicloRepository.GetCiclos` | `administracionciclo` | `data = resp.Ciclos` |
 | `GetPagination` | `GET /api/AdministracionCiclo/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionCicloRepository.GetCiclosPagination` | `administracionciclo` | `data.ciclos`, `data.total` |
@@ -81,7 +81,7 @@ Patrón: mantenimiento del catálogo de ciclos.
 ## Controller: AdministracionCicloFacturaController
 Patrón: asignación de presentaciones/facturas por ciclo y semana.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAllAdministracionCiclofactura` | `GET /api/AdministracionCicloFactura` | Headers `page`, `pageSize`, `lCicloId` | Sin validaciones en controller | `IAdministracionCicloFacturaRepository.GetAllAdministracionCiclofactura` | `administracionciclopresentafactura`, `administracionciclo`, `administracionsemanaciclo`, `administracionsemana`, `administracioncontacto` | Lista paginada y total |
 | `InsertAdministracionCiclofactura` | `POST /api/AdministracionCicloFactura/register` | Body `AdministracionCicloFactura` | El repo evita duplicados para la combinación revisada y genera correlativo | `IAdministracionCicloFacturaRepository.InsertAdministracionCiclofactura` | `administracionciclopresentafactura` | Confirmación sin payload |
@@ -90,7 +90,7 @@ Patrón: asignación de presentaciones/facturas por ciclo y semana.
 ## Controller: AdministracionComplejoController
 Patrón: CRUD de complejos.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetComplejo` | `GET /api/AdministracionComplejo` | Sin body | Sin validaciones visibles | `IAdministracionComplejoRepository.GetComplejo` | `administracioncomplejo`, `administracionempresa` | Lista de complejos |
 | `GetComplejoPagination` | `GET /api/AdministracionComplejo/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionComplejoRepository.GetComplejoPagination` | `administracioncomplejo`, `administracionempresa` | Lista paginada y total |
@@ -101,7 +101,7 @@ Patrón: CRUD de complejos.
 ## Controller: AdministracionContactoController
 Patrón: administración de asesores/contactos.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAll` | `GET /api/AdministracionContacto` | Query `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionContactoRepository.GetAllAdministracionContacto` | `administracioncontacto`, `administracionnivel`, `basepais`, `administracionbanco`, `administracionmoneda` | `data.listaContacto`, `data.total` |
 | `InsertContacto` | `POST /api/AdministracionContacto/insert` | Body `AdministracionContacto` | El repo inserta contacto y genera identificadores/código | `IAdministracionContactoRepository.InsertContacto` | `administracioncontacto` | Confirmación |
@@ -112,7 +112,7 @@ Patrón: administración de asesores/contactos.
 ## Controller: AdministracionContratoController
 Patrón: consulta y mantenimiento de contratos.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAll` | `GET /api/AdministracionContrato` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionContratoRepository.GetAllAdministracionContrato` | `administracioncontrato`, `administracioncontacto`, `administracioncomplejo`, `administraciontipocontrato`, `administracionestadocontrato` | Lista paginada y total |
 | `InsertContrato` | `POST /api/AdministracionContrato/insert` | Body `AdministracionContrato` | Sin validaciones en controller; el repo genera correlativo | `IAdministracionContratoRepository.InsertContrato` | `administracioncontrato` | Confirmación |
@@ -123,7 +123,7 @@ Nota: este repositorio también se usa como fuente auxiliar en comisiones para c
 ## Controller: AdministracionCuentaBancoController
 Patrón: consulta y actualización de datos bancarios del contacto.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetCuentaBanco` | `GET /api/AdministracionCuentaBanco/id` | Header `lContactoId` | Sin validaciones visibles | `IAdministracionCuentaBancoRepository.GetCuentaBanco` | `administracioncontacto` | `data.dataCuentaBanco` |
 | `GetAllCuentaBanco` | `GET /api/AdministracionCuentaBanco` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionCuentaBancoRepository.GetAllCuentaBanco` | `administracioncontacto`, `administracionbanco`, `administracionmoneda` | `data.listaCuentaBanco`, `data.totalRegistro` |
@@ -132,7 +132,7 @@ Patrón: consulta y actualización de datos bancarios del contacto.
 ## Controller: AdministracionDescuentoCicloTipoController
 Patrón: catálogo de tipos de descuento por ciclo.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetPaginacion` | `GET /api/AdministracionDescuentoCicloTipo/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionDescuentoCicloTipoRepository.GetDescuentoCicloTipoPagination` | `administraciondescuentociclotipo` | Lista paginada y total |
 | `Insert` | `POST /api/AdministracionDescuentoCicloTipo/insert` | Body `AdministracionDescuentoCicloTipo` | El repo genera correlativo | `IAdministracionDescuentoCicloTipoRepository.GuardarDescuentoCicloTipo` | `administraciondescuentociclotipo` | Confirmación |
@@ -142,7 +142,7 @@ Patrón: catálogo de tipos de descuento por ciclo.
 ## Controller: AdministracionDescuentoComisionController
 Patrón: lectura y mantenimiento de descuentos aplicados al ciclo.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAllAdministracionCObservacionComision` | `GET /api/AdministracionDescuentoComision` | Headers `lContactoId`, `lCicloId`, `lSemanaId` | Sin validaciones en controller | `GetComision`, `GetDetalleDescuentoCiclo` | `administracionbonoresidual`, `administracionventagrupo`, `administracionventapersonal`, `bonopar`, `tbl_retencionempresa`, `administraciondescuentociclo`, `administraciondescuentociclodetalle`, `administracioncomplejo`, `administraciondescuentociclotipo`, `administracioncontrato`, `administracioncontacto` | Resumen de comisión + detalle de descuentos |
 | `EliminarDescuento` | `DELETE /api/AdministracionDescuentoComision/delete` | Headers `lDescuentoDetalleId`, `lContactoId`, `lCicloId`, `usuario?` | Sin validaciones en controller; el repo borra detalle y recompone totales del encabezado | `IAdministracionDescuentoComisionRepository.EliminarDescuento` | `administraciondescuentociclodetalle`, `administraciondescuentociclo` | Confirmación |
@@ -151,7 +151,7 @@ Patrón: lectura y mantenimiento de descuentos aplicados al ciclo.
 ## Controller: AdministracionDetalleFacturaController
 Patrón: catálogo de detalles/tipos de facturación por comisión.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetPaginacion` | `GET /api/AdministracionDetalleFactura/paginacion` | Headers `page`, `pageSize` | Sin validaciones visibles | `IAdministracionDetalleFacturaRepository.GetDetalleFacturaPagination` | `administraciondetallefactura`, `administraciontipocomision` | `data` paginado y `total` |
 | `Insert` | `POST /api/AdministracionDetalleFactura/insert` | Body `AdministracionDetalleFactura` | El repo evita duplicar `ltipocomision_id` activo | `IAdministracionDetalleFacturaRepository.GuardarDetalleFactura` | `administraciondetallefactura` | Confirmación |
@@ -162,7 +162,7 @@ Patrón: catálogo de detalles/tipos de facturación por comisión.
 ## Controller: AdministracionEmpresaController
 Patrón: CRUD de empresas.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetSemana` | `GET /api/AdministracionEmpresa` | Sin body | Sin validaciones visibles | `IAdministracionEmpresaRepository.GetEmpresas` | `administracionempresa` | Lista de empresas |
 | `GetPaginacion` | `GET /api/AdministracionEmpresa/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionEmpresaRepository.GetEmpresasPagination` | `administracionempresa` | Lista paginada y total |
@@ -173,7 +173,7 @@ Patrón: CRUD de empresas.
 ## Controller: AdministracionNivelController
 Patrón: CRUD de niveles.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetNivel` | `GET /api/AdministracionNivel` | Sin body | Sin validaciones visibles | `IAdministracionNivelRepository.GetNivel` | `administracionnivel` | `data = responseNivel.Nivel` |
 | `GetNivelPaginacion` | `GET /api/AdministracionNivel/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionNivelRepository.GetNivelPagination` | `administracionnivel` | Lista paginada y total |
@@ -186,7 +186,7 @@ Nota: el método DELETE conserva el nombre `ModificarNivel` en el controller; es
 ## Controller: AdministracionObservacionComisionController
 Patrón: CRUD de observaciones de comisión.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAllAdministracionCObservacionComision` | `GET /api/AdministracionObservacionComision` | Headers `page`, `pageSize`, `search?`, `lCicloId` | Sin validaciones visibles | `IAdministracionObservacionComisionRepository.GetAllAdministracionCObservacionComisionAsync` | `administracionobservacioncomision` | Lista paginada y total |
 | `InsertAdministracionObservacionComision` | `POST /api/AdministracionObservacionComision/register` | Body `AdministracionObservacionComision` | Sin validaciones en controller | `IAdministracionObservacionComisionRepository.InsertAdministracionObservacionComision` | `administracionobservacioncomision` | Confirmación |
@@ -196,7 +196,7 @@ Patrón: CRUD de observaciones de comisión.
 ## Controller: AdministracionSemanaCicloController
 Patrón: administración de semanas por ciclo.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetPaginacion` | `GET /api/AdministracionSemanaCiclo/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionSemanaCicloRepository.GetSemanaCicloPagination` | `administracionsemanaciclo`, `administracionsemana`, `administracionciclo` | Lista paginada y total |
 | `Insert` | `POST /api/AdministracionSemanaCiclo/insert` | Body `AdministracionSemanaCicloABM` | El repo inserta registro con validación de estructura y correlativo | `IAdministracionSemanaCicloRepository.GuardarSemanaCiclo` | `administracionsemanaciclo` | Confirmación |
@@ -206,7 +206,7 @@ Patrón: administración de semanas por ciclo.
 ## Controller: AdministracionSemanaController
 Patrón: CRUD de semanas.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetSemana` | `GET /api/AdministracionSemana` | Sin body | Sin validaciones visibles | `IAdministracionSemanaRepository.GetSemana` | `administracionsemana` | `data = resp.Semana` |
 | `GetSemanaPaginacion` | `GET /api/AdministracionSemana/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionSemanaRepository.GetSemanaPagination` | `administracionsemana` | Lista paginada y total |
@@ -217,7 +217,7 @@ Patrón: CRUD de semanas.
 ## Controller: AdministracionTipoContactoController
 Patrón: CRUD de tipos de contacto y porcentajes grupales.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetTipoContacto` | `GET /api/AdministracionTipoContacto` | Sin body | Sin validaciones visibles | `IAdministracionTipoContactoRepository.GetTipoContacto` | `administraciontipocontacto` | `data = resp.TipoContacto` |
 | `GetTipoContactoPagination` | `GET /api/AdministracionTipoContacto/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionTipoContactoRepository.GetTipoContactoPagination` | `administraciontipocontacto` | Lista paginada y total |
@@ -228,7 +228,7 @@ Patrón: CRUD de tipos de contacto y porcentajes grupales.
 ## Controller: AdministracionTipoContratoController
 Patrón: CRUD de tipos de contrato.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetTipoContrato` | `GET /api/AdministracionTipoContrato` | Sin body | Sin validaciones visibles | `IAdministracionTipoContratoRepository.GetTipoContrato` | `administraciontipocontrato` | `data = resp.TipoContrato` |
 | `GetPaginacion` | `GET /api/AdministracionTipoContrato/paginacion` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionTipoContratoRepository.GetTipoContratoPagination` | `administraciontipocontrato` | Lista paginada y total |
@@ -239,7 +239,7 @@ Patrón: CRUD de tipos de contrato.
 ## Controller: BrConfiguracionController
 Patrón: configuración de porcentajes para bono residual por ciclo, nivel y tipo de producto.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetDatos` | `GET /api/BrConfiguracion/get/datos` | Header `Usuario` | Sin validaciones visibles | `GetNivel`, `GetTipoProducto` | `br_niveles`, `br_tipoproducto` | Catálogos `Nivel` y `TipoProducto` |
 | `Get` | `GET /api/BrConfiguracion/get/configuracion` | Sin body | El controller agrupa detalle por configuración | `IBrConfiguracionRepository.GetConfiguracion` | `br_configuracion`, `br_configuraciondetalle`, `br_niveles`, `br_tipoproducto`, `administracionciclo` | `data.lista` resumida por encabezado |
@@ -249,7 +249,7 @@ Patrón: configuración de porcentajes para bono residual por ciclo, nivel y tip
 ## Controller: ConfiguracionProcesoComisionesController
 Patrón: parametrización de comisión de venta personal por ciclo, complejo y rangos de inicial.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GuardarConfiguracionVentaPersona` | `POST /api/ConfiguracionProcesoComisiones/vta/cnx` | Body `PC_ConfigVtaPersonal` | Primero arma `complejosId`; valida que esos complejos no existan ya para el ciclo; luego guarda encabezado, complejos e iniciales | `VerificarComplejos`, `GuardarConfiguracionComisionVentaPersonal` | `pc_configvtapersonal`, `pc_configvtapersonalcomplejo`, `pc_configvtapersonalinicial`, `administracioncomplejo` | Confirmación; si hay colisión devuelve `swall=true` y la lista en conflicto |
 | `GetConfiguracionVentaPersona` | `GET /api/ConfiguracionProcesoComisiones/get/vta/cnx` | Sin body | Sin validaciones visibles | `IConfiguracionProcesoComisionesRepository.GETConfiguracionComisionVentaPersonal` | `pc_configvtapersonal`, `pc_configvtapersonalcomplejo`, `pc_configvtapersonalinicial`, `administracionciclo`, `administracioncomplejo` | Lista completa de configuraciones |
@@ -258,7 +258,7 @@ Patrón: parametrización de comisión de venta personal por ciclo, complejo y r
 ## Controller: UtilsController
 Patrón: catálogos auxiliares para combos y filtros.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetAdministracionSemanaCiclo` | `GET /api/Utils/administracion/semana/ciclo` | Header `lCicloId` | Sin validaciones visibles | `IUtilsRepository.GetSemanaCiclosAsync` | `administracionsemanaciclo`, `administracionsemana`, `administracionciclo` | Lista de semanas del ciclo |
 | `GetDepartamento` | `GET /api/Utils/administracion/departamento` | Header `lPaisId=2` | Sin validaciones visibles | `IUtilsRepository.GetDepartamento` | `basepaisdepartamento` | Lista de departamentos |
@@ -271,7 +271,7 @@ Patrón: catálogos auxiliares para combos y filtros.
 ## Controller: AdministracionHabilitacionComisionController
 Patrón: catálogo operativo de habilitaciones para permitir o bloquear comisiones por asesor y ciclo.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetHabilitaciones` | `GET /api/AdministracionHabilitacionComision/GetHabilitaciones` | Headers `LogTransaccionId?`, `Usuario`, `LCicloId` | Usa `PasoRegistroHabilitacionesEjecutado` para marcar si el paso ya corrió | `GetHabilitaciones`, `GetSiguientePaso` | `administracionhabilitacioncomision`, `administracioncontacto`, `conf_*` | `data.habilitaciones`, `data.controlPasos` |
 | `SaveHabilitaciones` | `POST /api/AdministracionHabilitacionComision/SaveHabilitaciones` | Headers `LogTransaccionId?`, `Usuario`, `LCicloId`; body `List<ItemHabilitacionComision>` | Valida paso previo, inicia/finaliza/cancela paso; el repo valida lista no nula, ciclo válido, asesor válido, monto > 0 y no duplicados | `GetSiguientePaso`, `IniciarPaso`, `SaveHabilitaciones`, `FinalizarPaso`, `CancelarPaso` | `administracionhabilitacioncomision`, `administracioncontacto`, `conf_*`; si bloquea asesores limpia tablas de comisiones relacionadas | Confirmación |
@@ -280,7 +280,7 @@ Patrón: catálogo operativo de habilitaciones para permitir o bloquear comision
 
 ### Método: SaveHabilitaciones
 
-- Endpoint: `POST /api/AdministracionHabilitacionComision/SaveHabilitaciones`
+- PuntoFinal: `POST /api/AdministracionHabilitacionComision/SaveHabilitaciones`
 - Descripción: reemplaza todas las habilitaciones del ciclo y sincroniza el paso `REGISTRO_HABILITACIONES`.
 - Parámetros:
   - Headers: `LogTransaccionId?`, `Usuario`, `LCicloId`
@@ -354,7 +354,7 @@ sequenceDiagram
 ## Controller: ControlProcesoController
 Patrón: administración de la definición de pasos y del estado de ejecución por ciclo.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetConfiguracionProcesos` | `GET /api/ControlProceso/configuracion` | Header `Usuario` | Sin validaciones adicionales | `IControlProcesoRepository.GetConfiguracionProcesos` | `conf_procesos`, `conf_pasos`, `conf_paso_dependencias` | Configuración completa del proceso |
 | `GuardarConfiguracionProceso` | `POST /api/ControlProceso/configuracion` | Header `Usuario`; body `ControlProcesoConfiguracion` | El repo valida nombre, pasos, orden, duplicados, dependencias, ciclos y bloqueo de renombrar `COMISIONES` | `IControlProcesoRepository.GuardarConfiguracionProceso` | `conf_procesos`, `conf_pasos`, `conf_paso_dependencias` | Proceso guardado con su estructura |
@@ -365,7 +365,7 @@ Patrón: administración de la definición de pasos y del estado de ejecución p
 
 ### Método: GuardarConfiguracionProceso
 
-- Endpoint: `POST /api/ControlProceso/configuracion`
+- PuntoFinal: `POST /api/ControlProceso/configuracion`
 - Descripción: crea o actualiza la definición del proceso y sus pasos/dependencias.
 - Parámetros:
   - Header: `Usuario`
@@ -408,7 +408,7 @@ flowchart TD
 
 ### Método: ResetControlProcesoCiclo
 
-- Endpoint: `POST /api/ControlProceso/reset/ciclo`
+- PuntoFinal: `POST /api/ControlProceso/reset/ciclo`
 - Descripción: reinicia el proceso `COMISIONES` para el ciclo y limpia artefactos de cálculo.
 - Parámetros:
   - Headers: `lCicloId`, `Usuario`, `Inicio`, `Fin`
@@ -441,7 +441,7 @@ sequenceDiagram
 ## Controller: CasosEspecialesController
 Patrón: lectura de ventas especiales CNX y contraste con ventas GRD del periodo.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `Get` | `GET /api/CasosEspeciales/casos/especiales` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | El check de paso existe pero está comentado; usa regla del repo para conservar especiales si el vendedor tuvo venta normal o al menos 2 especiales | `GetSiguientePaso`, `ICasosEspecialesRepository.GetVentasCasosEspeciales`, `IAdministracionContratoRepository.GetContratoFecha` | SQL Server dinámico CNX por `ScriptCnx.QueryVentaCnx(..., true)`, `administracioncontrato`, `administracioncontacto`, `upgrade_solicitud` | Ventas especiales, ventas GRD y XLS |
 
@@ -450,7 +450,7 @@ Nota: la consulta CNX usa tablas dinámicas como `*.dbo.INVENTA`, `*.dbo.INVENTA
 ## Controller: ProcesoComisionesController
 Patrón: orquestador principal del pipeline de comisiones directas, grupo, ventas rezagadas y ventas especiales.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetVentaCnx` | `GET /api/ProcesoComisiones/vta/cnx` | Header `lCicloId` | Busca fechas del ciclo y luego consulta CNX + contratos GRD | `GetCiclos`, `GetVentaCnx`, `GetContratoFecha`, `GetSiguientePaso` | `administracionciclo`, SQL Server dinámico CNX, `administracioncontrato` | `data.VtaCnx`, `data.VtaGrd`, `data.controlPasos` |
 | `Ejecutar` | `POST /api/ProcesoComisiones/ejemplo` | Sin parámetros | No ejecuta lógica real; el llamado al cron está comentado | Ninguno efectivo | Ninguna | `{ ex: true }` |
@@ -463,7 +463,7 @@ Patrón: orquestador principal del pipeline de comisiones directas, grupo, venta
 
 ### Método: SaveVenta
 
-- Endpoint: `POST /api/ProcesoComisiones/save/vta/proceso`
+- PuntoFinal: `POST /api/ProcesoComisiones/save/vta/proceso`
 - Descripción: dispara el registro base de ventas del ciclo, sea normal, rezagada o especial.
 - Parámetros:
   - Body `RequestGuardarVentaGRD`
@@ -511,7 +511,7 @@ flowchart TD
 
 ### Método: SaveVtaPersonal
 
-- Endpoint: `POST /api/ProcesoComisiones/save/vta/personal`
+- PuntoFinal: `POST /api/ProcesoComisiones/save/vta/personal`
 - Descripción: persiste las comisiones directas del ciclo y deja preparada la base de residual mensual.
 - Parámetros:
   - Body `RequestSaveVtaPersonal`
@@ -564,7 +564,7 @@ sequenceDiagram
 
 ### Método: SaveVtaGrupo
 
-- Endpoint: `POST /api/ProcesoComisiones/save/vta/grupo`
+- PuntoFinal: `POST /api/ProcesoComisiones/save/vta/grupo`
 - Descripción: persiste las comisiones de grupo calculadas sobre `red_comprimida`.
 - Parámetros:
   - Body `RequestGuardarVentaGrupo`
@@ -592,14 +592,14 @@ sequenceDiagram
 ## Controller: CuotasVentaResidualController
 Patrón: cálculo y persistencia de comisiones residuales mensuales por cuotas pagadas.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetDatos` | `GET /api/CuotasVentaResidual/cuotas/venta/residual` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Calcula comisiones por cuota con helper `GetComision`; combina ventas, productos pendientes, venta personal e habilitaciones | `GetCuotasVentasResidual`, `GetProductosPagarMensuales`, `GetVentaPersonal`, `GetHabilitaciones`, `GetSiguientePaso` | SQL Server dinámico de cuotas CNX, `t_productos_pagar_mensuales`, `administracionventapersonal`, `administracionhabilitacioncomision` | `ListadoComisionCuotaResidual`, habilitados, XLS y control de paso |
 | `Guardar` | `POST /api/CuotasVentaResidual/cuotas/venta/residual` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Valida paso `COMISION_VENTA_RESIDUAL`; guarda snapshot de cuotas, recalcula detalle, actualiza control de productos y registra paso | `GetSiguientePaso`, `IniciarPaso`, `GetCuotasVentasResidual`, `GetProductosPagarMensuales`, `GetVentaPersonal`, `GetHabilitaciones`, `SaveCuotasVentasProductosPagarMensual`, `SaveControlProductos`, `FinalizarPaso`, `CancelarPaso` | `t_cuotas_ventas_productos_pagar_mensual`, `t_productos_pagar_mensuales`, `t_productos_detalle_cuotas`, `administracionventapersonal`, `administracionhabilitacioncomision`, SQL Server CNX | Confirmación y resumen de actualizaciones |
 
 ### Método: Guardar
 
-- Endpoint: `POST /api/CuotasVentaResidual/cuotas/venta/residual`
+- PuntoFinal: `POST /api/CuotasVentaResidual/cuotas/venta/residual`
 - Descripción: materializa la comisión residual del mes, deja evidencia de cuotas procesadas y crea nuevas comisiones en `administracionventapersonal` cuando corresponde.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`, `Inicio`, `Fin`
@@ -645,20 +645,20 @@ flowchart TD
     N --> O[status=true]
 ```
 
-## Controller: AplicacionesController
-Patrón: orquestación del proceso legado de aplicaciones en una carpeta aislada `Aplicaciones`, con dos modos: `preview` para simulación y `apply` para ejecución real.
+## Controlador: AplicacionesControlador
+Patrón: orquestación del proceso legado de aplicaciones en una carpeta aislada `Aplicaciones`, con dos modos: `vista previa` para simulación y `aplicar` para ejecución real.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Preview` | `GET /api/aplicaciones/preview` | Header `lCicloId` | Ejecuta el flujo en memoria; no limpia tablas, no inserta en `AplicacionesComisionado` y no marca procesados | `IAplicacionesRepository.Preview` | Reutiliza fuentes de Guardian, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, comisionados y operaciones planificadas |
-| `Apply` | `POST /api/aplicaciones/apply` | Body `AplicacionesExecuteRequest` con `lCicloId` | Valida conexiones, limpia tablas del ciclo en `grdsion` y `BDQISHUR`, recarga datos base, sincroniza comisiones, procesa cada comisionado y marca procesados | `IAplicacionesRepository.Apply` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesComisionado`, `AplicacionesPagos`, `AplicacionesProrrateo` y tablas CNX/Guardian del flujo | Estado final del proceso, comisionados procesados, errores y operaciones ejecutadas |
+| `VistaPrevia` | `GET /api/aplicaciones/vista-previa` | Header `lCicloId` | Ejecuta el flujo en memoria; no limpia tablas, no inserta en `AplicacionesComisionado` y no marca procesados | `IAplicacionesRepositorio.VistaPrevia` | Reutiliza fuentes de Guardian, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, comisionados y operaciones planificadas |
+| `Aplicar` | `POST /api/aplicaciones/aplicar` | Body `SolicitudEjecucionAplicaciones` con `lCicloId` | Valida conexiones, limpia tablas del ciclo en `grdsion` y `BDQISHUR`, recarga datos base, sincroniza comisiones, procesa cada comisionado y marca procesados | `IAplicacionesRepositorio.Aplicar` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesComisionado`, `AplicacionesPagos`, `AplicacionesProrrateo` y tablas CNX/Guardian del flujo | Estado final del proceso, comisionados procesados, errores y operaciones ejecutadas |
 
-### Método: Apply
+### Método: Aplicar
 
-- Endpoint: `POST /api/aplicaciones/apply`
+- PuntoFinal: `POST /api/aplicaciones/aplicar`
 - Descripción: ejecuta el flujo completo de aplicaciones sin `Neizan`, preservando Grupo Sion, Carta, Descuentos, Prorrateo y el marcado final del comisionado.
 - Parámetros:
-  - Body `AplicacionesExecuteRequest`
+  - Body `SolicitudEjecucionAplicaciones`
   - Campo obligatorio `lCicloId`
 - Validaciones principales:
   - Deben responder la conexión Guardian y la conexión SQL Server/Conexion.
@@ -667,99 +667,99 @@ Patrón: orquestación del proceso legado de aplicaciones en una carpeta aislada
   - Si `AplicacionesComisionado` no existe para el ciclo, se registra antes de buscar pendientes.
   - Si un comisionado produce error grave en Grupo Sion, Carta, Descuentos o Prorrateo, el proceso se detiene.
 - Servicio o repositorio que invoca:
-  - `IAplicacionesRepository.Apply`
-  - Orquestación en `AplicacionesRepository.RunProcessAsync(...)`
+  - `IAplicacionesRepositorio.Aplicar`
+  - Orquestación en `AplicacionesRepositorio.EjecutarProcesoAsync(...)`
 - Métodos internos llamados:
-  - `ValidateConnectionsAsync`
-  - `ClearCycleDataAsync`
-  - `LoadLatestCommissionDataAsync`
-  - `LoadMissingPrioritiesAsync`
-  - `ExistsCompanyCommissionsAsync`
-  - `SyncCompanyCommissionsAsync`
-  - `GetGuardianCommissionAgentsAsync`
-  - `ExistsCommissionedAgentsAsync`
-  - `RegisterCommissionedAgentsAsync`
-  - `GetPendingCommissionedAgentsAsync`
-  - `ProcessAgentAsync`
-  - `ApplyGroupSionAsync`
-  - `ApplyCartaAsync`
-  - `ApplyDiscountsAsync`
-  - `ApplyProrationAsync`
-  - `MarkProcessedAsync`
+  - `ValidarConexionesAsync`
+  - `LimpiarDatosCicloAsync`
+  - `CargarUltimosDatosComisionAsync`
+  - `CargarPrioridadesFaltantesAsync`
+  - `ExistenComisionesEmpresaAsync`
+  - `SincronizarComisionesEmpresaAsync`
+  - `ObtenerComisionadosGuardianAsync`
+  - `ExistenComisionadosRegistradosAsync`
+  - `RegistrarComisionadosAsync`
+  - `ObtenerComisionadosPendientesAsync`
+  - `ProcesarComisionadoAsync`
+  - `AplicarGrupoSionAsync`
+  - `AplicarCartaAsync`
+  - `AplicarDescuentosAsync`
+  - `AplicarProrrateoAsync`
+  - `MarcarProcesadoAsync`
 - Archivos `.cs` involucrados:
-  - `src/Api/Controllers/Aplicaciones/AplicacionesController.cs`
-  - `src/Application/Interface/Aplicaciones/IAplicacionesRepository.cs`
-  - `src/Domain/Entities/Aplicaciones/AplicacionesModels.cs`
-  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepository.cs`
-  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepository.Data.cs`
-  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepository.Queries.cs`
+  - `src/Api/Controllers/Aplicaciones/AplicacionesControlador.cs`
+  - `src/Application/Interface/Aplicaciones/IAplicacionesRepositorio.cs`
+  - `src/Domain/Entities/Aplicaciones/ModelosAplicaciones.cs`
+  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepositorio.cs`
+  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepositorio.Datos.cs`
+  - `src/Infrastructure/Repositories/Aplicaciones/AplicacionesRepositorio.Consultas.cs`
 - Flujo agrupado:
   - Grupo 1. Entrada HTTP y delegación:
-    `AplicacionesController.cs` recibe `lCicloId`, registra logs y delega a `IAplicacionesRepository.Apply(...)`.
+    `AplicacionesControlador.cs` recibe `lCicloId`, registra logs y delega a `IAplicacionesRepositorio.Aplicar(...)`.
   - Grupo 2. Validación y limpieza del ciclo:
-    `AplicacionesRepository.cs` llama `RunProcessAsync(...)` y `AplicacionesRepository.Data.cs` ejecuta `ValidateConnectionsAsync(...)` y `ClearCycleDataAsync(...)`.
+    `AplicacionesRepositorio.cs` llama `EjecutarProcesoAsync(...)` y `AplicacionesRepositorio.Datos.cs` ejecuta `ValidarConexionesAsync(...)` y `LimpiarDatosCicloAsync(...)`.
     Se limpian `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `BDQISHUR.dbo.AplicacionesProrrateo`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesComisionado` y `BDQISHUR.dbo.AplicacionesComisionPorEmpresa`.
   - Grupo 3. Preparación base:
-    `LoadLatestCommissionDataAsync(...)` ejecuta `CALL RetencionEmpresa();` y `LoadMissingPrioritiesAsync(...)` inserta prioridades faltantes.
+    `CargarUltimosDatosComisionAsync(...)` ejecuta `CALL RetencionEmpresa();` y `CargarPrioridadesFaltantesAsync(...)` inserta prioridades faltantes.
   - Grupo 4. Sincronización de comisiones y comisionados:
-    `ExistsCompanyCommissionsAsync(...)`, `SyncCompanyCommissionsAsync(...)`, `GetGuardianCommissionAgentsAsync(...)`, `ExistsCommissionedAgentsAsync(...)`, `RegisterCommissionedAgentsAsync(...)` y `GetPendingCommissionedAgentsAsync(...)`.
+    `ExistenComisionesEmpresaAsync(...)`, `SincronizarComisionesEmpresaAsync(...)`, `ObtenerComisionadosGuardianAsync(...)`, `ExistenComisionadosRegistradosAsync(...)`, `RegistrarComisionadosAsync(...)` y `ObtenerComisionadosPendientesAsync(...)`.
     Aquí se alimentan `AplicacionesComisionPorEmpresa` y `AplicacionesComisionado` si aún no existen para el ciclo.
   - Grupo 5. Aplicación por comisionado:
-    `ProcessAgentAsync(...)` ejecuta en orden `ApplyGroupSionAsync(...)`, `ApplyCartaAsync(...)`, `ApplyDiscountsAsync(...)`, `ApplyProrationAsync(...)` y `MarkProcessedAsync(...)`.
+    `ProcesarComisionadoAsync(...)` ejecuta en orden `AplicarGrupoSionAsync(...)`, `AplicarCartaAsync(...)`, `AplicarDescuentosAsync(...)`, `AplicarProrrateoAsync(...)` y `MarcarProcesadoAsync(...)`.
     Grupo Sion resuelve cartera, cuotas, productos reprogramados, pago completo o pago a cuenta, recibo y facturación; Carta aplica pagos por beneficiario; Descuentos registra cargos por prioridad; Prorrateo reparte el saldo entre empresas y deja trazabilidad en `AplicacionesProrrateo`.
   - Grupo 6. Cierre:
-    Se consolida la respuesta `AplicacionesApplyResponse` desde `AplicacionesModels.cs` y se devuelve el resumen del proceso.
+    Se consolida la respuesta `RespuestaEjecucionAplicaciones` desde `ModelosAplicaciones.cs` y se devuelve el resumen del proceso.
 - Tablas o vistas consultadas si se puede identificar:
   - Preparación y limpieza:
     `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `BDQISHUR.dbo.AplicacionesProrrateo`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesComisionado`, `BDQISHUR.dbo.AplicacionesComisionPorEmpresa`, `BDQISHUR.dbo.AplicacionesPrioridad`
   - Sincronización:
     `BDQISHUR.dbo.AplicacionesEmpresaGuardianAsumeSion`, `administracioncontacto`, `administracionventapersonal`, `administracionventagrupo`, `administracionredempresacomplejo`, `t_ganadores_bonoliderazgo_empresa_pagar`, `t_bono_liderazgo`, `t_top_vendedores`
   - Pago y aplicación:
-    `BDComisiones.dbo.vwLOTES_GRL_DOCID`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesProrrateo` y consultas CNX definidas en `AplicacionesRepository.Queries.cs`
+    `BDComisiones.dbo.vwLOTES_GRL_DOCID`, `BDQISHUR.dbo.AplicacionesPagos`, `BDQISHUR.dbo.AplicacionesProrrateo` y consultas CNX definidas en `AplicacionesRepositorio.Consultas.cs`
 - Respuesta final esperada:
-  - `status=true|false`
+  - `estado=true|false`
   - `mensaje`
-  - `data` con `LCicloId`, `Preview=false`, `ErrorGrave`, notas del proceso, conteos y detalle por comisionado/operación
+  - `datos` con `LCicloId`, `VistaPrevia=false`, `ErrorGrave`, notas del proceso, conteos y detalle por comisionado/operación
 
 ```mermaid
 flowchart TD
-    A[Cliente POST /api/aplicaciones/apply] --> B[AplicacionesController.cs Apply]
-    B --> C[AplicacionesRepository.cs RunProcessAsync]
-    C --> D[AplicacionesRepository.Data.cs ValidateConnectionsAsync]
-    C --> E[AplicacionesRepository.Data.cs ClearCycleDataAsync]
+    A[Cliente POST /api/aplicaciones/aplicar] --> B[AplicacionesControlador.cs Aplicar]
+    B --> C[AplicacionesRepositorio.cs EjecutarProcesoAsync]
+    C --> D[AplicacionesRepositorio.Datos.cs ValidarConexionesAsync]
+    C --> E[AplicacionesRepositorio.Datos.cs LimpiarDatosCicloAsync]
     E --> E1[(grdsion.tbl_retencionempresa)]
     E --> E2[(grdsion.tbl_retencionempresa_exterior)]
     E --> E3[(BDQISHUR.dbo.AplicacionesComisionPorEmpresa)]
     E --> E4[(BDQISHUR.dbo.AplicacionesComisionado)]
     E --> E5[(BDQISHUR.dbo.AplicacionesPagos)]
     E --> E6[(BDQISHUR.dbo.AplicacionesProrrateo)]
-    C --> F[LoadLatestCommissionDataAsync]
+    C --> F[CargarUltimosDatosComisionAsync]
     F --> F1["CALL RetencionEmpresa()"]
-    C --> G[LoadMissingPrioritiesAsync]
-    C --> H[SyncCompanyCommissionsAsync si falta]
-    C --> I[GetGuardianCommissionAgentsAsync]
-    C --> J[RegisterCommissionedAgentsAsync si falta]
-    C --> K[GetPendingCommissionedAgentsAsync]
-    K --> L[ProcessAgentAsync]
-    L --> M[ApplyGroupSionAsync]
-    L --> N[ApplyCartaAsync]
-    L --> O[ApplyDiscountsAsync]
-    L --> P[ApplyProrationAsync]
-    L --> Q[MarkProcessedAsync]
-    Q --> R[AplicacionesApplyResponse]
+    C --> G[CargarPrioridadesFaltantesAsync]
+    C --> H[SincronizarComisionesEmpresaAsync si falta]
+    C --> I[ObtenerComisionadosGuardianAsync]
+    C --> J[RegistrarComisionadosAsync si falta]
+    C --> K[ObtenerComisionadosPendientesAsync]
+    K --> L[ProcesarComisionadoAsync]
+    L --> M[AplicarGrupoSionAsync]
+    L --> N[AplicarCartaAsync]
+    L --> O[AplicarDescuentosAsync]
+    L --> P[AplicarProrrateoAsync]
+    L --> Q[MarcarProcesadoAsync]
+    Q --> R[RespuestaEjecucionAplicaciones]
 ```
 
 ```mermaid
 sequenceDiagram
     participant C as Cliente
-    participant CT as AplicacionesController.cs
-    participant ORQ as AplicacionesRepository.cs
-    participant DATA as AplicacionesRepository.Data.cs
-    participant SQL as AplicacionesRepository.Queries.cs
+    participant CT as AplicacionesControlador.cs
+    participant ORQ as AplicacionesRepositorio.cs
+    participant DATA as AplicacionesRepositorio.Datos.cs
+    participant SQL as AplicacionesRepositorio.Consultas.cs
     participant DB as Guardian/BDQISHUR/CNX
-    C->>CT: POST /api/aplicaciones/apply
-    CT->>ORQ: Apply(logId, lCicloId)
-    ORQ->>DATA: RunProcessAsync(...)
+    C->>CT: POST /api/aplicaciones/aplicar
+    CT->>ORQ: Aplicar(logId, lCicloId)
+    ORQ->>DATA: EjecutarProcesoAsync(...)
     DATA->>DB: validar conexiones
     DATA->>DB: limpiar tablas por ciclo
     DATA->>DB: CALL RetencionEmpresa()
@@ -777,26 +777,26 @@ sequenceDiagram
         DATA->>DB: descuentos activos y registro de pago
         ORQ->>DATA: Prorrateo
         DATA->>DB: insertar/actualizar AplicacionesProrrateo
-        ORQ->>DATA: MarkProcessedAsync
+        ORQ->>DATA: MarcarProcesadoAsync
         DATA->>DB: update AplicacionesComisionado
     end
-    ORQ-->>CT: AplicacionesApplyResponse
-    CT-->>C: status/mensaje/data
+    ORQ-->>CT: RespuestaEjecucionAplicaciones
+    CT-->>C: estado/mensaje/datos
 ```
 
-Nota: la mejor interpretación del flujo de pago fino, facturación y consultas CNX está centralizada en `AplicacionesRepository.Data.cs` y `AplicacionesRepository.Queries.cs`, porque el módulo separa la orquestación del acceso a SQL/procedimientos/web service.
+Nota: la mejor interpretación del flujo de pago fino, facturación y consultas CNX está centralizada en `AplicacionesRepositorio.Datos.cs` y `AplicacionesRepositorio.Consultas.cs`, porque el módulo separa la orquestación del acceso a SQL/procedimientos/web service.
 
 ## Controller: RedesController
 Patrón: generación de red comprimida y red completa temporal para bonos de grupo/residual.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetDatos` | `GET /api/Redes/armar/red/comprimida/mes` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Valida paso `RED_COMPRIMIDA`; mezcla vendedores activos con habilitados y sube hasta 7 patrocinadores activos | `GetSiguientePaso`, `IniciarPaso`, `GetHabilitaciones`, `GetObetenerContactoVentasMes`, `GetRedCotactoAll`, `GuardarRedComprimida`, `FinalizarPaso`, `CancelarPaso` | `administracioncontrato`, `administracioncontacto`, `administracionhabilitacioncomision`, `red_comprimida`, `tmp_residual_contacto` | Red comprimida generada y resumen |
 | `GetClientesCuotas` | `GET /api/Redes/armar/red/cuotas` | Headers `Usuario`, `LCicloId` | Valida paso `RED_COMPLETA`; arma jerarquía de 7 niveles para todos los contactos y la deja en tabla temporal | `GetSiguientePaso`, `IniciarPaso`, `GetRedCotactoAll`, `GuardarRedContactoTemporal`, `FinalizarPaso`, `CancelarPaso` | `administracioncontacto`, `tmp_residual_contacto`, `tmp_residual_red` | Cantidad de clientes procesados |
 
 ### Método: GetDatos
 
-- Endpoint: `GET /api/Redes/armar/red/comprimida/mes`
+- PuntoFinal: `GET /api/Redes/armar/red/comprimida/mes`
 - Descripción: genera la red comprimida del ciclo tomando vendedores con ventas del mes y asesores habilitados.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`, `Inicio`, `Fin`
@@ -837,7 +837,7 @@ flowchart TD
 
 ### Método: GetClientesCuotas
 
-- Endpoint: `GET /api/Redes/armar/red/cuotas`
+- PuntoFinal: `GET /api/Redes/armar/red/cuotas`
 - Descripción: crea una tabla temporal con la red completa de 7 niveles para todos los hijos.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`
@@ -859,7 +859,7 @@ flowchart TD
 ## Controller: BonoResidualController
 Patrón: ingestión de cartera/cuotas, cálculo de excedente, residual y bono par.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `GetCartera` | `GET /api/BonoResidual/get/cartera` | Headers `Usuario`, `LCicloId` | Sin validaciones extra; agrega resumen por estado | `GetCarteraAll`, `GetSiguientePaso` | `BDComisiones.DBO.T_CARTERA` | Resumen, XLS y control de paso |
 | `GuardarCartera` | `POST /api/BonoResidual/save/cartera` | Headers `Usuario`, `LCicloId` | Valida paso `OBTENER_CARTERA`; obtiene cartera completa y la copia a staging local | `GetSiguientePaso`, `IniciarPaso`, `GetCarteraAll`, helper `GuardarCarteraGrl`, `GuardarCartera`, `FinalizarPaso`, `CancelarPaso` | `BDComisiones.DBO.T_CARTERA`, `Cartera`, `conf_*` | Confirmación y timestamps |
@@ -874,7 +874,7 @@ Patrón: ingestión de cartera/cuotas, cálculo de excedente, residual y bono pa
 
 ### Método: GuardarBonoResidual
 
-- Endpoint: `POST /api/BonoResidual/save/calculo/residual`
+- PuntoFinal: `POST /api/BonoResidual/save/calculo/residual`
 - Descripción: calcula el bono residual por nivel y lo persiste agregado por contacto y por contacto-complejo.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`
@@ -947,7 +947,7 @@ sequenceDiagram
 
 ### Método: GuardarBonoPar
 
-- Endpoint: `POST /api/BonoResidual/save/bono/par`
+- PuntoFinal: `POST /api/BonoResidual/save/bono/par`
 - Descripción: persiste el bono par para los ganadores elegibles del periodo.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`, `Inicio`, `Fin`
@@ -973,7 +973,7 @@ sequenceDiagram
 ## Controller: ReportesController
 Patrón: generación de PDF y, en varios casos, XLS a partir de consultas agregadas.
 
-| Método | Endpoint | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
+| Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ReporteComisiones` | `GET /api/Reportes/comisiones` | Headers `lCicloId`, `lContactoId`, `usuario?` | Combina reporte base + resumen de comisiones; calcula bandera `tieneComicion` | `GetReporteComision`, `GetComision`, `ReporteComisionesDocumento.GeneratePdf` | `administracionventapersonal`, `administracionventagrupo`, `administracionbonoresidual`, `bonopar`, `administraciondescuentociclo`, `tbl_retencionempresa`, `administracioncontacto`, `administracionciclo` | PDF base64 y `tieneComicion` |
 | `ReporteAplicaciones` | `GET /api/Reportes/aplicaciones` | Headers `lCicloId`, `lContactoId`, `usuario?` | Si no hay aplicaciones devuelve `status=false` con archivos vacíos | `GetReporteAplicacines`, `ReporteAplicacionesDocumento.GeneratePdf` | Query de aplicaciones en `ReportesRepository` | PDF base64 |
@@ -987,7 +987,7 @@ Patrón: generación de PDF y, en varios casos, XLS a partir de consultas agrega
 
 ### Método: ReporteComisiones
 
-- Endpoint: `GET /api/Reportes/comisiones`
+- PuntoFinal: `GET /api/Reportes/comisiones`
 - Descripción: arma el reporte PDF consolidado de comisiones de un asesor para un ciclo.
 - Parámetros:
   - Headers `lCicloId`, `lContactoId`, `usuario?`
@@ -1027,7 +1027,7 @@ flowchart TD
 
 ### Método: ReportePagarComision
 
-- Endpoint: `GET /api/Reportes/pagar/comision`
+- PuntoFinal: `GET /api/Reportes/pagar/comision`
 - Descripción: genera el reporte final de pago de comisiones juntando el agregado principal y el prorrateo por empresa.
 - Parámetros:
   - Headers `lCicloId`, `usuario?`

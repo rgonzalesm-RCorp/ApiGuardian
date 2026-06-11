@@ -5,6 +5,7 @@ public static class HabilitacionComisionHelper
         TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE,
         TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION,
         TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA,
+        TiposContratosDiccionario.TiposContratosDiccionarioGrd.CASOSESPECIALES,
     };
 
     public static readonly int[] TiposComisionablesEspecialesCnx =
@@ -12,6 +13,7 @@ public static class HabilitacionComisionHelper
         TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE,
         TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECUPERACION,
         TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA,
+        TiposContratosDiccionario.TiposContratosDiccionarioCnx.CASOSESPECIALES,
     };
 
     public static HashSet<int> GetContactosHabilitadosQueGeneranComision(IEnumerable<ItemHabilitacionComision> habilitaciones)

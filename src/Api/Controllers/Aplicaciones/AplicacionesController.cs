@@ -5,86 +5,87 @@ using Microsoft.AspNetCore.Mvc;
 namespace CleanDapperApi.Api.Controllers;
 
 [ApiController]
+[Controller]
 [Route("api/aplicaciones")]
 public class AplicacionesController : ControllerBase
 {
-    private readonly IAplicacionesRepository _aplicacionesRepository;
-    private readonly ILogService _log;
+    private readonly IAplicacionesRepositorio _repositorioAplicaciones;
+    private readonly ILogService _registro;
     private const string NombreArchivo = "AplicacionesController.cs";
 
-    public AplicacionesController(IAplicacionesRepository aplicacionesRepository, ILogService log)
+    public AplicacionesController(IAplicacionesRepositorio repositorioAplicaciones, ILogService registro)
     {
-        _aplicacionesRepository = aplicacionesRepository;
-        _log = log;
+        _repositorioAplicaciones = repositorioAplicaciones;
+        _registro = registro;
     }
 
-    [HttpGet("preview")]
-    public async Task<IActionResult> Preview([FromHeader(Name = "lCicloId")] int lCicloId)
+    [HttpGet("vista-previa")]
+    public async Task<IActionResult> VistaPrevia([FromHeader(Name = "lCicloId")] int lCicloId)
     {
-        var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        const string metodo = "Preview()";
+        var idTransaccionLog = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        const string nombreMetodo = "VistaPrevia()";
 
         try
         {
-            _log.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio preview de aplicaciones. lCicloId:{lCicloId}");
-            var response = await _aplicacionesRepository.Preview(logTransaccionId, lCicloId);
+            _registro.Info(idTransaccionLog, NombreArchivo, nombreMetodo, $"Inicio vista previa de aplicaciones. lCicloId:{lCicloId}");
+            var respuesta = await _repositorioAplicaciones.VistaPrevia(idTransaccionLog, lCicloId);
 
             return Ok(new
             {
-                status = response.Success,
-                mensaje = response.Mensaje,
-                data = response.Data
+                estado = respuesta.Exito,
+                mensaje = respuesta.Mensaje,
+                datos = respuesta.Datos
             });
         }
-        catch (Exception ex)
+        catch (Exception excepcion)
         {
-            _log.Error(logTransaccionId, NombreArchivo, metodo, "Error en preview de aplicaciones", ex);
+            _registro.Error(idTransaccionLog, NombreArchivo, nombreMetodo, "Error en vista previa de aplicaciones", excepcion);
             return Ok(new
             {
-                status = false,
-                mensaje = ex.Message,
-                data = new AplicacionesPreviewResponse
+                estado = false,
+                mensaje = excepcion.Message,
+                datos = new RespuestaVistaPreviaAplicaciones
                 {
                     LCicloId = lCicloId,
-                    Preview = true,
+                    VistaPrevia = true,
                     ErrorGrave = true,
-                    ErrorGraveMensaje = ex.Message
+                    ErrorGraveMensaje = excepcion.Message
                 }
             });
         }
     }
 
-    [HttpPost("apply")]
-    public async Task<IActionResult> Apply([FromBody] AplicacionesExecuteRequest request)
+    [HttpPost("aplicar")]
+    public async Task<IActionResult> Aplicar([FromBody] SolicitudEjecucionAplicaciones solicitud)
     {
-        var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        const string metodo = "Apply()";
+        var idTransaccionLog = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        const string nombreMetodo = "Aplicar()";
 
         try
         {
-            _log.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio apply de aplicaciones. lCicloId:{request.LCicloId}");
-            var response = await _aplicacionesRepository.Apply(logTransaccionId, request.LCicloId);
+            _registro.Info(idTransaccionLog, NombreArchivo, nombreMetodo, $"Inicio aplicación de aplicaciones. lCicloId:{solicitud.LCicloId}");
+            var respuesta = await _repositorioAplicaciones.Aplicar(idTransaccionLog, solicitud.LCicloId);
 
             return Ok(new
             {
-                status = response.Success,
-                mensaje = response.Mensaje,
-                data = response.Data
+                estado = respuesta.Exito,
+                mensaje = respuesta.Mensaje,
+                datos = respuesta.Datos
             });
         }
-        catch (Exception ex)
+        catch (Exception excepcion)
         {
-            _log.Error(logTransaccionId, NombreArchivo, metodo, "Error en apply de aplicaciones", ex);
+            _registro.Error(idTransaccionLog, NombreArchivo, nombreMetodo, "Error en aplicación de aplicaciones", excepcion);
             return Ok(new
             {
-                status = false,
-                mensaje = ex.Message,
-                data = new AplicacionesApplyResponse
+                estado = false,
+                mensaje = excepcion.Message,
+                datos = new RespuestaEjecucionAplicaciones
                 {
-                    LCicloId = request.LCicloId,
-                    Preview = false,
+                    LCicloId = solicitud.LCicloId,
+                    VistaPrevia = false,
                     ErrorGrave = true,
-                    ErrorGraveMensaje = ex.Message
+                    ErrorGraveMensaje = excepcion.Message
                 }
             });
         }

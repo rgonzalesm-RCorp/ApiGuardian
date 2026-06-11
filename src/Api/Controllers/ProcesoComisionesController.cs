@@ -182,45 +182,23 @@ public class ProcesoComisionesController : ControllerBase
         }
 
         var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
-        var listadoVentaPersonal = responseVentaPersonal.Data
-            .Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id)))
-            .ToList();
-        var listadoVentaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal
-            .Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id)))
-            .ToList();
+        var listadoVentaPersonal = responseVentaPersonal.Data.Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id))).ToList();
+        var listadoVentaPersonalCalculado = responseVentaPersonal.ListaVtaPersonal.Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id))).ToList();
 
-        List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
-        List<VentaPersonalComisionDto> CantidadUpgrade = listadoVentaPersonal
-            .Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
-            .ToList();
+        List<VentaPersonalComisionDto> CantidadUpgrade = listadoVentaPersonal.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
         if (CantidadUpgrade.Count > 0)
         {
-            var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), Usuario, lCicloId);
-            ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
-
             //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
             foreach (var item in listadoVentaPersonal)
             {
-                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
-                {
-                    item.dporcentajecomision = 67;
-                    UpgradeSolicitudDto? upgradeSolicitud = ListaUpgradeSolicitud.Where(x => x.VentaId + "-" + x.ProductoId == item.snroventa).FirstOrDefault();
-                    if (upgradeSolicitud != null)
-                    {
-                        decimal DiferenciaUpgrade = item.dprecio - upgradeSolicitud.MontoHold;
-                        decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
-                        decimal MontoATomar = item.inicial < TresPorCientoDiferencia ? item.inicial : TresPorCientoDiferencia;
-                        item.dcomision = MontoATomar * 67 / 100;
-                        item.inicial = MontoATomar;
-                    }
-                    item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
-                }
-                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION)
-                {
-                    item.dporcentajecomision = 67;
-                 
+                if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE 
+                || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA
+                || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION
+                ||item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.CASOSESPECIALES)
+                { 
                     item.dcomision = item.inicial * 67 / 100;
                     item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                    item.dporcentajecomision = 67;
                 }
             }
         }
@@ -231,7 +209,7 @@ public class ProcesoComisionesController : ControllerBase
             status = responseVentaPersonal.Success,
             mensaje = responseVentaPersonal.Mensaje,
             data = new {
-                ventaPersonal = listadoVentaPersonal,
+                ventaPersonal = listadoVentaPersonal,//.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList(),
                 ventaPersonalCalculado = listadoVentaPersonalCalculado,
                 base64Xls = responseXls.base64,
                 controlPasos = new {
@@ -398,42 +376,23 @@ public class ProcesoComisionesController : ControllerBase
             }
 
             var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
-            var listadoVentaPersonalComision = responseVentaPersonalComision.Data
-                .Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id)))
-                .ToList();
+            var listadoVentaPersonalComision = responseVentaPersonalComision.Data.Where(item => !contactosBloqueados.Contains(Convert.ToInt32(item.lcontacta_id))).ToList();
 
-            List<UpgradeSolicitudDto> ListaUpgradeSolicitud = new List<UpgradeSolicitudDto>();
-            List<VentaPersonalComisionDto> CantidadUpgrade = listadoVentaPersonalComision
-                .Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
-                .ToList();
+            List<VentaPersonalComisionDto> CantidadUpgrade = listadoVentaPersonalComision.Where(x => x.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE).ToList();
             if (CantidadUpgrade.Count > 0)
             {
-                var responseUpgradeSolicitudGrd = await _casosEspecialesRepository.GetUpgradeSolicitudGrd(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
-                ListaUpgradeSolicitud = responseUpgradeSolicitudGrd.Lista.ToList();
 
                 //RECALCULAMOS LAS COMISIONES DE LAS VENTAS UPGRADE CON LOS DATOS DE UPGRADE_SOLICITUD
                 foreach (var item in listadoVentaPersonalComision)
                 {
-                    if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE)
-                    {
-                        item.dporcentajecomision = 67;
-                        UpgradeSolicitudDto? upgradeSolicitud = ListaUpgradeSolicitud.Where(x => x.VentaId + "-" + x.ProductoId == item.snroventa).FirstOrDefault();
-                        if (upgradeSolicitud != null)
-                        {
-                            decimal DiferenciaUpgrade = item.dprecio - upgradeSolicitud.MontoHold;
-                            decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
-                            decimal MontoATomar = item.inicial < TresPorCientoDiferencia ? item.inicial : TresPorCientoDiferencia;
-                            item.dcomision = MontoATomar * 67 / 100;
-                            item.inicial = MontoATomar;
-                        }
-                        item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
-                    }
-                    if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION)
-                    {
-                        item.dporcentajecomision = 67;
-
+                    if (item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.UPGRADE 
+                    || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECOMPRA
+                    || item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.RECUPERACION
+                    ||item.TipoContratoId == TiposContratosDiccionario.TiposContratosDiccionarioGrd.CASOSESPECIALES)
+                    { 
                         item.dcomision = item.inicial * 67 / 100;
                         item.PorcentajeInicial = item.inicial * 100 / item.dprecio;
+                        item.dporcentajecomision = 67;
                     }
                 }
             }

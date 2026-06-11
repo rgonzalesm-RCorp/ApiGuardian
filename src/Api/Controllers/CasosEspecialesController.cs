@@ -49,6 +49,40 @@ public class CasosEspecialesController : ControllerBase
             }*/
             var ResponseVentasEspeciales = await _casosEspecialesRepository.GetVentasCasosEspeciales(logTransaccionId, Usuario, Inicio, Fin);
             var responseContratofecha = await _administracionContratoRepository.GetContratoFecha(logTransaccionId.ToString(), Inicio, Fin);
+            
+            var ResponseVentasUpGrade = await _casosEspecialesRepository.GetUpgradeSolicitudPorVentasCnx(logTransaccionId.ToString(), Usuario, string.Join(",", ResponseVentasEspeciales.VentasCasosEspeciales.Where(x => x.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE).Select(x => x.IdVenta)));
+            //ResponseVentasEspeciales.VentasCasosEspeciales = ResponseVentasEspeciales.VentasCasosEspeciales.Where(x => x.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA).OrderBy(x => x.IdVenta + "-"+ x.SLote).ToList();
+            foreach (var item in ResponseVentasEspeciales.VentasCasosEspeciales)
+            {
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE)
+                {
+                    //item.dporcentajecomision = 67;
+                    UpgradeSolicitudDto? upgradeSolicitud = ResponseVentasUpGrade.Lista.Where(x => x.VentaId  == item.IdVenta).FirstOrDefault();
+                    if (upgradeSolicitud != null)
+                    {
+                        decimal DiferenciaUpgrade = item.DPrecio - upgradeSolicitud.MontoHold;
+                        decimal TresPorCientoDiferencia = DiferenciaUpgrade * 3 / 100;
+                        decimal MontoATomar = item.SCuotaInicial < TresPorCientoDiferencia ? item.SCuotaInicial : TresPorCientoDiferencia;
+                        item.SCuotaInicial = MontoATomar;
+                    }
+                }
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA)
+                {
+                    item.SCuotaInicial = (item.DPrecio == item.SCuotaInicial || item.SCuotaInicial == 0) ? (item.DPrecio * 3 / 100) : item.SCuotaInicial;
+                }
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECUPERACION)
+                {
+                   
+                }
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.CASOSESPECIALES)
+                {
+                    decimal PorcentajeAumentar = 49.25M;
+                    decimal Diferencia = item.DPrecio - item.SCuotaInicial;
+                    decimal MontoATomarComoInicial = Diferencia * 3 / 100;
+                    item.SCuotaInicial = MontoATomarComoInicial + (MontoATomarComoInicial *  PorcentajeAumentar / 100);
+                }
+                
+            } 
             var xls = new CasosEspecialesXls();
             var responseXls = await xls.GetCasosEspecialesXls(ResponseVentasEspeciales.VentasCasosEspeciales.ToList());
 
