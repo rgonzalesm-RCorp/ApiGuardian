@@ -187,6 +187,6 @@ public class ProductosPagarMensualUpdate
     public bool ActivoMes { get; set; }
     public decimal MontoPagarMes { get; set; }
     public decimal TotalComision { get; set; }
-    public int TotalCuotasContabilizar { get; set; }
+    public int TotalCuotasContabilizar { get; set; } 
     public List<ProductosDetalleCuotas> _ProductosDetalleCuotas {get; set;} = new List<ProductosDetalleCuotas>();
 }

@@ -632,13 +632,22 @@ public class BonoResidualController : ControllerBase
             var responserGetBonoResidual = await _bonoResidualRepository.GetDataCalculoBonoResidual(logTransaccionId.ToString(), Usuario, LCicloId);
             var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, LCicloId);
             var responseConfiguracionBr = await _brConfiguracionRepository.GetConfiguracion(logTransaccionId.ToString(), Usuario);
+            var responseCartera = await _bonoResidualRepository.GetCarteraGRD(logTransaccionId.ToString(), Usuario);
 
-            if (!responseHabilitaciones.Success)
+            if (!responserGetBonoResidual.Success || !responseHabilitaciones.Success || !responseConfiguracionBr.Success || !responseCartera.Success)
             {
+                string mensajeError = !responserGetBonoResidual.Success
+                    ? responserGetBonoResidual.Mensaje
+                    : !responseHabilitaciones.Success
+                        ? responseHabilitaciones.Mensaje
+                        : !responseConfiguracionBr.Success
+                            ? responseConfiguracionBr.Mensaje
+                            : responseCartera.Mensaje;
+
                 return Ok(new
                 {
                     status = false,
-                    mensaje = responseHabilitaciones.Mensaje,
+                    mensaje = mensajeError,
                     data = ""
                 });
             }
@@ -646,7 +655,7 @@ public class BonoResidualController : ControllerBase
             List<DetailsBrConfiguracion> configuracions = responseConfiguracionBr.Data.Where(x => x.LCicloId == LCicloId).ToList();
             List<BrCalculoItem> listadoResidual = new List<BrCalculoItem>(); 
 
-            var contactosDict = responserGetBonoResidual.ListaContacto.ToDictionary(x => x.LContactoId, x => x);
+            var contactosDict = responserGetBonoResidual.ListaContacto.ToDictionary(x => x.LContactoId, x => x); 
             var personasHabilitadas = responseHabilitaciones.Data.ToList();
             var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(personasHabilitadas);
             var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(personasHabilitadas);
@@ -657,7 +666,13 @@ public class BonoResidualController : ControllerBase
                 .Concat(habilitadosSet)
                 .ToHashSet();
 
-            var configDict = configuracions.Where(x => x.TipoProductoId == 1).ToDictionary(x => x.Nivel, x => x);
+            var configDictTerreno = configuracions.Where(x => x.TipoProductoId == 1).ToDictionary(x => x.Nivel, x => x);
+            var configDictMembresia = configuracions.Where(x => x.TipoProductoId == 2).ToDictionary(x => x.Nivel, x => x);
+            var carteraList = responseCartera.ListaCartera
+                .Where(c => string.Equals(c.Estado?.Trim(), "VENCIDO", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(c.DocId))
+                .Select(c => c.DocId.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var item in responserGetBonoResidual.ListaCuotaRed)
             {
@@ -675,9 +690,11 @@ public class BonoResidualController : ControllerBase
                     }
 
                     contactosDict.TryGetValue(patrocinadoId, out var contacto);
-                    configDict.TryGetValue(i, out var objConfig);
+                    configDictTerreno.TryGetValue(i, out var objConfigTerreno);
+                    configDictMembresia.TryGetValue(i, out var objConfigMembresia);
 
-                    var porcentaje = objConfig?.PorcentajeComision ?? 0;
+                    var porcentaje = item.Empresa != "ADVEL" ? objConfigTerreno?.PorcentajeComision : objConfigMembresia?.PorcentajeComision ?? 0;
+                    var documentoContacto = contacto?.SCedulaIdentidad?.Trim();
 
                     BrCalculoItem rows = new BrCalculoItem
                     {
@@ -689,20 +706,23 @@ public class BonoResidualController : ControllerBase
                         DocumentoHijo = item.DocumentoCliente,
                         Nivel = i,
                         Bono = item.Bono,
-                        BonoResidual = item.Bono * porcentaje / 100,
+                        BonoResidual = item.Bono * (decimal)porcentaje / 100,
                         ActivoMes = activosSet.Contains(patrocinadoId),
-                        PorcentajeComision = porcentaje,
+                        PorcentajeComision = (decimal)porcentaje,
                         LComplejoId = item.ProyectoId,
                         Complejo = item.Proyecto,
                         Empresa = item.Empresa,
-                        ProductoId = item.ProductoId
+                        ProductoId = item.ProductoId,
+                        EstaAlDia = string.IsNullOrWhiteSpace(documentoContacto) || !carteraList.Contains(documentoContacto)
                     };
 
                     listadoResidual.Add(rows);
                 }
             }
 
-            listadoResidual = listadoResidual.Where(x => x.ActivoMes).ToList();
+            listadoResidual = listadoResidual.Where(x => x.ActivoMes && x.EstaAlDia).ToList();
+            //List<BrCalculoItem> estadoAldiaList = listadoResidual.Where(x => x.EstaAlDia).ToList();
+            //List<BrCalculoItem> estadoVencidoList = listadoResidual.Where(x => !x.EstaAlDia).ToList();
             var ListadoResumenPorEmpresa = listadoResidual.GroupBy(x => new {x.Empresa })
             .Select(g => new
             {
@@ -753,7 +773,7 @@ public class BonoResidualController : ControllerBase
         }
         
     }
-   [HttpPost("save/calculo/residual")]
+    [HttpPost("save/calculo/residual")]
     public async Task<IActionResult> GuardarBonoResidual([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();

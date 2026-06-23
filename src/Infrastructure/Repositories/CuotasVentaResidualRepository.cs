@@ -463,9 +463,9 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                     lcontacto_id = item.LContactoId,
                     dpreciolote = 1,
                     dporcentajecomision =0,
-                    dcomision =  Convert.ToDecimal(s.Sum(z => z.CantCuotas)) * item.MontoPagarMes,
+                    dcomision = item.TotalComision, //  Convert.ToDecimal(s.Sum(z => z.CantCuotas)) * item.MontoPagarMes,
                     lcontrato_id = (long) Convert.ToInt32(s.Key.LcontratoId) ,
-                    lnrosemana =1,
+                    lnrosemana = 1,
                     lsemana_id = 1    
                 }).ToList(); 
                 if (obj.Count > 0)

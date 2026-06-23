@@ -97,7 +97,14 @@ public class ProcesoComisionesController : ControllerBase
 
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), "system", ProcesosDiccionario.COMISIONES, lCicloId);
 
-
+            foreach(var item in responseVtaCnx.Data)
+            {
+                decimal InicialCalculado = Math.Ceiling(item.DPrecio *  0.10m);
+                if(item.SCuotaInicial > InicialCalculado )
+                {
+                    item.SCuotaInicial = InicialCalculado;
+                }
+            }
             return Ok(new
             {
                 status = responseVtaCnx.Success ? true : false,

@@ -160,6 +160,34 @@ public class BonoResidualRepository : IBonoResidualRepository
             return (Enumerable.Empty<TCartera>(), false, $"Error al obtener los tipos de descuento: {ex.Message}", 0);
         }
     }
+    public async Task<(IEnumerable<CarteraCalculoBonoResidual> ListaCartera, bool Success, string Mensaje, int counter)> GetCarteraGRD(string LogTransaccionId, string Usuario)
+    {
+        string nombreMetodo = "GetCarteraGRD()";
+
+        string query = $@"SELECT DOCID DocId, ESTADO Estado, LOTE Lote, CLIENTE Cliente FROM CARTERA";
+        int counter = 0;
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var ListaCartera = await connection.QueryAsync<CarteraCalculoBonoResidual>(query);
+
+            bool success = true;
+            string mensaje = success ? "Cartera obtenidos correctamente." : "No se encontraron lista de Cartera.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, total registro:{counter}]");
+
+            return (ListaCartera, success, mensaje, counter);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<CarteraCalculoBonoResidual>(), false, $"Error al obtener los tipos de descuento: {ex.Message}", 0);
+        }
+    }
     public async Task<(bool Success, string Mensaje)> GuardarCartera(string LogTransaccionId, string Usuario,List<TCartera> ListadoCartera)
     {
         string nombreMetodo = "GuardarCartera()";

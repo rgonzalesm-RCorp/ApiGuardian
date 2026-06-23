@@ -45,7 +45,7 @@ namespace Query.Grd
                                 WHERE ACT.dtfecha BETWEEN @Inicio AND @Fin and 
                                     CASE WHEN (ACT.dcuota_inicial * 100 / ACT.dprecio) BETWEEN 2.9999 AND 3.011 THEN 
                                         CASE WHEN  ACT.dprecio >= 10000 THEN 1 ELSE 0 END
-                                    ELSE 1 END = 1
+                                    ELSE 1 END = 1 and ACT.ltipocontrato_id in (1,2)
                                 GROUP BY V.lpatrocinante_id, V.lcontacto_id 
                             )DAT 
                             INNER JOIN administracioncontacto CT ON CT.lcontacto_id = DAT.GId

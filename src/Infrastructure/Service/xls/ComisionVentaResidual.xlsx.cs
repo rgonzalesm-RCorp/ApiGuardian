@@ -104,7 +104,7 @@ public class ComisionVentaResidualXls
         ws.Cell(row, 13).Value = v.Precio;
         ws.Cell(row, 14).Value = v.CuotaInicial;
         ws.Cell(row, 15).Value = v.Porcentaje;
-        ws.Cell(row, 16).Value = v.MensPagar;
+        ws.Cell(row, 16).Value = v.TotalComision;
     }
     private static void CrearEncabezados(IXLWorksheet ws, int row)
     {

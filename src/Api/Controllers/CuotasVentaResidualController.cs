@@ -89,7 +89,7 @@ public class CuotasVentaResidualController: ControllerBase
             }
 
 
-            var ListadoCuotasVentasResidual = ResponseCuotasVentaRecidual.ListadoCuotasVentasResidual;
+            var ListadoCuotasVentasResidual = ResponseCuotasVentaRecidual.ListadoCuotasVentasResidual;//.Where(x => x.NroVenta == "24770-ULD-M8-L38").ToList();
             var ListadoProductosPagarMensual = ResponseProductosPagarMensuales.ListadoProductosPagarMensuales;
             var ListadoVentaPersonal = ResponseComisionVentaPersonas.ListadoAdministracionVentaPersonal;
             var personasHabilitadas = responseHabilitaciones.Data.ToList();
@@ -109,6 +109,10 @@ public class CuotasVentaResidualController: ControllerBase
                 producto => producto.Snroventa.Trim(),
                 async (venta, producto) =>
                 {
+                    if (venta.NroVenta == "10018299-N-CRU-B-M33L52")
+                    {
+                        string errorMessage = $"No se encontró un producto a pagar mensual para la venta {venta.NroVenta} con el número de cuota {venta.NroCuota}";
+                    }
                     var resultadoComision = await GetComision(
                         Convert.ToInt32(producto.CuotAccPen),
                         Convert.ToInt32(producto.CuotPagadas),
@@ -272,7 +276,7 @@ public class CuotasVentaResidualController: ControllerBase
                     data = ""
                 });
             }
-
+            //responseCuotasResidual.ListadoCuotasVentasResidual = responseCuotasResidual.ListadoCuotasVentasResidual.Where(x => x.NroVenta == "24704-ULM-M3-L13").ToList();
             await _repo.SaveCuotasVentasProductosPagarMensual(logTransaccionId, Usuario, responseCuotasResidual.ListadoCuotasVentasResidual.ToList());
 
 
