@@ -36,9 +36,11 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 FROM administracionventapersonal 
                 WHERE lcontacto_id = @LContactoId AND lciclo_id = @LCicloId) AS ComisionVentaPersonal,
 
-                (SELECT IFNULL(SUM(PAGAR),0) 
-                FROM t_bono_liderazgo 
-                WHERE vendedores_id = @LContactoId AND lciclo_id = @LCicloId) AS ComisionLiderazgo,
+                0.00 AS ComisionLiderazgo,
+
+                (SELECT IFNULL(SUM(bono),0)
+                FROM bonopar
+                WHERE l_contacto_ganador_id = @LContactoId AND lciclo_id = @LCicloId) AS ComisionBonoPar,
 
                 (SELECT IFNULL(SUM(montoretencion),0) 
                 FROM tbl_retencionempresa 
@@ -85,7 +87,7 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 data.TotalComision = data.ComisionVentaPersonal 
                                 + data.ComisionVentaGrupo 
                                 + data.ComisionResidual 
-                                + data.ComisionLiderazgo;
+                                + data.ComisionBonoPar;
 
                 data.TotalFinal = data.TotalComision - (data.Retencion + data.DescuentoLote);
             }

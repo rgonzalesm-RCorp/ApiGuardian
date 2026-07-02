@@ -15,13 +15,23 @@ namespace CleanDapperApi.Api.Controllers;
 public class RedesController : ControllerBase
 {
     private readonly IRedesRepository _repo;
+    private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly ILogService _log;
+    private readonly IControlProcesoRepository _controlProcesoRepository;
+
     private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
 
-    public RedesController(IRedesRepository repo, ILogService log)
+    public RedesController(
+        IRedesRepository repo,
+        IAdministracionHabilitacionComisionRepository habilitacionRepository,
+        ILogService log,
+        IControlProcesoRepository controlProcesoRepository
+    )
     {
         _repo = repo;
+        _habilitacionRepository = habilitacionRepository;
         _log = log;
+        _controlProcesoRepository = controlProcesoRepository;
     }
 
     [HttpGet("armar/red/comprimida/mes")]
@@ -29,26 +39,107 @@ public class RedesController : ControllerBase
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         _log.Info(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
+        bool pasoIniciado = false;
 
         try
         {
+            DateTime ini = DateTime.Now;
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.RED_COMPRIMIDA != responseSiguientePaso.Data.nombre)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPRIMIDA
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
+            var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId, Usuario, LCicloId);
+            if (!responseHabilitaciones.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(
+                    logTransaccionId,
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    PasosDiccionario.RED_COMPRIMIDA
+                );
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseHabilitaciones.Mensaje,
+                    data = ""
+                });
+            }
+
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
+            var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
+            var personasHabilitadas = responseHabilitaciones.Data.ToList();
+
+            var contactosActivos = ResponseContactoVentaMes.ListadoContactosActivos
+                .Select(item => new ItemContactoActivo
+                {
+                    LContactoId = item.LContactoId > 0 ? item.LContactoId : item.LVendedorId,
+                    LVendedorId = item.LVendedorId > 0 ? item.LVendedorId : item.LContactoId
+                })
+                .ToList();
+
+            foreach (var habilitado in personasHabilitadas)
+            {
+                if (contactosActivos.Any(x => x.LVendedorId == habilitado.LContactoId))
+                {
+                    continue;
+                }
+
+                contactosActivos.Add(new ItemContactoActivo
+                {
+                    LContactoId = habilitado.LContactoId,
+                    LVendedorId = habilitado.LContactoId
+                });
+            }
+
             List<ItemContactoRed> Lista = new List<ItemContactoRed>();
-            foreach (var item in ResponseContactoVentaMes.ListadoContactosActivos)
+            foreach (var item in contactosActivos)
             {
                 int LContactoId = item.LVendedorId;
                 int LPatrocinadorId = 0;
                 int counter = 1;
                 while (counter <= 7)
                 {
-                    var responsePatrocinador = await _repo.GetObetenerPatrocinador(logTransaccionId, Usuario, LContactoId);
-                    LPatrocinadorId = responsePatrocinador.PatrocinadorId;
+                    //var responsePatrocinador = await _repo.GetObetenerPatrocinador(logTransaccionId, Usuario, LContactoId);
+                    var responsePatrocinador = ResponseContactoAll.ListadoContactosCuotas.Where(x => x.Hijo == LContactoId).FirstOrDefault();
+                    //LPatrocinadorId = responsePatrocinador.PatrocinadorId;
+                    LPatrocinadorId = responsePatrocinador.Padre;
                     if(LPatrocinadorId <= 0)
                         break;
-                    int EstaActivo = ResponseContactoVentaMes.ListadoContactosActivos.Where(x => x.LVendedorId == LPatrocinadorId).Count();
+                    int EstaActivo = contactosActivos.Count(x => x.LVendedorId == LPatrocinadorId);
                     if (EstaActivo > 0)
                     {
-                        Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.PatrocinadorId}");
+                        Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.Padre}");
                         ItemContactoRed ObjRedComprimidad = new ItemContactoRed
                         {
                             LContactoId = item.LVendedorId,
@@ -67,15 +158,59 @@ public class RedesController : ControllerBase
                 }
             }
             var ResponseGuardarRedComprimida = await _repo.GuardarRedComprimida(logTransaccionId, Usuario, Lista);
-            
+
+            if (!ResponseGuardarRedComprimida.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(
+                    logTransaccionId,
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    PasosDiccionario.RED_COMPRIMIDA
+                );
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ResponseGuardarRedComprimida.Mensaje,
+                    data = ""
+                });
+            }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPRIMIDA
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
+            DateTime fin = DateTime.Now;
+
             return Ok(new 
             {
-                status = ResponseContactoVentaMes.Success,
-                mensaje = ResponseContactoVentaMes.Mensaje,
+                status = ResponseGuardarRedComprimida.Success,
+                mensaje = ResponseGuardarRedComprimida.Mensaje,
                 data = new
                 {
-                    Nivel = ResponseContactoVentaMes.ListadoContactosActivos,
+                    ini,
+                    fin,
+                    Nivel = contactosActivos,
                     RedComprimida = Lista,
+                    personasHabilitadas,
                     ResponseGuardarRedComprimida.Success,
                     ResponseGuardarRedComprimida.Mensaje
 
@@ -84,6 +219,11 @@ public class RedesController : ControllerBase
         }
         catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.RED_COMPRIMIDA);
+            }
+
             _log.Error(logTransaccionId, NOMBREARCHIVO, "Get", "Error", ex);
             return Ok(new 
             {
@@ -98,54 +238,135 @@ public class RedesController : ControllerBase
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         _log.Info(logTransaccionId, NOMBREARCHIVO, "GetClientesCuotas", $"Inicio GetClientesCuotas() Usuario: {Usuario}");
+        bool pasoIniciado = false;
 
         try
         {
-            var ResponseClientesCuotas = await _repo.GetObtnerClientesCuotas(logTransaccionId, Usuario);
-            List<ItemContactoRed> Lista = new List<ItemContactoRed>();
-
-            List<ItemCuotasRed> ListadoContactosCuotas = ResponseClientesCuotas.ListadoContactosCuotas.ToList();
-            List<BrContacto> ListaContacto = ResponseClientesCuotas.ListaContacto.ToList();
-            var cachePatrocinadores = new Dictionary<int, int>();
-
-            foreach (var item in ListadoContactosCuotas)
+            DateTime ini = DateTime.Now;
+            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            if (PasosDiccionario.RED_COMPLETA != responseSiguientePaso.Data.nombre)
             {
-                int contactoId = item.LContactoId;
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                    data = ""
+                });
+            }
 
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPLETA
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseInicioPaso.Data?.mensaje ?? responseInicioPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = true;
+
+            var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
+            var diccionario = ResponseContactoAll.ListadoContactosCuotas.ToDictionary(x => x.Hijo , x => x.Padre);
+            List<ItemRedSieteNiveles> Lista = new List<ItemRedSieteNiveles>();
+
+            foreach (var item in ResponseContactoAll.ListadoContactosCuotas)
+            {
+                ItemRedSieteNiveles Red = new ItemRedSieteNiveles
+                {
+                    Hijo = item.Hijo
+                };
+                int actual = item.Hijo;
                 for (int nivel = 1; nivel <= 7; nivel++)
                 {
-                    int patrocinadorId = ListaContacto.Where(x => x.LContactoId == contactoId)
-                        .Select(x => x.LPatrocinanteId)
-                        .FirstOrDefault();
-                    if (patrocinadorId <= 0)
+                    if (!diccionario.TryGetValue(actual, out int padre))
                         break;
-                    Lista.Add(new ItemContactoRed
+                    switch (nivel)
                     {
-                        LContactoId = item.LContactoId,
-                        LPatrocinadorId = patrocinadorId,
-                        Nivel = nivel,
-                        LCicloId = LCicloId,
-                        LContratoId = 0,
-                        Usuario = Usuario
-                    });
-
-                    contactoId = patrocinadorId;
+                        case 1: Red.PadreN1 = padre; break;
+                        case 2: Red.PadreN2 = padre; break;
+                        case 3: Red.PadreN3 = padre; break;
+                        case 4: Red.PadreN4 = padre; break;
+                        case 5: Red.PadreN5 = padre; break;
+                        case 6: Red.PadreN6 = padre; break;
+                        case 7: Red.PadreN7 = padre; break;
+                    }
+                    actual = padre;
+                    
                 }
+                Lista.Add(Red);
+    
             }
-            var responseGuardarRedCompletaCuotas = await _repo.GuardarRedCompletaCuotas(logTransaccionId, Usuario, Lista);
+            var ResponseSave = await _repo.GuardarRedContactoTemporal(logTransaccionId, Usuario, Lista);
+            DateTime fin = DateTime.Now;
 
+            if (!ResponseSave.Success)
+            {
+                await _controlProcesoRepository.CancelarPaso(
+                    logTransaccionId,
+                    Usuario,
+                    ProcesosDiccionario.COMISIONES,
+                    LCicloId,
+                    PasosDiccionario.RED_COMPLETA
+                );
+
+                pasoIniciado = false;
+
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = ResponseSave.Mensaje,
+                    data = ""
+                });
+            }
+
+            var responseFinPaso = await _controlProcesoRepository.FinalizarPaso(
+                logTransaccionId,
+                Usuario,
+                ProcesosDiccionario.COMISIONES,
+                LCicloId,
+                PasosDiccionario.RED_COMPLETA
+            );
+
+            if (!responseFinPaso.Success || !(responseFinPaso.Data?.status ?? false))
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
+                    data = ""
+                });
+            }
+
+            pasoIniciado = false;
+            
             return Ok(new 
             {
-                status = ResponseClientesCuotas.Success,
-                mensaje = ResponseClientesCuotas.Mensaje,
+                status = ResponseSave.Success,
+                mensaje = ResponseSave.Mensaje,
                 data = new
                 {
-                    ClientesCuotas = ResponseClientesCuotas.ListadoContactosCuotas.Count()
+                    ClientesCuotas = Lista.Count,
+                    ini,
+                    fin
                 }
             });
         }
         catch (Exception ex)
         {
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(logTransaccionId, Usuario, ProcesosDiccionario.COMISIONES, LCicloId, PasosDiccionario.RED_COMPLETA);
+            }
+
             _log.Error(logTransaccionId, NOMBREARCHIVO, "GetClientesCuotas", "Error", ex);
             return Ok(new 
             {

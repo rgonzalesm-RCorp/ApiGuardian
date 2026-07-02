@@ -74,6 +74,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , CF.LCicloId lciclo_id
                                     , ASCC.lsemana_id
                                     , ASCC.lnrosemana
+                                    , ATC.ltipocontrato_id TipoContratoId
+                                    , ATC.Snombre TipoContrato
                                 FROM administracioncontrato C
                                 LEFT JOIN (
                                     SELECT 
@@ -91,7 +93,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                 ) CF on CF.LComplejoId = C.lcomplejo_id AND c.porcentaje_inicial BETWEEN CF.PorcentajeInicialDesde and CF.PorcentajeInicialHasta AND CF.LCicloId = @LCicloId
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
                                 INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id 
-                                LEFT JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId 
+                                LEFT JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId
+                                LEFT JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
                                 WHERE dtfecha BETWEEN @Inicio and @Fin order by c.lcontrato_id desc";
             string queryVtaPersonl = @"SELECT 
                                     c.lcontrato_id
@@ -110,11 +113,14 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , VP.lciclo_id lciclo_id
                                     , ASCC.lsemana_id
                                     , ASCC.lnrosemana
+                                    , ATC.ltipocontrato_id TipoContratoId
+                                    , ATC.Snombre TipoContrato
                                 FROM administracioncontrato C
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
                                 INNER JOIN administracioncomplejo CP on cp.lcomplejo_id = c.lcomplejo_id 
                                 INNER JOIN administracionventapersonal VP ON VP.lcontrato_id = C.lcontrato_id AND VP.lciclo_id = @LCicloId
                                 INNER JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = @LCicloId 
+                                LEFT JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
                                 order by c.lcontrato_id desc
             ";
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
@@ -150,7 +156,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                     telefonoFijoVendedor, telefonoMovilVendedor, correoVendedor, fechaNacimientoVendedor,
                     direccionVendedor, idPaisResidenciaVendedor, sCedulaIdentidadVendedor, fechaRegistroVendedor,
                     sNombreCompletoVendedor, sTelefonoOficinaVendedor, sContrasenaVendedor, sCiudadVendedor,
-                    complejo, tipoVenta, porcentajeCuotaInicial, EstadoVentaRezagadasCicloId, FechaRegistroGrd
+                    complejo, tipoVenta, porcentajeCuotaInicial, EstadoVentaRezagadasCicloId, FechaRegistroGrd, lciclo_id
                 ) VALUES (
                     @empresaId, @lContratoId, @dFecha,  @sManzano, @sLote, @dPrecio, @lComplejoId, @idVenta,
                     @lote,  @suv, @precioInicial, @sCuotaInicial, @idCliente, @telefonoFijo,
@@ -160,7 +166,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                     @telefonoFijoVendedor, @telefonoMovilVendedor, @correoVendedor, @fechaNacimientoVendedor,
                     @direccionVendedor, @idPaisResidenciaVendedor, @sCedulaIdentidadVendedor, @fechaRegistroVendedor,
                     @sNombreCompletoVendedor, @sTelefonoOficinaVendedor, @sContrasenaVendedor, @sCiudadVendedor,
-                    @complejo, @tipoVenta, @porcentajeCuotaInicial, @EstadoVentaRezagadasCicloId, @FechaRegistroGrd
+                    @complejo, @tipoVenta, @porcentajeCuotaInicial, @EstadoVentaRezagadasCicloId, @FechaRegistroGrd, null
                 );";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio inserción. Script: { insertQuery}");
@@ -189,7 +195,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
     {
         string nombreMetodo = "GetVtaRezada()";
 
-        string query = $@"select * from VentaRezagadasCiclo WHERE EstadoVentaRezagadasCicloId = 1;";
+        string query = $@"select * from VentaRezagadasCiclo WHERE EstadoVentaRezagadasCicloId = 1 AND dFecha >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y%m01');";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 
@@ -213,12 +219,12 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             return ( false, $"Error al obtener las ventas rezagadas: {ex.Message}", Enumerable.Empty<ItemVentaCnx>());
         }
     }
-    public async Task<(bool Success, string Mensaje)> UpdateVtaRezagadas(string LogTransaccionId, ItemVentaCnx Data, string Usuario)
+    public async Task<(bool Success, string Mensaje)> UpdateVtaRezagadas(string LogTransaccionId, ItemVentaCnx Data, string Usuario, int LCicloId)
     {
         string nombreMetodo = "UpdateVtaRezagadas()";
 
         const string query = @"
-            update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 2, FechaProceso = NOW() where idVenta = @IdVenta and lote = @Lote
+            update VentaRezagadasCiclo set EstadoVentaRezagadasCicloId = 2, FechaProceso = NOW(), lciclo_id = @LCicloId  where idVenta = @IdVenta and lote = @Lote
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
@@ -230,7 +236,8 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             var rows = await connection.ExecuteAsync(query, new
             {
                 Data.IdVenta,
-                Data.Lote
+                Data.Lote,
+                LCicloId
             });
 
             bool success = rows > 0;
@@ -428,7 +435,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     union ALL
                                     select 7, dporcentaje7g from administraciontipocontacto where ltipocontacto_id = 9
                                 ) cm on cm.Nivel = RC.nivel
-                    where ACTR. dtfecha BETWEEN @Inicio and @Fin ";
+                    where ACTR. dtfecha BETWEEN @Inicio and @Fin and ACTR.ltipocontrato_id in (1,2) ";
             
             _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, Usuario: {Usuario}, Inicio:{Inicio}, Fin:{Fin}, LCicloId:{LCicloId}]");
             using var connection = _context.CreateConnection();

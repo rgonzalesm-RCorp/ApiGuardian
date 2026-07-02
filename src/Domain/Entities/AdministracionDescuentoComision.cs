@@ -4,6 +4,7 @@ public class DataComision
     public decimal ComisionVentaGrupo { get; set; }
     public decimal ComisionResidual { get; set; }
     public decimal ComisionLiderazgo { get; set; }
+    public decimal ComisionBonoPar { get; set; }
     public decimal Retencion { get; set; }
     public decimal DescuentoLote { get; set; }
     public decimal PorcentajeRetencion { get; set; }

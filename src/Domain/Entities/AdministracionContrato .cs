@@ -21,6 +21,7 @@ public class ListaAdministracionContrato
     public decimal DPecioInicial { get; set; }
     public string? EstadoContrato { get; set; }
     public int CEspecial { get; set; }
+    public decimal PorcentajeInicial { get; set; }
 }
 public class AdministracionContrato
 {

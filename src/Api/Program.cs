@@ -52,6 +52,7 @@ builder.Services.AddQuartzHostedService(q =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient();
 //builder.Services.AddHostedService<MiCronJob>();
 
 builder.Services.AddSingleton<DapperContext>();
@@ -61,6 +62,7 @@ builder.Services.AddScoped<IAdministracionContactoRepository, AdministracionCont
 builder.Services.AddScoped<IUtilsRepository, UtilsRepository>();
 builder.Services.AddScoped<IAdministracionContratoRepository, AdministracionContratoRepository>();
 builder.Services.AddScoped<IAdministracionCicloFacturaRepository, AdministracionCicloFacturaRepository>();
+builder.Services.AddScoped<IAdministracionHabilitacionComisionRepository, AdministracionHabilitacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionObservacionComisionRepository, AdministracionObservacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionBuscarAsesorRepository, AdministracionBuscarAsesorRepository>();
 builder.Services.AddScoped<IAdministracionCuentaBancoRepository, AdministracionCuentaBancoRepository>();
@@ -88,6 +90,9 @@ builder.Services.AddScoped<IBrConfiguracionRepository, BrConfiguracionRepository
 builder.Services.AddScoped<IAdministracionBonoResidualRepository, AdministracionBonoResidualRepository>();
 builder.Services.AddScoped<IRedesRepository, RedesRepository>();
 builder.Services.AddScoped<IBonoParRepository, BonoParRepository>();
+builder.Services.AddScoped<ICuotasVentaResidualRepository, CuotasVentaResidualRepository>();
+builder.Services.AddScoped<ICasosEspecialesRepository, CasosEspecialesRepository>();
+builder.Services.AddScoped<IAplicacionesRepositorio, AplicacionesRepositorio>();
 
 builder.Services.AddSingleton<ILogService, LogService>();
 

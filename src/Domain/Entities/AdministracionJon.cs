@@ -24,6 +24,9 @@ public class VentaPersonalComisionDto
     public int lciclo_id { get; set; }
     public int lsemana_id { get; set; }
     public int lnrosemana { get; set; }
+    public int TipoContratoId { get; set; }
+    public string TipoContrato { get; set; } = string.Empty;
+
 }
 
 public class ItemComisionVentaGrupoDto
@@ -51,5 +54,6 @@ public class ItemComisionVentaGrupoDto
     public decimal Comision { get; set; }
 
     public bool EsCero { get; set; }
-}
 
+    public bool EsHabilitado { get; set; }
+}

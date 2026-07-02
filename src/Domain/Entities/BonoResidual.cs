@@ -138,7 +138,13 @@ public class TCartera
     public string? FVencMasAnt { get; set; } = null;
     public string? FUltimoVenc {get; set;} = null;
 }
-
+public class CarteraCalculoBonoResidual
+{
+    public string DocId { get; set; } = string.Empty; 
+    public string Estado { get; set; } = string.Empty; 
+    public string Cliente { get; set; } = string.Empty; 
+    public string Lote { get; set; } = string.Empty; 
+}
 public class TCuota
 {
     public string Idproducto { get; set; } = string.Empty;
@@ -259,6 +265,8 @@ public class BrCalculoItem
     public bool ActivoMes { get; set; }
     public decimal PorcentajeComision { get; set; }
     public int LComplejoId { get; set; }
+    public int LEmpresaId { get; set; }
+    public bool EstaAlDia { get; set; }
 }
 public class BrContactoActivos
 {

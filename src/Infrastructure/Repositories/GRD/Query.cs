@@ -43,9 +43,9 @@ namespace Query.Grd
                                 FROM administracioncontrato ACT
                                 INNER JOIN administracioncontacto V ON v.lcontacto_id = ACT.lasesor_id
                                 WHERE ACT.dtfecha BETWEEN @Inicio AND @Fin and 
-                                    CASE WHEN (ACT.dcuota_inicial * 100 / ACT.dprecio) BETWEEN 2.9999 AND 3.011 THEN 
+                                    CASE WHEN (ACT.dcuota_inicial * 100 / ACT.dprecio) BETWEEN 2.9999 AND 4.98 THEN 
                                         CASE WHEN  ACT.dprecio >= 10000 THEN 1 ELSE 0 END
-                                    ELSE 1 END = 1
+                                    ELSE 1 END = 1 and ACT.ltipocontrato_id in (1,2) and ACT.lcontacto_id != ACT.lasesor_id
                                 GROUP BY V.lpatrocinante_id, V.lcontacto_id 
                             )DAT 
                             INNER JOIN administracioncontacto CT ON CT.lcontacto_id = DAT.GId

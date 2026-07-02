@@ -5,6 +5,7 @@ public class ItemVentaCnx
     public int LContratoId { get; set; }
     public DateTime DFecha { get; set; }
     public string? SManzano { get; set; }
+    public string? Empresa { get; set; }
     public string? SLote { get; set; }
     public decimal DPrecio { get; set; }
     public int LComplejoId { get; set; }
@@ -51,4 +52,42 @@ public class ItemVentaCnx
     public decimal ValorCi { get; set; }
     public string SeccionId { get; set; } = "";
     public string Glosa { get; set; } = "";
+    public string NombreTipoComision { get; set; } = "";
+    public int TipoComisionable { get; set; } = 0;
+    
+}
+public class RequestProcesoPrincipal
+{
+    public string Tipo { get; set; } = string.Empty;
+    public string Inicio { get; set; } = string.Empty;
+    public string Fin { get; set; } = string.Empty;
+    public bool Rezagada { get; set; } = false;
+    public string Paso { get; set; } = string.Empty;
+    public string Usuario { get; set; } = string.Empty;
+    public int LCicloId { get; set; } = 0;
+}
+public class RequestSaveVtaPersonal
+{
+    public List<VentaPersonalComisionDto> ListaComision { get; set; } = new List<VentaPersonalComisionDto>();
+    public int LCicloId { get; set; }
+    public string Inicio { get; set; } = string.Empty; 
+    public string Fin { get; set; } = string.Empty; 
+    public string Usuario { get; set; } = string.Empty; 
+}
+public class RequestGuardarVentaGRD
+{
+    public List<ItemVentaCnx> ListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
+    public List<ItemVentaCnx> NoListaSeleccionado { get; set; } = new List<ItemVentaCnx>();
+    public string Usuario { get; set; } = string.Empty;
+    public bool Rezagada { get; set; } = false;
+    public int LCicloId { get; set; } = 0;
+    public bool EsEspecial { get; set; } = false;
+}
+public class RequestGuardarVentaGrupo
+{
+    public List<ItemComisionVentaGrupoDto> ListaComision { get; set; } = new List<ItemComisionVentaGrupoDto>();
+    public int LCicloId { get; set; }
+    public string Inicio { get; set; } = string.Empty; 
+    public string Fin { get; set; } = string.Empty; 
+    public string Usuario { get; set; } = string.Empty; 
 }

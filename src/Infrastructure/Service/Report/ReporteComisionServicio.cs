@@ -172,7 +172,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.SNombreCompleto).FontSize(6).AlignLeft();
                             if(_empresaId == -1)
                             {
-                                string nombre = v.Empresa;
+                                string nombre = v.Empresa ?? "";
                                 nombre = nombre.Replace("S.R.L.", "");
                                 nombre = nombre.Replace("S.R.L", "");
                                 nombre = nombre.Replace("INMOBILIARIA", "");

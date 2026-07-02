@@ -1,9 +1,17 @@
+insert into administraciontipocontrato values ('admin', now(), 'admin', now(), 6, 'UPGRADE', 'UG');
+insert into administraciontipocontrato values ('admin', now(), 'admin', now(), 7, 'RECUPERACION', 'RE');
+insert into administraciontipocontrato values ('admin', now(), 'admin', now(), 8, 'RECOMPRA', 'RC');
+insert into administraciontipocontrato values ('admin', now(), 'admin', now(), 9, 'CASOSESPECIALES', 'CE');
+
+
 TRUNCATE table conf_procesos;
 TRUNCATE table conf_pasos;
 TRUNCATE table conf_paso_dependencias;
 TRUNCATE table conf_proceso_instancias;
 TRUNCATE table conf_proceso_ciclos;
 TRUNCATE table conf_proceso_pasos;
+
+--SELECT * FROM conf_pasos
 
 
 
@@ -17,23 +25,33 @@ VALUES ('COMISIONES', 'Proceso de cálculo de comisiones');
 -- 2. INSERT PASOS (usando el proceso recién creado)
 -- ============================================
 INSERT INTO conf_pasos (proceso_id, nombre, orden, es_obligatorio)
-SELECT p.id, 'OBTENER VENTAS', 1, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'OBTENER VENTAS', 1, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'ADICIONAR VENTAS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'ADICIONAR VENTAS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION DIRECTA', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'VENTAS ESPECIALES', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION GRUPO', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'COMISION DIRECTA', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CARTERA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'REGISTRO_HABILITACIONES', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CUOTAS', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'RED COMPRIMIDA', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER EXCEDENTE', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'RED COMPLETA', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION RESIDUAL', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES'
+SELECT p.id, 'COMISION GRUPO', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION LIDERAZGO', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES';
+SELECT p.id, 'OBTENER CARTERA', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'OBTENER CUOTAS', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'OBTENER EXCEDENTE', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'COMISION RESIDUAL', 12, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'COMISION VENTA RESIDUAL', 13, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'BONO PAR', 14, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
 
 -- ============================================
 -- 3. DEPENDENCIAS DINÁMICAS (por nombre)
@@ -48,13 +66,37 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'ADICIONAR VENTAS' AND p2.nombre = 'COMISION DIRECTA'
+WHERE p1.nombre = 'ADICIONAR VENTAS' AND p2.nombre = 'VENTAS ESPECIALES'
 
 UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'COMISION DIRECTA' AND p2.nombre = 'COMISION GRUPO'
+WHERE p1.nombre = 'VENTAS ESPECIALES' AND p2.nombre = 'COMISION DIRECTA'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'COMISION DIRECTA' AND p2.nombre = 'REGISTRO_HABILITACIONES'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'REGISTRO_HABILITACIONES' AND p2.nombre = 'RED COMPRIMIDA'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'RED COMPRIMIDA' AND p2.nombre = 'RED COMPLETA'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'RED COMPLETA' AND p2.nombre = 'COMISION GRUPO'
 
 UNION ALL
 SELECT p2.id, p1.id
@@ -84,4 +126,10 @@ UNION ALL
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'COMISION RESIDUAL' AND p2.nombre = 'COMISION LIDERAZGO';
+WHERE p1.nombre = 'COMISION RESIDUAL' AND p2.nombre = 'COMISION VENTA RESIDUAL'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'COMISION VENTA RESIDUAL' AND p2.nombre = 'BONO PAR';

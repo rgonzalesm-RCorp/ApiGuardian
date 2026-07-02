@@ -232,13 +232,17 @@ public class MiCronJob : IJob
                 responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId("", item.SCedulaIdentidad ?? "");
 
             }
+            var homologacion = responseHomologacion.Data?.FirstOrDefault(x => x.LComplejoIdCX == item.LComplejoId);
+            if (homologacion == null)
+                continue;
+
             AdministracionContrato data = new AdministracionContrato
             {
                 LContratoId = 0,
                 Fecha = item.DFecha,
                 NroVenta = $"{item.IdVenta}-{item.Lote}",
                 LPropietarioId = (int)responseCliente.Data.LContactoId,
-                LCopmlejoId = responseHomologacion.Data.FirstOrDefault(x => x.LComplejoIdCX == item.LComplejoId).LComplejoId, //Obtener la equivalecia
+                LCopmlejoId = homologacion.LComplejoId, //Obtener la equivalecia
                 Mzno = item.SManzano,
                 Lote = $"{item.SLote}" ,
                 Uv = item.SUV,
@@ -269,28 +273,84 @@ public class MiCronJob : IJob
         //_logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);
         return true;
     }
-    public async Task<bool> ProcesoPrincipal(string LogTransaccionId,  List<ItemVentaCnx>? Lista = null, string tipo = "JOB", string inicio = "", string fin ="", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0){
+
+    //string tipo = "JOB", string inicio = "", string fin ="", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0
+    public async Task<bool> ProcesoPrincipal(string LogTransaccionId, RequestProcesoPrincipal Request,  List<ItemVentaCnx>? Lista = null){
+        bool pasoIniciado = false;
 
         var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx(LogTransaccionId);
         List<HomologacionComplejoGrdCnx> ListaComplejo = responseHomologacion.Data;
 
-        if(tipo == "JOB")
+        if(Request.Tipo == "JOB")
         {
             var responseProceso = await _procesoComisionesRepository.GetProceso(LogTransaccionId, "VENTAS");
             if (responseProceso.Data == null)
                 return true;
             
-            inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
-            fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
-            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin);
+            Request.Inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
+            Request.Fin  = responseProceso.Data.Fin.ToString("yyyyMMdd");
+
+            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, Request.Inicio, Request.Fin);
             Lista = vtaCnx.Data.ToList();
+
+            var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
+                LogTransaccionId,
+                Request.Usuario,
+                ProcesosDiccionario.COMISIONES,
+                Request.LCicloId,
+                Request.Paso
+            );
+
+            if (!responseInicioPaso.Success || !(responseInicioPaso.Data?.status ?? false))
+                return false;
+
+            pasoIniciado = true;
         }
-        await ProcesarVentas(LogTransaccionId, usuario, Lista, ListaComplejo, inicio, fin, rezagada);
-        await _controlProcesoRepository.UpdateControlProceso(LogTransaccionId, usuario, paso, lCicloId);
-        await _controlProcesoRepository.EjecutarPaso(LogTransaccionId, usuario, ProcesosDiccionario.COMISIONES, lCicloId, rezagada ? PasosDiccionario.ADICIONAR_VENTAS : PasosDiccionario.OBTENER_VENTAS);
-        return true;
+        else
+        {
+            pasoIniciado = true;
+        }
+
+        bool procesado = false;
+
+        try
+        {
+            procesado = await ProcesarVentas(LogTransaccionId, Request.Usuario, Lista, ListaComplejo, Request.Inicio, Request.Fin, Request.Rezagada, Request.LCicloId);
+
+            if (!procesado)
+            {
+                _logger.LogWarning("ProcesoPrincipal cancelado porque ProcesarVentas devolvio false. Paso: {Paso}, LCicloId: {LCicloId}", Request.Paso, Request.LCicloId);
+
+                if (pasoIniciado)
+                {
+                    await _controlProcesoRepository.CancelarPaso(LogTransaccionId, Request.Usuario, ProcesosDiccionario.COMISIONES, Request.LCicloId, Request.Paso);
+                }
+
+                return false;
+            }
+
+            await _controlProcesoRepository.UpdateControlProceso(LogTransaccionId, Request.Usuario, Request.Paso, Request.LCicloId);
+
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.FinalizarPaso(LogTransaccionId, Request.Usuario, ProcesosDiccionario.COMISIONES, Request.LCicloId, Request.Paso);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en ProcesoPrincipal. Paso: {Paso}, LCicloId: {LCicloId}", Request.Paso, Request.LCicloId);
+
+            if (pasoIniciado)
+            {
+                await _controlProcesoRepository.CancelarPaso(LogTransaccionId, Request.Usuario, ProcesosDiccionario.COMISIONES, Request.LCicloId, Request.Paso);
+            }
+
+            throw;
+        }
     }
-    private async Task<bool> ProcesarVentas(string LogTransaccionId, string Usuario, List<ItemVentaCnx>? Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada)
+    private async Task<bool> ProcesarVentas(string LogTransaccionId, string Usuario, List<ItemVentaCnx> Lista, List<HomologacionComplejoGrdCnx> ListaComplejo, string inicio, string fin, bool rezagada, int LCicloId)
     {
         int counter = 0;
         foreach (var item in Lista)
@@ -323,7 +383,7 @@ public class MiCronJob : IJob
                 CuotaInicial = item.SCuotaInicial,
                 PrecioFinal = item.DPrecio,
                 LEstadoContratoId = 4,
-                LTipoContratoId = item.TipoVenta == 2 ? 1 : 2,
+                LTipoContratoId = TiposContratosDiccionario.ObtenerGrd(item.TipoComisionable, item.TipoVenta == 1? true : false, item.TipoVenta == 2? true : false),//  item.TipoComisionable, // item.TipoVenta == 2 ? 1 : 2,
                 LCiudadId =  0,
                 ContratoEspecial = 0,
                 LAsesorId = (int)vendedorId,
@@ -340,9 +400,9 @@ public class MiCronJob : IJob
             Console.WriteLine(item.Lote);
             if (rezagada)
             {
-                await _procesoComisionesRepository.UpdateVtaRezagadas(LogTransaccionId, item, Usuario);
+                await _procesoComisionesRepository.UpdateVtaRezagadas(LogTransaccionId, item, Usuario, LCicloId);
             }
         }
-        return false;
+        return true;
     }
 }

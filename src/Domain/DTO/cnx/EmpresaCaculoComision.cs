@@ -8,6 +8,6 @@ public class EmpresaCalculoComision
 }
 public class MigracionCuotas
 {
-    public int[] proyectosExcluir { get; set; }
-    public string[] productosExcluir { get; set; }
+    public int[] proyectosExcluir { get; set; } = {};
+    public string[] productosExcluir { get; set; } = {};
 }

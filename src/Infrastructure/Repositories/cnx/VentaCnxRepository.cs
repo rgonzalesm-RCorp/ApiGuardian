@@ -63,7 +63,7 @@ public class VentaCnxRepository : IVentasCnxRepository
 
             var data = await connection.QueryFirstOrDefaultAsync<ItemVentaCnx>(query, new{docId});
 
-            return (data, true, "Consulta realizada correctamente.");
+            return (data ?? new ItemVentaCnx(), true, "Consulta realizada correctamente.");
         }
         catch (Exception ex)
         {

@@ -6,26 +6,27 @@ namespace Query.Cnx
     public class ScriptCnx
     {
        
-        public static string QueryVentaCnx(IConfiguration configuration)
+        public static string QueryVentaCnx(IConfiguration configuration, bool IsCasosEspeciales = false)
         {
-             
-            List<EmpresaCalculoComision> empresas = configuration.GetSection("EmpresaCalculoComisiones")
-                                    .Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
+            List<EmpresaCalculoComision> empresas = configuration.GetSection("EmpresaCalculoComisiones").Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
 
             string query = @"";
 
             foreach (var item in empresas)
             {
                 query += @$"
-                    SELECT {item.EmpresaId} EmpresaId,'{item.Nombre}' Nombre, V.FECHA DFecha
+                    SELECT {item.EmpresaId} EmpresaId,'{item.Nombre}' Empresa, V.FECHA DFecha
                         , PC.NROMANZANO SManzano, RTRIM(P.CODFABRICA) SLote
                         , V.IDALMACEN LComplejoId, V.IDVENTA IdVenta, RTRIM(VC.LOTES) Lote , PC.UV SUV
                         , ISNULL(VC.PRECIO_LISTA, V.TOTALVENTA) PrecioInicial
                         , V.IDCLIENTE IdCliente, RTRIM(A.DESCRIPCION) Complejo, V.IDVENDEDOR VendedorId
                         , V.IDTIPOVENTA TipoVenta
                         , V.TOTALVENTA DPrecio
-                        , CASE WHEN V.IDTIPOVENTA = 1 THEN V.TOTALVENTA * 0.1 ELSE V.CUOTAINICIAL END SCuotaInicial
-                        , V.CUOTAINICIAL  SCuotaInicialOriginal
+                        , CASE WHEN V.IDTIPOVENTA = 1 THEN V.TOTALVENTA * 0.1 
+                            ELSE 
+                                CASE WHEN VC.COMISIONABLE IN (5,6, 7) THEN IC.MONTOCUOTA ELSE V.CUOTAINICIAL END 
+                            END SCuotaInicial
+                        , CASE WHEN VC.COMISIONABLE IN (5,6, 7) THEN IC.MONTOCUOTA ELSE V.CUOTAINICIAL END SCuotaInicialOriginal
                         , CR.PORC_INICIAL PorcentajeCuotaInicial
                         , CASE WHEN V.IDTIPOVENTA=1 THEN ROUND(VD.PRECIOVENTA * (0.1), 3)
                             WHEN (V.CUOTAINICIAL / VD.PRECIOVENTA)>=0.099 THEN CEILING(ROUND(VD.PRECIOVENTA * (0.1), 2))
@@ -37,14 +38,18 @@ namespace Query.Cnx
                         END AS ValorCi
                         , RTRIM(P.IDSECCION_PROD) SeccionId
                         , RTRIM(V.GLOSA) Glosa
+                        , VC.COMISIONABLE TipoComisionable
+                        , CASE WHEN VC.COMISIONABLE = 8 THEN 'CASOS ESPECIALES' ELSE TC.DESCRIPCION END NombreTipoComision
                     FROM {item.DataBase}.dbo.INVENTA V
-                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE = 1
+                    INNER JOIN {item.DataBase}.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA AND VC.COMISIONABLE {(IsCasosEspeciales ? "IN (5, 6, 7, 8)": " = 1")}
                     INNER JOIN {item.DataBase}.dbo.INVENTADETALLE AS VD ON V.IDVENTA = VD.IDVENTA
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO P ON P.IDPRODUCTO = VC.LOTES
                     INNER JOIN {item.DataBase}.dbo.INPRODUCTO_CCN PC ON PC.IDPRODUCTO = P.IDPRODUCTO 
                     INNER JOIN {item.DataBase}.dbo.INALMACEN A ON A.IDALMACEN = V.IDALMACEN
-                    LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED                    
-                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2
+                    LEFT JOIN BDComisiones.dbo.CO_CFGCREDITOS CR on CR.IDCFG_CRED = VC.IDCFG_CRED
+                    LEFT JOIN {item.DataBase}.dbo.INTIPOVENTACOMISION TC ON TC.IDTIPOVENTACOMISION = VC.COMISIONABLE
+                    LEFT JOIN {item.DataBase}.dbo.INCUOTA IC ON IC.IDVENTA = V.IDVENTA  AND IC.NROCUOTA = 2
+                    WHERE V.FECHA BETWEEN @inicio AND @fin AND V.IDESTADO <> 2 { (IsCasosEspeciales ? "": @$"
                     AND
                     (
                         ( VC.IDESTADO_VENTA <> 2 AND (V.NRODOC <> '' OR V.GLOSA LIKE '%upgrade%'))
@@ -59,8 +64,8 @@ namespace Query.Cnx
                                 WHERE wV.GLOSA LIKE '%upgrade%' AND wV.FECHA BETWEEN @inicio AND @fin AND wV_1.FECHA BETWEEN @inicio AND @fin
                             )
                         )
-                    )
-                    
+                    )"
+                    )}
                     UNION ALL";
                 
             }
@@ -99,7 +104,6 @@ namespace Query.Cnx
                         LEFT JOIN BDComisiones.dbo.PECIUDAD CIU ON CIU.IDCIUDAD = CC.IDCIUDAD_RESIDENCIA
                     ) V ON V.IDCLIENTE = SDAT.VendedorId ";
         }
-
         public static string QueryCllienteDocId()
         {
             return @"SELECT CL.*, V.* FROM  vwLOTES_GRL_DOCID SDAT
@@ -133,7 +137,6 @@ namespace Query.Cnx
             ) V ON V.IDCLIENTE = SDAT.IDVENDEDOR
             where cl.SCedulaIdentidad = @docId ORDER by v.IDCLIENTE ";
         }
-    
         public static string QueryObetnerCuotas(IConfiguration configuration)
         {
             try
@@ -178,12 +181,12 @@ namespace Query.Cnx
                 query =  query.Substring(0, query.Length - 10);
 
                 query = $@"SELECT 
-                            ISNULL(CG.LCOMPLEJO_ID, 0) LComplejoId ,
+                            ISNULL(T.IDPROYECTO, 0) LComplejoId ,
                             T.*
                         FROM
                         ({query})T
                         LEFT JOIN BDBPMSION.dbo.SolicitudReprogramacion D ON D.IDVENTA =T.IDVENTA AND D.IdEstadoSolicitud IN (2,3,4,5)
-                        LEFT JOIN BDComisiones.dbo.T_EMPRESACOMPLEJO CG ON CG.IDPROYECTO = T.IDPROYECTO
+                        
                         WHERE
                             T.FECHA_PAGO >= @inicio 
                             AND T.FECHA_PAGO <= @fin 
@@ -199,7 +202,45 @@ namespace Query.Cnx
             {
                 return ex.Message;
             }
-
         }
+        public static string GetQueryVentaResidual (int LCicloId) => @$"
+        SELECT 
+            CONCAT(y.idventa, '-', RTRIM(y.LOTES)) AS NroVenta,
+            y.EMPRESA AS Empresa,
+            y.IDVENTA AS IdVenta,
+            max(y.FECHA) AS Fecha,
+            y.IDALMACEN AS IdAlmacen,
+            y.PROYECTO AS Proyecto,
+            y.LOTES AS Lotes,
+            max(y.IDRECIBO) AS IdRecibo,
+            max(y.FECHA_RECIBO) AS FechaRecibo,
+            sum(y.NROCUOTA) AS NroCuota,
+            sum(y.NROCUOTASPAGABLES) AS NroCuotaPagables,
+            sum(y.IMPORTETOTAL) AS ImporteTotal,
+            y.IDCLIENTE AS IdCliente,
+            y.NOMBRE_CLIENTE AS NombreCliente,
+            y.CI_CLIENTE AS CiCliente,
+            y.IDVENDEDOR AS IdVendedor,
+            y.VENDEDOR AS Vendedor,
+            y.CI_VENDEDOR AS CiVendedor,
+            max(y.CONCEPTO1) AS Concepto1,
+            {LCicloId} AS LcicloId
+        FROM vwLISTAVENTAS_RECIBOS y
+        WHERE 
+            y.FECHA BETWEEN '20240501' AND @Fin
+            AND y.FECHA_RECIBO BETWEEN @Inicio AND @Fin
+        GROUP by CONCAT(y.idventa, '-', y.LOTES) ,
+            y.EMPRESA ,
+            y.IDVENTA  , 
+            y.IDALMACEN ,
+            y.PROYECTO ,
+            y.LOTES , 
+            y.IDCLIENTE ,
+            y.NOMBRE_CLIENTE ,
+            y.CI_CLIENTE ,
+            y.IDVENDEDOR ,
+            y.VENDEDOR ,
+            y.CI_VENDEDOR  
+        ";
     }
 }
