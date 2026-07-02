@@ -1386,7 +1386,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
         const string deleteVentaRezagadas = @"delete from VentaRezagadasCiclo where dfecha BETWEEN @Inicio AND @Fin;";
         const string deleteProductosPagarMensuales = @"DELETE from t_productos_pagar_mensuales where dtfecha BETWEEN @Inicio AND @Fin";
         const string deleteUpgradeSolicitud = @"delete from upgrade_solicitud where lciclo_id = @LCicloId or lciclo_id is null;";
-        
+        const string deleteDetalleBonoResidual = @"delete from administracionbonoresidual_detalle where lciclo_id = @LCicloId;";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [proceso:{proceso}, LCicloId:{LCicloId}]");
 
@@ -1403,6 +1403,7 @@ public class ControlProcesoRepository : IControlProcesoRepository
             await connection.ExecuteAsync(deleteVentaGrupo, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteCuotas, new { Inicio, Fin }, transaction);
             await connection.ExecuteAsync(deleteBonoResidual, new { LCicloId }, transaction);
+            await connection.ExecuteAsync(deleteDetalleBonoResidual, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteBonoCompleto, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteRedEmpresaComplejo, new { LCicloId }, transaction);
             await connection.ExecuteAsync(deleteCuotasVentasResidual, new { Inicio, Fin }, transaction);

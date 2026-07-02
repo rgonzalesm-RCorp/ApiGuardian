@@ -265,6 +265,7 @@ public class BrCalculoItem
     public bool ActivoMes { get; set; }
     public decimal PorcentajeComision { get; set; }
     public int LComplejoId { get; set; }
+    public int LEmpresaId { get; set; }
     public bool EstaAlDia { get; set; }
 }
 public class BrContactoActivos

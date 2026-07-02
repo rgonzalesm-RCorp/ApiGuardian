@@ -16,7 +16,20 @@ public class ItemAdministracionBonoResidual
     public decimal DTotalBonoLicencia { get; set; } = 0;
     public int LNroSemana { get; set; } = 0;
     public int LSemanaId { get; set; } = 0;
+    public List<AdministracionBonoResidualDetalle> Detalle { get; set; } = new List<AdministracionBonoResidualDetalle>();
 
+}
+public class AdministracionBonoResidualDetalle
+{
+    public long LbonoresidualDetalleId { get; set; }
+    public int LbonoresidualId { get; set; }
+    public int LempresaId { get; set; }
+    public int LcomplejoId { get; set; }
+    public int Nivel { get; set; }
+    public string Producto { get; set; } = string.Empty;
+    public decimal Monto { get; set; }
+    public decimal PorcentajeComision { get; set; }
+    public decimal Comision { get; set; }
 }
 
 public class ItemBonoCompleto

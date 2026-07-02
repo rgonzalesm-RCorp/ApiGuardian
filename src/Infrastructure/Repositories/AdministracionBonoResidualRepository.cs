@@ -32,13 +32,17 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
             FROM administracionbonoresidual;
         ";
 
+        System.Data.IDbConnection? connection = null;
+        System.Data.IDbTransaction? transaction = null;
+        int LCicloId = data.FirstOrDefault()?.LCicloId ?? 0;
+
         try
         {
-            using var connection = _context.CreateConnection();
+            connection = _context.CreateConnection();
 
             connection.Open();
 
-            using var transaction = connection.BeginTransaction();
+            transaction = connection.BeginTransaction();
 
             int nextId = await connection.ExecuteScalarAsync<int>(
                 nextIdQuery,
@@ -46,6 +50,8 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
             );
 
             int totalInsertados = 0;
+            int totalDetallesInsertados = 0;
+            var detallesPendientes = new List<(int BonoResidualId, AdministracionBonoResidualDetalle Detalle)>();
 
             for (int i = 0; i < data.Count; i += batchSize)
             {
@@ -93,6 +99,7 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                     nextId++;
 
                     var item = batch[j];
+                    int bonoResidualId = nextId;
 
                     sql.Append($@"
                     (
@@ -125,7 +132,7 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                         sql.Append(",");
 
                     parameters.Add($"Usuario{j}", Usuario);
-                    parameters.Add($"LBonoResidualId{j}", nextId);
+                    parameters.Add($"LBonoResidualId{j}", bonoResidualId);
                     parameters.Add($"LCicloId{j}", item.LCicloId);
                     parameters.Add($"LContactoId{j}", item.LContactoId);
                     parameters.Add($"LTipoBono{j}", item.LTipoBono);
@@ -140,6 +147,14 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                     parameters.Add($"DTotalBonoLicencia{j}", item.DTotalBonoLicencia);
                     parameters.Add($"LNroSemana{j}", item.LNroSemana);
                     parameters.Add($"LSemanaId{j}", item.LSemanaId);
+
+                    if (item.Detalle?.Count > 0)
+                    {
+                        foreach (var detalle in item.Detalle)
+                        {
+                            detallesPendientes.Add((bonoResidualId, detalle));
+                        }
+                    }
                 }
 
                 sql.Append(";");
@@ -153,21 +168,113 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                 totalInsertados += rows;
             }
 
+            for (int i = 0; i < detallesPendientes.Count; i += batchSize)
+            {
+                var batchDetalle = detallesPendientes
+                    .Skip(i)
+                    .Take(batchSize)
+                    .ToList();
+
+                var sqlDetalle = new StringBuilder();
+
+                sqlDetalle.Append(@"
+                    INSERT INTO administracionbonoresidual_detalle
+                    (
+                        lbonoresidual_id,
+                        lempresa_id,
+                        lcomplejos_id,
+                        nivel,
+                        producto,
+                        monto,
+                        porcentaje_comision,
+                        comision,
+                        lciclo_id
+                    )
+                    VALUES
+                ");
+
+                var parametersDetalle = new DynamicParameters();
+
+                for (int j = 0; j < batchDetalle.Count; j++)
+                {
+                    var (bonoResidualId, detalle) = batchDetalle[j];
+
+                    sqlDetalle.Append($@"
+                    (
+                        @LBonoResidualDetalleId{j},
+                        CASE
+                            WHEN @LEmpresaId{j} > 0 THEN @LEmpresaId{j}
+                            ELSE COALESCE(
+                                (SELECT empresa_id
+                                 FROM empresa_complejo
+                                 WHERE id_almacen_conexion = @LComplejoId{j}
+                                 LIMIT 1), 0)
+                        END,
+                        CASE
+                            WHEN @LComplejoId{j} > 0 THEN COALESCE(
+                                (SELECT complejo_id
+                                 FROM empresa_complejo
+                                 WHERE id_almacen_conexion = @LComplejoId{j}
+                                 LIMIT 1), @LComplejoId{j})
+                            ELSE 0
+                        END,
+                        @Nivel{j},
+                        @Producto{j},
+                        @Monto{j},
+                        @PorcentajeComision{j},
+                        @Comision{j},
+                        @LCicloId{j}
+                    )");
+
+                    if (j < batchDetalle.Count - 1)
+                        sqlDetalle.Append(",");
+
+                    parametersDetalle.Add($"LBonoResidualDetalleId{j}", bonoResidualId);
+                    parametersDetalle.Add($"LEmpresaId{j}", detalle.LempresaId);
+                    parametersDetalle.Add($"LComplejoId{j}", detalle.LcomplejoId);
+                    parametersDetalle.Add($"Nivel{j}", detalle.Nivel);
+                    parametersDetalle.Add($"Producto{j}", detalle.Producto);
+                    parametersDetalle.Add($"Monto{j}", detalle.Monto);
+                    parametersDetalle.Add($"PorcentajeComision{j}", detalle.PorcentajeComision);
+                    parametersDetalle.Add($"Comision{j}", detalle.Comision);
+                    parametersDetalle.Add($"LCicloId{j}", LCicloId);
+                }
+
+                sqlDetalle.Append(";");
+
+                int rowsDetalle = await connection.ExecuteAsync(
+                    sqlDetalle.ToString(),
+                    parametersDetalle,
+                    transaction
+                );
+
+                totalDetallesInsertados += rowsDetalle;
+            }
+
             transaction.Commit();
 
-            string mensaje = $"Registros guardados correctamente. Total insertado: {totalInsertados}";
+            string mensaje = $"Registros guardados correctamente. Total maestro: {totalInsertados}, total detalle: {totalDetallesInsertados}";
 
             _log.Info(
                 LogTransaccionId,
                 NOMBREARCHIVO,
                 nombreMetodo,
-                $"Fin de metodo [mensaje:{mensaje}, rowsAffected:{totalInsertados}]"
+                $"Fin de metodo [mensaje:{mensaje}, rowsAffected:{totalInsertados}, detalleRowsAffected:{totalDetallesInsertados}]"
             );
 
             return (true, mensaje);
         }
         catch (Exception ex)
         {
+            try
+            {
+                if (transaction != null && connection?.State == System.Data.ConnectionState.Open)
+                    transaction.Rollback();
+            }
+            catch
+            {
+            }
+
             _log.Error(
                 LogTransaccionId,
                 NOMBREARCHIVO,
@@ -177,6 +284,11 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
             );
 
             return (false, $"Error al insertar las comisiones: {ex.Message}");
+        }
+        finally
+        {
+            transaction?.Dispose();
+            connection?.Dispose();
         }
     }
         
