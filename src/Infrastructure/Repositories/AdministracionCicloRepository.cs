@@ -62,6 +62,51 @@ namespace ApiGuardian.Infrastructure.Repositories
             }
         }
 
+        public async Task<(AdministracionCicloABM? Ciclo, bool Success, string Mensaje)> GetCiclo(string log, int LCicloId)
+        {
+            string metodo = "GetCiclo()";
+            string query = @"
+                SELECT 
+                    lciclo_id AS LCicloId,
+                    UPPER(snombre) AS SNombre,
+                    DATE_FORMAT(dtfechainicio,'%Y%m%d') AS DtFechaInicio,
+                    DATE_FORMAT(dtfechafin,'%Y%m%d') AS DtFechaFin,
+                    lestado AS LEstado,
+                    dtfechacierre AS DtFechaCierre,
+                    dtfechaprecierre1 AS DtFechaPreCierre1,
+                    dtfechaprecierre2 AS DtFechaPreCierre2,
+                    cverenweb AS CVerEnWeb,
+                    estadogestor AS EstadoGestor,
+                    susuarioadd AS SUsuarioAdd,
+                    dtfechaadd AS DtFechaAdd,
+                    susuariomod AS SUsuarioMod,
+                    dtfechamod AS DtFechaMod
+                FROM administracionciclo
+                WHERE lciclo_id = @LCicloId
+                LIMIT 1;
+            ";
+
+            _log.Info(log, NOMBREARCHIVO, metodo, $"Inicio [script: {query}, LCicloId: {LCicloId}]");
+
+            try
+            {
+                using var con = _context.CreateConnection();
+
+                var ciclo = await con.QueryFirstOrDefaultAsync<AdministracionCicloABM>(query, new { LCicloId });
+
+                bool success = ciclo != null;
+                string mensaje = success ? "Ciclo obtenido correctamente." : "No se encontró el ciclo solicitado.";
+                _log.Info(log, NOMBREARCHIVO, metodo, $"Fin de metodo [mensaje: {mensaje}]");
+
+                return (ciclo, success, mensaje);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(log, NOMBREARCHIVO, metodo, "Fin con error", ex);
+                return (null, false, ex.Message);
+            }
+        }
+
         public async Task<(IEnumerable<AdministracionCicloABM> Ciclos, bool Success, string Mensaje, int Total)> GetCiclosPagination(string log, int page, int pageSize, string? search)
         {
             string metodo = "GetCiclosPagination()";

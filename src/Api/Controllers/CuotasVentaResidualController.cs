@@ -19,6 +19,7 @@ public class CuotasVentaResidualController: ControllerBase
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly ILogService _log;
     private readonly IControlProcesoRepository _controlProcesoRepository; 
+    private readonly IAdministracionCicloRepository _administracionCicloRepository;
 
     private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
 
@@ -27,7 +28,8 @@ public class CuotasVentaResidualController: ControllerBase
         ILogService log,
         IAdministracionVentaPersonalRepository ventaPersonal,
         IAdministracionHabilitacionComisionRepository habilitacionRepository,
-        IControlProcesoRepository controlProcesoRepository
+        IControlProcesoRepository controlProcesoRepository,
+        IAdministracionCicloRepository administracionCicloRepository
     )
     {
         _repo = repo;
@@ -35,7 +37,29 @@ public class CuotasVentaResidualController: ControllerBase
         _ventaPersonal = ventaPersonal;
         _habilitacionRepository = habilitacionRepository;
         _controlProcesoRepository = controlProcesoRepository;
+        _administracionCicloRepository = administracionCicloRepository;
     }
+
+    private async Task<(bool Success, string Mensaje, string Inicio, string Fin)> ObtenerFechasCiclo(string logTransaccionId, int LCicloId)
+    {
+        var responseCiclo = await _administracionCicloRepository.GetCiclo(logTransaccionId, LCicloId);
+
+        if (!responseCiclo.Success || responseCiclo.Ciclo == null)
+        {
+            return (false, responseCiclo.Mensaje, "", "");
+        }
+
+        string inicio = responseCiclo.Ciclo.DtFechaInicio ?? "";
+        string fin = responseCiclo.Ciclo.DtFechaFin ?? "";
+
+        if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
+        {
+            return (false, $"El ciclo {LCicloId} no tiene fecha de inicio o fin configurada.", "", "");
+        }
+
+        return (true, "", inicio, fin);
+    }
+
     private async Task<(decimal Comision, int CuotasComisionables, int CuotasContabilizar)> GetComision(int Tope, int CantidadComisionPagadas, int CuotasPagadasCiclo, int CuotasPagablesCiclo, decimal MesComision)
     {
         
@@ -64,13 +88,27 @@ public class CuotasVentaResidualController: ControllerBase
     }
 
     [HttpGet("cuotas/venta/residual")]
-    public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId ,[FromHeader(Name = "Inicio")]  string Inicio, [FromHeader(Name = "Fin")] string Fin )
+    public async Task<IActionResult> GetDatos([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         var logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         _log.Info(logTransaccionId, NOMBREARCHIVO, "GetDatos", $"Inicio GetDatos() Usuario: {Usuario}");
 
         try
         {
+            var fechasCiclo = await ObtenerFechasCiclo(logTransaccionId, LCicloId);
+
+            if (!fechasCiclo.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = fechasCiclo.Mensaje,
+                    data = ""
+                });
+            }
+
+            string Inicio = fechasCiclo.Inicio;
+            string Fin = fechasCiclo.Fin;
             var ResponseCuotasVentaRecidual = await _repo.GetCuotasVentasResidual(logTransaccionId, Usuario, Inicio, Fin, LCicloId);
             var ResponseProductosPagarMensuales = await _repo.GetProductosPagarMensuales(logTransaccionId, Usuario);
             var ResponseComisionVentaPersonas = await _ventaPersonal.GetVentaPersonal(logTransaccionId, Usuario, LCicloId);
@@ -203,7 +241,7 @@ public class CuotasVentaResidualController: ControllerBase
         }
     }
     [HttpPost("cuotas/venta/residual")]
-    public async Task<IActionResult> Guardar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin)
+    public async Task<IActionResult> Guardar([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "LCicloId")] int LCicloId)
     {
         string logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         const string nombreMetodo = "Guardar()";
@@ -213,6 +251,20 @@ public class CuotasVentaResidualController: ControllerBase
 
         try
         {
+            var fechasCiclo = await ObtenerFechasCiclo(logTransaccionId, LCicloId);
+
+            if (!fechasCiclo.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = fechasCiclo.Mensaje,
+                    data = ""
+                });
+            }
+
+            string Inicio = fechasCiclo.Inicio;
+            string Fin = fechasCiclo.Fin;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             if (PasosDiccionario.COMISION_VENTA_RESIDUAL != responseSiguientePaso.Data.nombre)
             {

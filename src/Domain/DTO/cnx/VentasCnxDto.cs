@@ -70,8 +70,6 @@ public class RequestSaveVtaPersonal
 {
     public List<VentaPersonalComisionDto> ListaComision { get; set; } = new List<VentaPersonalComisionDto>();
     public int LCicloId { get; set; }
-    public string Inicio { get; set; } = string.Empty; 
-    public string Fin { get; set; } = string.Empty; 
     public string Usuario { get; set; } = string.Empty; 
 }
 public class RequestGuardarVentaGRD
@@ -87,7 +85,5 @@ public class RequestGuardarVentaGrupo
 {
     public List<ItemComisionVentaGrupoDto> ListaComision { get; set; } = new List<ItemComisionVentaGrupoDto>();
     public int LCicloId { get; set; }
-    public string Inicio { get; set; } = string.Empty; 
-    public string Fin { get; set; } = string.Empty; 
     public string Usuario { get; set; } = string.Empty; 
 }
