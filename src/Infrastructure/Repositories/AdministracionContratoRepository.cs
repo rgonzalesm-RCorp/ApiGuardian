@@ -289,7 +289,12 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                     , cp.snombre Complejo
                     , rtrim(ac.snroventa) SNroVenta
                     , ac.dprecio DPrecio
-                    , ac.porcentaje_inicial PorcentajeCuotaInicial
+                    -- , ac.porcentaje_inicial PorcentajeCuotaInicial
+                    , CASE
+                        WHEN ac.dcuota_inicial * 100 / ac.dprecio - FLOOR(ac.dcuota_inicial * 100 / ac.dprecio) >= 0.9
+                            THEN CEIL(ac.dcuota_inicial * 100 / ac.dprecio)
+                        ELSE FLOOR(ac.dcuota_inicial * 100 / ac.dprecio)
+                    END AS PorcentajeCuotaInicial
                     , ac.dcuota_inicial DCuotaInicial
                     from administracioncontrato ac
                     inner join administracioncontacto c on c.lcontacto_id = ac.lcontacto_id
