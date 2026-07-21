@@ -5,6 +5,7 @@ using ApiGuardian.Infrastructure.Persistence;
 using Newtonsoft.Json;
 using Query.Cnx;
 using Org.BouncyCastle.Math.EC.Rfc7748;
+using Microsoft.Extensions.Configuration;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -14,24 +15,35 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
     private readonly DapperContextSqlServer _contextSqlServer;
     private readonly ILogService _log;
     private string NOMBREARCHIVO = "CuotasVentaResidualRepository.CS";
-    public CuotasVentaResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSqlServer)
+    private readonly IConfiguration _configuration;
+    public CuotasVentaResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSqlServer, IConfiguration configuration)
     {
         _context = context;
         _log = log;
         _contextSqlServer = contextSqlServer;
+        _configuration = configuration;
     }
     public async Task<(bool Success, string Mensaje, IEnumerable<VentaResidual> ListadoCuotasVentasResidual)> GetCuotasVentasResidual(string LogTransaccionId, string Usuario, string Inicio, string Fin, int LCicloId)
     {
-        string query = ScriptCnx.GetQueryVentaResidual(LCicloId);
+        List<EmpresaCalculoComision> empresas = _configuration.GetSection("EmpresaCalculoComisiones").Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
+
+        //string query = ScriptCnx.GetQueryVentaResidual(LCicloId, _configuration);
         string nombreMetodo = "GetObetenerContactoVentasMes()";
 
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [inicio:{Inicio}, fin:{Fin}, LCicloId:{LCicloId}]");
         try
         {
             using var connection = _contextSqlServer.CreateConnection();
+            List<VentaResidual> Lista = new List<VentaResidual>();
+            foreach (var empresa in empresas)
+            {
+                string query = ScriptCnx.GetQueryVentaResidual(LCicloId, empresa.DataBase, empresa.Nombre);
+                var ListaEmpresa = await connection.QueryAsync<VentaResidual>(query, new { Inicio, Fin });
 
-            var Lista = await connection.QueryAsync<VentaResidual>(query, new { Inicio, Fin });
+                Lista.AddRange(ListaEmpresa);
+            }
 
+           
             bool success = true;
             string mensaje = success ? "cuotas ventas residual obtenidos correctamente." : "No se encontraron cuotas ventas residual.";
 
@@ -293,7 +305,11 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                 Exc_Cuotas,
                 pagado,
                 habilitado,
-                lciclo_id
+                lciclo_id,
+                no_pagables,
+                pagables,
+                cant_recibo,
+                estado
             )
             VALUES
             (
@@ -306,7 +322,11 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                 @ExcCuotas,
                 @Pagado,
                 @Habilitado,
-                @LcicloId
+                @LcicloId,
+                @NoPagables,
+                @Pagables,
+                @CantRecibo,
+                @Estado
             );";
 
          const string nextIdQueryAdinistracionVentaPersonal = @"SELECT IFNULL(MAX(lventapersonal_id), 0)
@@ -437,7 +457,11 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                         ExcCuotas = detalleOriginal.ExcCuotas,
                         Pagado = detalleOriginal.Pagado,
                         Habilitado = detalleOriginal.Habilitado,
-                        LcicloId = detalleOriginal.LcicloId
+                        LcicloId = detalleOriginal.LcicloId,
+                        NoPagables = detalleOriginal.NoPagables,
+                        Pagables = detalleOriginal.Pagables,
+                        CantRecibo = detalleOriginal.CantRecibo,
+                        Estado = detalleOriginal.Estado
                     };
 
                     detalles.Add(detalle);

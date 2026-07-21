@@ -113,6 +113,7 @@ public class ControlProcesoDependenciaConfiguracion
 public static class PasosDiccionario
 {
     public const string OBTENER_VENTAS = "OBTENER VENTAS";
+    public const string CASOS_OBSERVADOS = "CASOS OBSERVADOS";
     public const string ADICIONAR_VENTAS = "ADICIONAR VENTAS";
     public const string COMISION_DIRECTA = "COMISION DIRECTA";
     public const string RED_COMPRIMIDA = "RED COMPRIMIDA";

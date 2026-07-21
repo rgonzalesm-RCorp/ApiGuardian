@@ -54,6 +54,27 @@ public class ProcesoComisionesController : ControllerBase
         _casosEspecialesRepository = casosEspecialesRepository;
         _serviceScopeFactory = serviceScopeFactory;
     }
+
+    private async Task<(bool Success, string Mensaje, string Inicio, string Fin)> ObtenerFechasCiclo(string logTransaccionId, int LCicloId)
+    {
+        var responseCiclo = await _administracionCicloRepository.GetCiclo(logTransaccionId, LCicloId);
+
+        if (!responseCiclo.Success || responseCiclo.Data.LCicloId <= 0)
+        {
+            return (false, $"No se encontró el ciclo {LCicloId}.", string.Empty, string.Empty);
+        }
+
+        string inicio = responseCiclo.Data.DtFechaInicio ?? string.Empty;
+        string fin = responseCiclo.Data.DtFechaFin ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
+        {
+            return (false, $"El ciclo {LCicloId} no tiene fechas configuradas.", string.Empty, string.Empty);
+        }
+
+        return (true, responseCiclo.Mensaje, inicio, fin);
+    }
+
     [HttpGet("vta/cnx")]
     public async Task<IActionResult> GetVentaCnx([FromHeader(Name = "lCicloId")] int lCicloId)
     {
@@ -62,35 +83,18 @@ public class ProcesoComisionesController : ControllerBase
         try
         {
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Inicio de metodo");
-            var responseCiclo = await _administracionCicloRepository.GetCiclos(logTransaccionId.ToString());
-            string inicio = "";
-            string fin = "";
-            if (responseCiclo.Success)
-            {
-                if(responseCiclo.Ciclos.Count() > 0)
-                {
-                    AdministracionCicloABM ciclo = responseCiclo.Ciclos.Where(c => c.LCicloId == lCicloId).FirstOrDefault()?? new AdministracionCicloABM();
-                    inicio = ciclo?.DtFechaInicio ?? "";
-                    fin = ciclo?.DtFechaFin ?? "";
-                }else
-                {
-                    return Ok(new
-                    {
-                        status = false,
-                        mensaje = "No se pudo obtener los ciclos",
-                        data = ""
-                    });
-                }
-            }
-            else
+            var cicloFechas = await ObtenerFechasCiclo(logTransaccionId.ToString(), lCicloId);
+            if (!cicloFechas.Success)
             {
                 return Ok(new
                 {
                     status = false,
-                    mensaje = "No se pudo obtener los ciclos",
+                    mensaje = cicloFechas.Mensaje,
                     data = ""
                 });
             }
+            string inicio = cicloFechas.Inicio;
+            string fin = cicloFechas.Fin;
             var responseVtaCnx = await _ventasCnxRepository.GetVentaCnx(logTransaccionId.ToString(), inicio, fin);
             var responseContratofecha = await _administracionContratoRepository.GetContratoFecha(logTransaccionId.ToString(), inicio, fin);
             _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Fin de metodo.");
@@ -169,9 +173,22 @@ public class ProcesoComisionesController : ControllerBase
         });
     }
     [HttpGet("venta/personal")]
-    public async Task<IActionResult> GetVentaPersonal([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
+    public async Task<IActionResult> GetVentaPersonal([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Usuario")] string Usuario)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var cicloFechas = await ObtenerFechasCiclo(logTransaccionId.ToString(), lCicloId);
+        if (!cicloFechas.Success)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = cicloFechas.Mensaje,
+                data = ""
+            });
+        }
+
+        string Inicio = cicloFechas.Inicio;
+        string Fin = cicloFechas.Fin;
 
         var responseVentaPersonal = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
         var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, lCicloId);
@@ -233,6 +250,17 @@ public class ProcesoComisionesController : ControllerBase
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         try
         {
+            var cicloFechas = await ObtenerFechasCiclo(logTransaccionId.ToString(), Data.LCicloId);
+            if (!cicloFechas.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = cicloFechas.Mensaje,
+                    data = ""
+                });
+            }
+
             
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Data.Usuario, ProcesosDiccionario.COMISIONES, Data.LCicloId);
             var pasoEsperado = (Data.Rezagada, Data.EsEspecial) switch
@@ -283,8 +311,6 @@ public class ProcesoComisionesController : ControllerBase
             RequestProcesoPrincipal dat = new RequestProcesoPrincipal
             {
                 Tipo = "API",
-                Inicio = "",
-                Fin = "",
                 Rezagada = Data.Rezagada,
                 Usuario = Data.Usuario,
                 LCicloId = Data.LCicloId,
@@ -335,6 +361,19 @@ public class ProcesoComisionesController : ControllerBase
 
         try
         {
+            var cicloFechas = await ObtenerFechasCiclo(logTransaccionId.ToString(), request.LCicloId);
+            if (!cicloFechas.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = cicloFechas.Mensaje,
+                    data = ""
+                });
+            }
+
+            string Inicio = cicloFechas.Inicio;
+            string Fin = cicloFechas.Fin;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
             if (PasosDiccionario.COMISION_DIRECTA != responseSiguientePaso.Data.nombre)
             {
@@ -366,7 +405,7 @@ public class ProcesoComisionesController : ControllerBase
 
             pasoIniciado = true;
 
-            var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+            var responseVentaPersonalComision = await _procesoComisionesRepository.GetCalculoVentaPersonal(logTransaccionId.ToString(), request.Usuario, Inicio, Fin, request.LCicloId);
             var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
 
             if (!responseHabilitaciones.Success)
@@ -438,7 +477,7 @@ public class ProcesoComisionesController : ControllerBase
             (bool Success, string Mensaje) responseVtaPersonsal = ListadoVtaPersonal.Count > 0
                 ? await _administracionVentaPersonalRepository.InsertVentaPersonal(logTransaccionId.ToString(), ListadoVtaPersonal)
                 : (true, "No existen ventas personales que generen comisión para guardar.");
-            var responseCalculoVentaResidual = await CalculoVentaResidual(request.LCicloId, request.Inicio, request.Fin, request.Usuario);
+            var responseCalculoVentaResidual = await CalculoVentaResidual(request.LCicloId, Inicio, Fin, request.Usuario);
 
             if (!responseVtaPersonsal.Success || !responseCalculoVentaResidual)
             {
@@ -600,9 +639,22 @@ public class ProcesoComisionesController : ControllerBase
     }
     
     [HttpGet("venta/grupo")]
-    public async Task<IActionResult> GetVentaGrupo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Inicio")] string Inicio, [FromHeader(Name = "Fin")] string Fin, [FromHeader(Name = "Usuario")] string Usuario)
+    public async Task<IActionResult> GetVentaGrupo([FromHeader(Name = "lCicloId")] int lCicloId, [FromHeader(Name = "Usuario")] string Usuario)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var cicloFechas = await ObtenerFechasCiclo(logTransaccionId.ToString(), lCicloId);
+        if (!cicloFechas.Success)
+        {
+            return Ok(new
+            {
+                status = false,
+                mensaje = cicloFechas.Mensaje,
+                data = ""
+            });
+        }
+
+        string Inicio = cicloFechas.Inicio;
+        string Fin = cicloFechas.Fin;
 
         var responseVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), Usuario, Inicio, Fin, lCicloId);
         var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), Usuario, lCicloId);
@@ -657,6 +709,19 @@ public class ProcesoComisionesController : ControllerBase
 
         try
         {
+            var cicloFechas = await ObtenerFechasCiclo(logTransaccionId.ToString(), request.LCicloId);
+            if (!cicloFechas.Success)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = cicloFechas.Mensaje,
+                    data = ""
+                });
+            }
+
+            string Inicio = cicloFechas.Inicio;
+            string Fin = cicloFechas.Fin;
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), request.Usuario, ProcesosDiccionario.COMISIONES, request.LCicloId);
             if (PasosDiccionario.COMISION_GRUPO != responseSiguientePaso.Data.nombre)
             {
@@ -688,7 +753,7 @@ public class ProcesoComisionesController : ControllerBase
 
             pasoIniciado = true;
 
-            var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, request.Inicio, request.Fin, request.LCicloId);
+            var responseGetVentaGrupo = await _procesoComisionesRepository.GetCalculoVentaGrupo(logTransaccionId.ToString(), request.Usuario, Inicio, Fin, request.LCicloId);
             var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId.ToString(), request.Usuario, request.LCicloId);
 
             if (!responseHabilitaciones.Success)

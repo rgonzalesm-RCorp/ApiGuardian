@@ -340,8 +340,7 @@ public class BonoResidualRepository : IBonoResidualRepository
             bool success = true;
             string mensaje = success ? "Cuota obtenidos correctamente." : "No se encontraron lista de Cuota.";
 
-            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
-                $"Fin de metodo [mensaje: {mensaje}, total registro:{ListaCuota.Count()}]");
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [mensaje: {mensaje}, total registro:{ListaCuota.Count()}]");
 
             return (ListaCuota, success, mensaje);
         }
@@ -598,8 +597,8 @@ public class BonoResidualRepository : IBonoResidualRepository
             FROM administracionventapersonal VP
             INNER JOIN administracioncontrato AC ON AC.lcontrato_id = VP.lcontrato_id
             WHERE VP.lciclo_id = @LCicloId
-              AND AC.ltipocontrato_id NOT IN ({string.Join(", ", HabilitacionComisionHelper.TiposContratoEspeciales)});
-        ";
+              
+        ";//AND AC.ltipocontrato_id NOT IN ({string.Join(", ", HabilitacionComisionHelper.TiposContratoEspeciales)});
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [queryCuota: {queryCuota}, queryContacto: {queryContacto}, usuario: {Usuario}]");
 

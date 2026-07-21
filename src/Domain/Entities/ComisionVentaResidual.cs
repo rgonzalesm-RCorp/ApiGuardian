@@ -174,6 +174,10 @@ public class ProductosDetalleCuotas
         set => _habilitado = value?.TrimEnd() ?? string.Empty;
     }
     public int? LcicloId { get; set; }
+    public int? NoPagables { get; set; }
+    public int? Pagables { get; set; }
+    public int? CantRecibo { get; set; }
+    public int? Estado { get; set; } 
 }
 public class ProductosPagarMensualUpdate
 {

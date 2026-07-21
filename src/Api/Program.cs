@@ -92,6 +92,7 @@ builder.Services.AddScoped<IRedesRepository, RedesRepository>();
 builder.Services.AddScoped<IBonoParRepository, BonoParRepository>();
 builder.Services.AddScoped<ICuotasVentaResidualRepository, CuotasVentaResidualRepository>();
 builder.Services.AddScoped<ICasosEspecialesRepository, CasosEspecialesRepository>();
+builder.Services.AddScoped<ICasosObservadosRepository, CasosObservadosRepository>();
 builder.Services.AddScoped<IAplicacionesRepositorio, AplicacionesRepositorio>();
 
 builder.Services.AddSingleton<ILogService, LogService>();

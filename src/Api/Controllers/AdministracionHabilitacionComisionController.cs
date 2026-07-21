@@ -342,6 +342,7 @@ public class AdministracionHabilitacionComisionController : ControllerBase
         }
 
         return string.Equals(paso, PasosDiccionario.OBTENER_VENTAS, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(paso, PasosDiccionario.CASOS_OBSERVADOS, StringComparison.OrdinalIgnoreCase)
             || string.Equals(paso, PasosDiccionario.ADICIONAR_VENTAS, StringComparison.OrdinalIgnoreCase)
             || string.Equals(paso, PasosDiccionario.VENTAS_ESPECIALES, StringComparison.OrdinalIgnoreCase)
             || string.Equals(paso, PasosDiccionario.COMISION_DIRECTA, StringComparison.OrdinalIgnoreCase);

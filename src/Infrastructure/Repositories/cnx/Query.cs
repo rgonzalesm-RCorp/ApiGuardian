@@ -203,44 +203,142 @@ namespace Query.Cnx
                 return ex.Message;
             }
         }
-        public static string GetQueryVentaResidual (int LCicloId) => @$"
-        SELECT 
-            CONCAT(y.idventa, '-', RTRIM(y.LOTES)) AS NroVenta,
-            y.EMPRESA AS Empresa,
-            y.IDVENTA AS IdVenta,
-            max(y.FECHA) AS Fecha,
-            y.IDALMACEN AS IdAlmacen,
-            y.PROYECTO AS Proyecto,
-            y.LOTES AS Lotes,
-            max(y.IDRECIBO) AS IdRecibo,
-            max(y.FECHA_RECIBO) AS FechaRecibo,
-            sum(y.NROCUOTA) AS NroCuota,
-            sum(y.NROCUOTASPAGABLES) AS NroCuotaPagables,
-            sum(y.IMPORTETOTAL) AS ImporteTotal,
-            y.IDCLIENTE AS IdCliente,
-            y.NOMBRE_CLIENTE AS NombreCliente,
-            y.CI_CLIENTE AS CiCliente,
-            y.IDVENDEDOR AS IdVendedor,
-            y.VENDEDOR AS Vendedor,
-            y.CI_VENDEDOR AS CiVendedor,
-            max(y.CONCEPTO1) AS Concepto1,
-            {LCicloId} AS LcicloId
-        FROM vwLISTAVENTAS_RECIBOS y
-        WHERE 
-            y.FECHA BETWEEN '20240501' AND @Fin
-            AND y.FECHA_RECIBO BETWEEN @Inicio AND @Fin
-        GROUP by CONCAT(y.idventa, '-', y.LOTES) ,
-            y.EMPRESA ,
-            y.IDVENTA  , 
-            y.IDALMACEN ,
-            y.PROYECTO ,
-            y.LOTES , 
-            y.IDCLIENTE ,
-            y.NOMBRE_CLIENTE ,
-            y.CI_CLIENTE ,
-            y.IDVENDEDOR ,
-            y.VENDEDOR ,
-            y.CI_VENDEDOR  
-        ";
+        public static string GetQueryVentaResidual (int LCicloId, string db, string nombreEmpresa)
+        {
+            
+            string queryCuotas = @$"WITH RecibosFiltrados AS
+                                    (
+                                        SELECT R.IDRECIBO, R.IDVENTA, R.FECHA AS FECHA_RECIBO, R.CONCEPTO1
+                                        FROM {db}.dbo.INRECIBO AS R
+                                        WHERE R.FECHA BETWEEN @Inicio AND @Fin AND R.CONCEPTO1 NOT LIKE '%inicial%' AND R.CONCEPTO1 NOT LIKE '%cuenta%'
+                                    ),
+                                    CuotasAgrupadas AS
+                                    (
+                                        SELECT RC.IDRECIBO, RC.IDVENTA, COUNT(RC.NROCUOTA) AS NROCUOTA,
+                                            SUM(
+                                                CASE
+                                                    WHEN (
+                                                        DATEPART(YEAR, CO.FVENCIMIENTO) = DATEPART(YEAR, CO.FECHA_PAGO)
+                                                        AND DATEPART(MONTH, CO.FVENCIMIENTO) = DATEPART(MONTH, CO.FECHA_PAGO)
+                                                    )
+                                                    OR CO.FVENCIMIENTO > CO.FECHA_PAGO
+                                                    THEN 1
+                                                    ELSE 0
+                                                END
+                                            ) AS NROCUOTASPAGABLES,
+                                            SUM(RC.IMPORTETOTAL) AS IMPORTETOTAL
+                                        FROM {db}.dbo.INRECIBOCUOTA AS RC
+                                        INNER JOIN RecibosFiltrados AS RF ON RF.IDRECIBO = RC.IDRECIBO AND RF.IDVENTA = RC.IDVENTA
+                                        INNER JOIN {db}.dbo.INCUOTA AS CO ON CO.IDVENTA = RC.IDVENTA AND CO.NROCUOTA = RC.NROCUOTA
+                                        GROUP BY RC.IDRECIBO, RC.IDVENTA
+                                    ),
+                                    VentasBase AS
+                                    (
+                                        SELECT V.IDVENTA, V.FECHA, V.IDALMACEN, V.IDCLIENTE, V.IDVENDEDOR, VC.LOTES
+                                        FROM {db}.dbo.INVENTA AS V
+                                        INNER JOIN {db}.dbo.INVENTA_CCN AS VC ON VC.IDVENTA = V.IDVENTA
+                                        WHERE V.IDESTADO <> 2 AND VC.IDESTADO_VENTA <> 2 AND VC.COMISIONABLE = 1 AND V.IDALMACEN NOT IN (78, 76) AND V.FECHA BETWEEN '20240501' AND @Fin
+                                    )
+
+                                    SELECT 
+                                        CONCAT(y.idventa, '-', RTRIM(y.LOTES)) AS NroVenta,
+                                        y.EMPRESA AS Empresa,
+                                        y.IDVENTA AS IdVenta,
+                                        max(y.FECHA) AS Fecha,
+                                        y.IDALMACEN AS IdAlmacen,
+                                        y.PROYECTO AS Proyecto,
+                                        y.LOTES AS Lotes,
+                                        max(y.IDRECIBO) AS IdRecibo,
+                                        max(y.FECHA_RECIBO) AS FechaRecibo,
+                                        sum(y.NROCUOTA) AS NroCuota,
+                                        sum(y.NROCUOTASPAGABLES) AS NroCuotaPagables,
+                                        sum(y.IMPORTETOTAL) AS ImporteTotal,
+                                        y.IDCLIENTE AS IdCliente,
+                                        y.NOMBRE_CLIENTE AS NombreCliente,
+                                        y.CI_CLIENTE AS CiCliente,
+                                        y.IDVENDEDOR AS IdVendedor,
+                                        y.VENDEDOR AS Vendedor,
+                                        y.CI_VENDEDOR AS CiVendedor,
+                                        max(y.CONCEPTO1) AS Concepto1,
+                                        {LCicloId} AS LcicloId
+                                    FROM (
+                                        SELECT
+                                            '{nombreEmpresa}' AS EMPRESA,
+                                            VB.IDVENTA,
+                                            VB.FECHA,
+                                            VB.IDALMACEN,
+                                            A.DESCRIPCION AS PROYECTO,
+                                            VB.LOTES,
+                                            RF.IDRECIBO,
+                                            RF.FECHA_RECIBO,
+                                            CA.NROCUOTA,
+                                            CA.NROCUOTASPAGABLES,
+                                            CA.IMPORTETOTAL,
+                                            VB.IDCLIENTE,
+                                            CL.NOMBRE AS NOMBRE_CLIENTE,
+                                            CL.DOCID AS CI_CLIENTE,
+                                            VB.IDVENDEDOR,
+                                            VEN.NOMBRE AS VENDEDOR,
+                                            VEN.DOCID AS CI_VENDEDOR,
+                                            RF.CONCEPTO1
+                                        FROM VentasBase AS VB
+                                        INNER JOIN RecibosFiltrados AS RF ON RF.IDVENTA = VB.IDVENTA
+                                        INNER JOIN CuotasAgrupadas AS CA ON CA.IDRECIBO = RF.IDRECIBO AND CA.IDVENTA = RF.IDVENTA
+                                        INNER JOIN {db}.dbo.INALMACEN AS A ON A.IDALMACEN = VB.IDALMACEN
+                                        INNER JOIN {db}.dbo.INCLIENTE AS CL ON CL.IDCLIENTE = VB.IDCLIENTE
+                                        INNER JOIN {db}.dbo.INCLIENTE AS VEN ON VEN.IDCLIENTE = VB.IDVENDEDOR
+                                    ) y
+                                    WHERE y.FECHA BETWEEN '20240501' AND @Fin AND y.FECHA_RECIBO BETWEEN @Inicio AND @Fin
+                                    GROUP by CONCAT(y.idventa, '-', y.LOTES) ,
+                                        y.EMPRESA, y.IDVENTA, y.IDALMACEN,
+                                        y.PROYECTO, y.LOTES, y.IDCLIENTE,
+                                        y.NOMBRE_CLIENTE, y.CI_CLIENTE, y.IDVENDEDOR,
+                                        y.VENDEDOR, y.CI_VENDEDOR ";
+        
+
+            
+            return queryCuotas;
+
+            
+            string query = @$"SELECT 
+                                CONCAT(y.idventa, '-', RTRIM(y.LOTES)) AS NroVenta,
+                                y.EMPRESA AS Empresa,
+                                y.IDVENTA AS IdVenta,
+                                max(y.FECHA) AS Fecha,
+                                y.IDALMACEN AS IdAlmacen,
+                                y.PROYECTO AS Proyecto,
+                                y.LOTES AS Lotes,
+                                max(y.IDRECIBO) AS IdRecibo,
+                                max(y.FECHA_RECIBO) AS FechaRecibo,
+                                sum(y.NROCUOTA) AS NroCuota,
+                                sum(y.NROCUOTASPAGABLES) AS NroCuotaPagables,
+                                sum(y.IMPORTETOTAL) AS ImporteTotal,
+                                y.IDCLIENTE AS IdCliente,
+                                y.NOMBRE_CLIENTE AS NombreCliente,
+                                y.CI_CLIENTE AS CiCliente,
+                                y.IDVENDEDOR AS IdVendedor,
+                                y.VENDEDOR AS Vendedor,
+                                y.CI_VENDEDOR AS CiVendedor,
+                                max(y.CONCEPTO1) AS Concepto1,
+                                {LCicloId} AS LcicloId
+                            FROM vwLISTAVENTAS_RECIBOS y
+                            WHERE 
+                                y.FECHA BETWEEN '20240501' AND @Fin
+                                AND y.FECHA_RECIBO BETWEEN @Inicio AND @Fin
+                            GROUP by CONCAT(y.idventa, '-', y.LOTES) ,
+                                y.EMPRESA ,
+                                y.IDVENTA  , 
+                                y.IDALMACEN ,
+                                y.PROYECTO ,
+                                y.LOTES , 
+                                y.IDCLIENTE ,
+                                y.NOMBRE_CLIENTE ,
+                                y.CI_CLIENTE ,
+                                y.IDVENDEDOR ,
+                                y.VENDEDOR ,
+                                y.CI_VENDEDOR  
+                            ";
+            return query;
+        } 
     }
 }

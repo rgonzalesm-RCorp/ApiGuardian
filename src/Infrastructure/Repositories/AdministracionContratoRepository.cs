@@ -100,17 +100,21 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
     public async Task<(bool Success, string Mensaje)> InsertContrato(string LogTransaccionId, AdministracionContrato data)
     {
         string nombreMetodo = "InsertContrato()";
+        /*
+        --, porcentaje_inicial
+        --, @PorcentajeCuotaInicial
+        */
 
         const string query = @"
             INSERT INTO administracioncontrato (
                 lcontrato_id, dtfecha, lcontacto_id, lcomplejo_id, smanzano, slote, suv, dprecioinicial, dcuota_inicial, dprecio,
                 lestado, ltipocontrato_id, lciudad, cespecial, lasesor_id, susuarioadd, susuariomod, dtfechaadd, dtfechamod, snroventa,
-                latencion_id, ltramite_id, lreferido_id, porcentaje_inicial
+                latencion_id, ltramite_id, lreferido_id
             )
             SELECT
                 IFNULL(MAX_ID, 0) + 1, @Fecha, @LPropietarioId, @LComplejoId, @Mzno, @Lote, @Uv, @PrecioInicial, @CuotaInicial, @PrecioFinal,
                 @LEstadoContratoId, @LTipoContratoId, @LCiudadId, @ContratoEspecial, @LAsesorId, @Usuario, @Usuario, NOW(), NOW(), @NroVenta,
-                0, 0, 0, @PorcentajeCuotaInicial
+                0, 0, 0
             FROM (
                 SELECT MAX(lcontrato_id) AS MAX_ID FROM administracioncontrato
             ) AS sub;
@@ -340,7 +344,11 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 C.dprecioinicial AS DPrecioInicial,
                 AEC.snombre AS EstadoContrato,
                 C.cespecial AS CEspecial,
-                C.porcentaje_inicial PorcentajeInicial
+                CASE
+                    WHEN c.dcuota_inicial * 100 / c.dprecio - FLOOR(c.dcuota_inicial * 100 / c.dprecio) >= 0.9
+                        THEN CEIL(c.dcuota_inicial * 100 / c.dprecio)
+                    ELSE FLOOR(c.dcuota_inicial * 100 / c.dprecio)
+                END PorcentajeInicial
             FROM administracioncontrato C
             INNER JOIN administracioncontacto P ON P.lcontacto_id = C.lcontacto_id
             INNER JOIN administracioncontacto A ON A.lcontacto_id = C.lasesor_id

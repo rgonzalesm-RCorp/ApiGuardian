@@ -66,8 +66,14 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , ac.snombrecompleto
                                     , cp.snombre proyecto
                                     , c.snroventa
-                                    , c.dprecio 
-                                    , c.porcentaje_inicial PorcentajeInicial
+                                    , c.dprecio
+                                    , CASE
+                                            WHEN ATC.ltipocontrato_id = 2 THEN 100 ELSE 
+                                            CASE WHEN c.dcuota_inicial * 100 / c.dprecio - FLOOR(c.dcuota_inicial * 100 / c.dprecio) >= 0.9
+                                                THEN CEIL(c.dcuota_inicial * 100 / c.dprecio)
+                                            ELSE FLOOR(c.dcuota_inicial * 100 / c.dprecio)
+                                            END
+                                        END AS PorcentajeCuotaInicial
                                     , c.dcuota_inicial inicial
                                     , CASE WHEN c.lestado = 6 then 67 else CF.PorcentajeComision end dporcentajecomision
                                     , CASE WHEN c.lestado = 6 then (c.dcuota_inicial * 67) / 100 else (c.dcuota_inicial * CF.PorcentajeComision ) / 100 end dcomision
@@ -90,7 +96,15 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     INNER JOIN pc_configvtapersonalcomplejo CVPC ON CVP.PC_ConfigVtaPersonalId = CVPC.PC_ConfigVtaPersonalId and CVP.estado = 1 and  CVPC.estado = 1
                                     INNER JOIN pc_configvtapersonalinicial CVPI ON CVP.PC_ConfigVtaPersonalId = CVPI.PC_ConfigVtaPersonalId and CVPI.estado = 1
                                     INNER JOIN administracionciclo AC ON AC.lciclo_id = CVP.lciclo_id
-                                ) CF on CF.LComplejoId = C.lcomplejo_id AND c.porcentaje_inicial BETWEEN CF.PorcentajeInicialDesde and CF.PorcentajeInicialHasta AND CF.LCicloId = @LCicloId
+                                ) CF on CF.LComplejoId = C.lcomplejo_id AND 
+                                CASE
+                                            WHEN C.ltipocontrato_id = 2 THEN 100 ELSE 
+                                            CASE WHEN c.dcuota_inicial * 100 / c.dprecio - FLOOR(c.dcuota_inicial * 100 / c.dprecio) >= 0.9
+                                                THEN CEIL(c.dcuota_inicial * 100 / c.dprecio)
+                                            ELSE FLOOR(c.dcuota_inicial * 100 / c.dprecio)
+                                            END
+                                        END
+                                 BETWEEN CF.PorcentajeInicialDesde and CF.PorcentajeInicialHasta AND CF.LCicloId = @LCicloId
                                 INNER JOIN administracioncontacto AC on AC.lcontacto_id = C.lasesor_id
                                 INNER JOIN administracioncomplejo  CP on cp.lcomplejo_id = c.lcomplejo_id 
                                 LEFT JOIN administracionsemanaciclo ASCC ON ASCC.lciclo_id = CF.LCicloId
@@ -106,7 +120,11 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
                                     , cp.snombre proyecto
                                     , c.snroventa
                                     , c.dprecio 
-                                    , c.porcentaje_inicial PorcentajeInicial
+                                    , CASE
+                                            WHEN c.dcuota_inicial * 100 / c.dprecio - FLOOR(c.dcuota_inicial * 100 / c.dprecio) >= 0.9
+                                                THEN CEIL(c.dcuota_inicial * 100 / c.dprecio)
+                                            ELSE FLOOR(c.dcuota_inicial * 100 / c.dprecio)
+                                        END AS PorcentajeCuotaInicial
                                     , c.dcuota_inicial inicial
                                     , VP.dporcentajecomision dporcentajecomision
                                     , VP.dcomision dcomision
