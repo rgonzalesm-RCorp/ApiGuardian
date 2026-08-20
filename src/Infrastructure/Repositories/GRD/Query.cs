@@ -20,7 +20,7 @@ namespace Query.Grd
                                     when  TRUNCATE(COUNT(*), 0) BETWEEN 2 AND 3 THEN 200
                                     when  TRUNCATE(COUNT(*), 0) BETWEEN 4 AND 5 THEN 700
                                     when  TRUNCATE(COUNT(*), 0) BETWEEN 6 AND 7 THEN 1100
-                                    when  TRUNCATE(COUNT(*), 0) BETWEEN 6 AND 9 THEN 1400
+                                    when  TRUNCATE(COUNT(*), 0) BETWEEN 8 AND 9 THEN 1400
                                     when  TRUNCATE(COUNT(*), 0) > 10 THEN 2000
                                     ELSE 0
                                 END Bono
@@ -46,6 +46,7 @@ namespace Query.Grd
                                     CASE WHEN (ACT.dcuota_inicial * 100 / ACT.dprecio) BETWEEN 2.9999 AND 4.98 THEN 
                                         CASE WHEN  ACT.dprecio >= 10000 THEN 1 ELSE 0 END
                                     ELSE 1 END = 1 and ACT.ltipocontrato_id in (1,2) and ACT.lcontacto_id != ACT.lasesor_id
+                                    AND ACT.snroventa not like '%KTRB5%'
                                 GROUP BY V.lpatrocinante_id, V.lcontacto_id 
                             )DAT 
                             INNER JOIN administracioncontacto CT ON CT.lcontacto_id = DAT.GId

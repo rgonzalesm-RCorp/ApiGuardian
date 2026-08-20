@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Query.Cnx;
 using Org.BouncyCastle.Math.EC.Rfc7748;
 using Microsoft.Extensions.Configuration;
+using ApiGuardian.Infrastructure.Services;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -16,12 +17,14 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
     private readonly ILogService _log;
     private string NOMBREARCHIVO = "CuotasVentaResidualRepository.CS";
     private readonly IConfiguration _configuration;
-    public CuotasVentaResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSqlServer, IConfiguration configuration)
+    private readonly CambioDolarService _cambioDolarService;
+    public CuotasVentaResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSqlServer, IConfiguration configuration, CambioDolarService cambioDolarService)
     {
         _context = context;
         _log = log;
         _contextSqlServer = contextSqlServer;
         _configuration = configuration;
+        _cambioDolarService = cambioDolarService;
     }
     public async Task<(bool Success, string Mensaje, IEnumerable<VentaResidual> ListadoCuotasVentasResidual)> GetCuotasVentasResidual(string LogTransaccionId, string Usuario, string Inicio, string Fin, int LCicloId)
     {
@@ -38,7 +41,12 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
             foreach (var empresa in empresas)
             {
                 string query = ScriptCnx.GetQueryVentaResidual(LCicloId, empresa.DataBase, empresa.Nombre);
-                var ListaEmpresa = await connection.QueryAsync<VentaResidual>(query, new { Inicio, Fin });
+                var ListaEmpresa = (await connection.QueryAsync<VentaResidual>(query, new { Inicio, Fin })).ToList();
+
+                foreach (var venta in ListaEmpresa)
+                {
+                    _cambioDolarService.Convertir(venta);
+                }
 
                 Lista.AddRange(ListaEmpresa);
             }
@@ -308,7 +316,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                 lciclo_id,
                 no_pagables,
                 pagables,
-                cant_recibo,
+                cant_recibos,
                 estado
             )
             VALUES
@@ -458,10 +466,10 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                         Pagado = detalleOriginal.Pagado,
                         Habilitado = detalleOriginal.Habilitado,
                         LcicloId = detalleOriginal.LcicloId,
-                        NoPagables = detalleOriginal.NoPagables,
-                        Pagables = detalleOriginal.Pagables,
-                        CantRecibo = detalleOriginal.CantRecibo,
-                        Estado = detalleOriginal.Estado
+                        NoPagables = detalleOriginal.NoPagables ?? 0,
+                        Pagables = detalleOriginal.Pagables ?? 0,
+                        CantRecibo = detalleOriginal.CantRecibo ?? 0,
+                        Estado = detalleOriginal.Estado ?? 0
                     };
 
                     detalles.Add(detalle);

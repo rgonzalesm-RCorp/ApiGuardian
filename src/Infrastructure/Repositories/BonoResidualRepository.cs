@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Query.Cnx;
 using DocumentFormat.OpenXml.Bibliography;
 using System.Text;
+using ApiGuardian.Infrastructure.Services;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -17,19 +18,21 @@ public class BonoResidualRepository : IBonoResidualRepository
     private readonly DapperContextSqlServer64 _contextSql64;
     private readonly IConfiguration _configuration;
     private readonly ILogService _log;
+    private readonly CambioDolarService _cambioDolarService;
     private string NOMBREARCHIVO = "BonoResidualRepository.CS";
 
     #region "Script"
     private readonly string SCRIPT_CLEAR_CUOTAS = "TRUNCATE TABLE T_ACCIONESCUOTASGRL";
     private readonly string SCRIPT_CLEAR_CARTERA = "TRUNCATE TABLE Cartera";
     #endregion
-    public BonoResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSql, DapperContextSqlServer64 contextSql64, IConfiguration configuration)
+    public BonoResidualRepository(DapperContext context, ILogService log, DapperContextSqlServer contextSql, DapperContextSqlServer64 contextSql64, IConfiguration configuration, CambioDolarService cambioDolarService)
     {
         _context = context;
         _contextSql = contextSql;
         _contextSql64 = contextSql64;
         _log = log;
         _configuration = configuration;
+        _cambioDolarService = cambioDolarService;
     }
     public async Task<(IEnumerable<TCartera> ListaCartera, bool Success, string Mensaje, int counter)> GetCartera(string LogTransaccionId, string Usuario, int page, int pageSize)
     {
@@ -335,7 +338,12 @@ public class BonoResidualRepository : IBonoResidualRepository
         {
             using var connection = _contextSql.CreateConnection();
 
-            var ListaCuota = await connection.QueryAsync<TCuota>(query, new{ inicio, fin});
+            var ListaCuota = (await connection.QueryAsync<TCuota>(query, new{ inicio, fin})).ToList();
+
+            foreach (var cuota in ListaCuota)
+            {
+                _cambioDolarService.Convertir(cuota);
+            }
 
             bool success = true;
             string mensaje = success ? "Cuota obtenidos correctamente." : "No se encontraron lista de Cuota.";

@@ -14,6 +14,11 @@
     }
   },
   "AllowedHosts": "*",
+  "HabilidacionesParaNoComprimirRed": [],
+  "cambioDolar": {
+    "idsComplejosProyectos": [80],
+    "tipoCambio": 6.96
+  },
   "EmpresaCalculoComisiones" :[
     {
         "empresaId": 8,

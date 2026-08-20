@@ -5,6 +5,7 @@ using ApiGuardian.Infrastructure.Persistence;
 using Newtonsoft.Json;
 using Query.Cnx;
 using Microsoft.Extensions.Configuration;
+using ApiGuardian.Infrastructure.Services;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -13,12 +14,14 @@ public class VentaCnxRepository : IVentasCnxRepository
     private readonly DapperContextSqlServer _context;
     private readonly ILogService _log;
     private readonly IConfiguration _configuration;
+    private readonly CambioDolarService _cambioDolarService;
     private string NOMBREARCHIVO = "AdministracionBancoRepository.cs";
-    public VentaCnxRepository(DapperContextSqlServer context, ILogService log, IConfiguration configuration)
+    public VentaCnxRepository(DapperContextSqlServer context, ILogService log, IConfiguration configuration, CambioDolarService cambioDolarService)
     {
         _context = context;
         _log = log;
         _configuration = configuration;
+        _cambioDolarService = cambioDolarService;
     }
     public async Task<(IEnumerable<ItemVentaCnx> Data, bool Success, string Mensaje)> GetVentaCnx(string LogTransaccionId, string inicio, string fin)
     {
@@ -32,7 +35,13 @@ public class VentaCnxRepository : IVentasCnxRepository
         {
             using var connection = _context.CreateConnection();
 
-            var data = await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new{inicio, fin});
+            var data = (await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new{inicio, fin})).ToList();
+
+            foreach (var venta in data)
+            {
+                _cambioDolarService.Convertir(venta);
+                 
+            }
 
             bool success = data != null && data.Any();
             string mensaje = success ? "Datos obtenidos correctamente." : "No se encontraron registros.";

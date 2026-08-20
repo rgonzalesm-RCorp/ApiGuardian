@@ -74,6 +74,30 @@ public partial class AplicacionesRepositorio
         }
     }
 
+    private async Task<ResultadoAplicaciones<ConteoRetencionesAplicaciones>> ObtenerConteoRetencionesAsync(int ciclo)
+    {
+        try
+        {
+            using var conexion = _guardianContext.CreateConnection();
+            var conteo = await conexion.QuerySingleAsync<ConteoRetencionesAplicaciones>(
+                new CommandDefinition(
+                    SqlCountGuardianCompanyCommissions,
+                    new { Ciclo = ciclo },
+                    commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
+                )
+            );
+
+            return ResultadoAplicaciones<ConteoRetencionesAplicaciones>.Ok(conteo);
+        }
+        catch (Exception ex)
+        {
+            return ResultadoAplicaciones<ConteoRetencionesAplicaciones>.Fail(
+                $"No se pudo verificar la carga de retenciones para el ciclo {ciclo}: {ex.Message}",
+                true
+            );
+        }
+    }
+
     private async Task<ResultadoAplicaciones> LimpiarDatosCicloAsync(int ciclo)
     {
         var clearGuardianResult = await LimpiarDatosCicloGuardianAsync(ciclo);
@@ -1126,4 +1150,11 @@ internal sealed class ResultadoFacturaAplicaciones
     public int CodigoError { get; set; }
     public string MensajeServicio { get; set; } = string.Empty;
     public string MensajeError { get; set; } = string.Empty;
+}
+
+internal sealed class ConteoRetencionesAplicaciones
+{
+    public int RetencionEmpresa { get; set; }
+    public int RetencionEmpresaExterior { get; set; }
+    public int Total => RetencionEmpresa + RetencionEmpresaExterior;
 }

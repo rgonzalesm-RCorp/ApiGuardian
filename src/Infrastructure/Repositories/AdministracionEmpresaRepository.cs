@@ -31,9 +31,9 @@ public class AdministracionEmpresaRepository : IAdministracionEmpresaRepository
                 lempresa_id AS LEmpresaId,
                 UPPER(snombre) AS SNombre,
                 snit AS SNIT,
-                fecha_creacion AS FechaCreacion,
-                UPPER(empresa) AS Empresa
-            FROM administracionempresa
+                dtfechaadd AS FechaCreacion,
+                UPPER(snombre) AS Empresa
+            FROM baseempresa
             ORDER BY lempresa_id DESC;";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, metodo, $"Inicio consulta. Script: {query}");

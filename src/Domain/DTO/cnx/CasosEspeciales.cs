@@ -21,5 +21,5 @@ public class UpgradeSolicitudDto
 
     public decimal Monto { get; set; }
     public decimal Deuda { get; set; }
-    public int Cuota { get; set; }
+    public decimal Cuota { get; set; }
 }

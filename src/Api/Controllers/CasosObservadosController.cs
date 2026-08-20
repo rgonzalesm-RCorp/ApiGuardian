@@ -27,7 +27,9 @@ public class CasosObservadosController : ControllerBase
     [HttpGet("casos/observados")]
     public async Task<IActionResult> Get(
         [FromHeader(Name = "Usuario")] string Usuario,
-        [FromHeader(Name = "LCicloId")] int LCicloId
+        [FromHeader(Name = "LCicloId")] int LCicloId,
+        [FromHeader(Name = "Inicio")] DateTime? Inicio,
+        [FromHeader(Name = "Fin")] DateTime? Fin
     )
     {
         string logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
@@ -35,9 +37,39 @@ public class CasosObservadosController : ControllerBase
 
         try
         {
-            _log.Info(logTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [Usuario:{Usuario}, LCicloId:{LCicloId}]");
+            if (LCicloId <= 0 || !Inicio.HasValue || !Fin.HasValue)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "El ciclo, la fecha de inicio y la fecha de fin son obligatorios.",
+                    data = ""
+                });
+            }
 
-            var response = await _repository.GetCasosObservados(logTransaccionId, Usuario, LCicloId);
+            if (Inicio.Value.Date > Fin.Value.Date)
+            {
+                return Ok(new
+                {
+                    status = false,
+                    mensaje = "La fecha de inicio no puede ser mayor que la fecha de fin.",
+                    data = ""
+                });
+            }
+
+            var fechaInicio = Inicio.Value.Date;
+            var fechaFin = Fin.Value.Date;
+
+            _log.Info(logTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Inicio de metodo [Usuario:{Usuario}, LCicloId:{LCicloId}, Inicio:{fechaInicio:yyyy-MM-dd}, Fin:{fechaFin:yyyy-MM-dd}]");
+
+            var response = await _repository.GetCasosObservados(
+                logTransaccionId,
+                Usuario,
+                LCicloId,
+                fechaInicio,
+                fechaFin
+            );
             var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(
                 logTransaccionId,
                 Usuario,

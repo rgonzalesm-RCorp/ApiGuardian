@@ -114,7 +114,7 @@ Patrón: consulta y mantenimiento de contratos.
 
 | Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GetAll` | `GET /api/AdministracionContrato` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionContratoRepository.GetAllAdministracionContrato` | `administracioncontrato`, `administracioncontacto`, `administracioncomplejo`, `administraciontipocontrato`, `administracionestadocontrato` | Lista paginada y total |
+| `GetAll` | `GET /api/AdministracionContrato` | Headers `page`, `pageSize`, `search?`, `fechaInicio`, `fechaFin` | Valida fechas obligatorias y rango; filtra inclusivamente por `administracioncontrato.dtfecha` | `IAdministracionContratoRepository.GetAllAdministracionContrato`, `GetReporteAdministracionContrato` | `administracioncontrato`, `administracioncontacto`, `administracioncomplejo`, `administraciontipocontrato`, `administracionestadocontrato` | Lista paginada, total y reportes PDF/XLS en Base64 |
 | `InsertContrato` | `POST /api/AdministracionContrato/insert` | Body `AdministracionContrato` | Sin validaciones en controller; el repo genera correlativo | `IAdministracionContratoRepository.InsertContrato` | `administracioncontrato` | Confirmación |
 | `UpdateContrato` | `PUT /api/AdministracionContrato/update` | Body `AdministracionContrato` | Sin validaciones en controller | `IAdministracionContratoRepository.UpdateContrato` | `administracioncontrato` | Confirmación |
 
@@ -650,7 +650,7 @@ Patrón: orquestación del proceso legado de aplicaciones en una carpeta aislada
 
 | Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `VistaPrevia` | `GET /api/aplicaciones/vista-previa` | Header `lCicloId` | Ejecuta el flujo en memoria; no limpia tablas, no inserta en `AplicacionesComisionado` y no marca procesados | `IAplicacionesRepositorio.VistaPrevia` | Reutiliza fuentes de Guardian, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, comisionados y operaciones planificadas |
+| `VistaPrevia` | `GET /api/aplicaciones/vista-previa` | Header `lCicloId` | Ejecuta `RetencionEmpresa()`, valida la carga de `tbl_retencionempresa` y `tbl_retencionempresa_exterior`, carga `AplicacionesComisionPorEmpresa` si no existe para el ciclo y simula el resto del flujo; no inserta en `AplicacionesComisionado` ni marca procesados | `IAplicacionesRepositorio.VistaPrevia` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, conteo de retenciones, comisionados y operaciones planificadas |
 | `Aplicar` | `POST /api/aplicaciones/aplicar` | Body `SolicitudEjecucionAplicaciones` con `lCicloId` | Valida conexiones, limpia tablas del ciclo en `grdsion` y `BDQISHUR`, recarga datos base, sincroniza comisiones, procesa cada comisionado y marca procesados | `IAplicacionesRepositorio.Aplicar` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesComisionado`, `AplicacionesPagos`, `AplicacionesProrrateo` y tablas CNX/Guardian del flujo | Estado final del proceso, comisionados procesados, errores y operaciones ejecutadas |
 
 ### Método: Aplicar
@@ -791,13 +791,13 @@ Patrón: generación de red comprimida y red completa temporal para bonos de gru
 
 | Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GetDatos` | `GET /api/Redes/armar/red/comprimida/mes` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Valida paso `RED_COMPRIMIDA`; mezcla vendedores activos con habilitados y sube hasta 7 patrocinadores activos | `GetSiguientePaso`, `IniciarPaso`, `GetHabilitaciones`, `GetObetenerContactoVentasMes`, `GetRedCotactoAll`, `GuardarRedComprimida`, `FinalizarPaso`, `CancelarPaso` | `administracioncontrato`, `administracioncontacto`, `administracionhabilitacioncomision`, `red_comprimida`, `tmp_residual_contacto` | Red comprimida generada y resumen |
+| `GetDatos` | `GET /api/Redes/armar/red/comprimida/mes` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Valida paso `RED_COMPRIMIDA`; mezcla vendedores activos, habilitados y contactos configurados en `HabilidacionesParaNoComprimirRed`; sube hasta 7 patrocinadores activos | `GetSiguientePaso`, `IniciarPaso`, `GetHabilitaciones`, `GetObetenerContactoVentasMes`, `GetRedCotactoAll`, `GuardarRedComprimida`, `FinalizarPaso`, `CancelarPaso` | `administracioncontrato`, `administracioncontacto`, `administracionhabilitacioncomision`, `red_comprimida`, `tmp_residual_contacto` | Red comprimida generada y resumen |
 | `GetClientesCuotas` | `GET /api/Redes/armar/red/cuotas` | Headers `Usuario`, `LCicloId` | Valida paso `RED_COMPLETA`; arma jerarquía de 7 niveles para todos los contactos y la deja en tabla temporal | `GetSiguientePaso`, `IniciarPaso`, `GetRedCotactoAll`, `GuardarRedContactoTemporal`, `FinalizarPaso`, `CancelarPaso` | `administracioncontacto`, `tmp_residual_contacto`, `tmp_residual_red` | Cantidad de clientes procesados |
 
 ### Método: GetDatos
 
 - PuntoFinal: `GET /api/Redes/armar/red/comprimida/mes`
-- Descripción: genera la red comprimida del ciclo tomando vendedores con ventas del mes y asesores habilitados.
+- Descripción: genera la red comprimida del ciclo tomando vendedores con ventas del mes, asesores habilitados y los `lContactoId` definidos en el arreglo `HabilidacionesParaNoComprimirRed` de `appsettings.json`.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`, `Inicio`, `Fin`
 - Validaciones principales:

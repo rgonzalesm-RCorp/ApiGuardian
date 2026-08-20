@@ -40,7 +40,7 @@ public class AdministracionComplejoRepository : IAdministracionComplejoRepositor
                 AC.susuarioadd AS Usuario,
                 UPPER(AE.snombre ) as Empresa
             FROM administracioncomplejo AC
-            INNER JOIN administracionempresa AE ON AE.lempresa_id = AC.lempresa_id
+            INNER JOIN baseempresa AE ON AE.lempresa_id = AC.lempresa_id
             ORDER BY AC.lcomplejo_id DESC;
         ";
 
@@ -85,7 +85,7 @@ public class AdministracionComplejoRepository : IAdministracionComplejoRepositor
                 AC.susuarioadd AS Usuario,
                 UPPER(AE.snombre ) as Empresa
             FROM administracioncomplejo AC
-            INNER JOIN administracionempresa AE ON AE.lempresa_id = AC.lempresa_id
+            INNER JOIN baseempresa AE ON AE.lempresa_id = AC.lempresa_id
             ORDER BY AC.lcomplejo_id DESC
             LIMIT @pageSize OFFSET @page;
         ";

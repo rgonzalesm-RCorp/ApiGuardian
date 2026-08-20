@@ -18,20 +18,27 @@ public class RedesController : ControllerBase
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly ILogService _log;
     private readonly IControlProcesoRepository _controlProcesoRepository;
+    private readonly HashSet<int> _habilidacionesParaNoComprimirRed;
 
-    private const string NOMBREARCHIVO = "BrConfiguracionController.cs";
+    private const string NOMBREARCHIVO = "RedesController.cs";
 
     public RedesController(
         IRedesRepository repo,
         IAdministracionHabilitacionComisionRepository habilitacionRepository,
         ILogService log,
-        IControlProcesoRepository controlProcesoRepository
+        IControlProcesoRepository controlProcesoRepository,
+        IConfiguration configuration
     )
     {
         _repo = repo;
         _habilitacionRepository = habilitacionRepository;
         _log = log;
         _controlProcesoRepository = controlProcesoRepository;
+        _habilidacionesParaNoComprimirRed = configuration
+            .GetSection("HabilidacionesParaNoComprimirRed")
+            .Get<int[]>()?
+            .Where(id => id > 0)
+            .ToHashSet() ?? new HashSet<int>();
     }
 
     [HttpGet("armar/red/comprimida/mes")]
@@ -44,7 +51,7 @@ public class RedesController : ControllerBase
         try
         {
             DateTime ini = DateTime.Now;
-            var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
+            /*var responseSiguientePaso = await _controlProcesoRepository.GetSiguientePaso(logTransaccionId.ToString(), Usuario, ProcesosDiccionario.COMISIONES, LCicloId);
             if (PasosDiccionario.RED_COMPRIMIDA != responseSiguientePaso.Data.nombre)
             {
                 return Ok(new
@@ -73,10 +80,10 @@ public class RedesController : ControllerBase
                 });
             }
 
-            pasoIniciado = true;
+            pasoIniciado = true;*/
 
             var responseHabilitaciones = await _habilitacionRepository.GetHabilitaciones(logTransaccionId, Usuario, LCicloId);
-            if (!responseHabilitaciones.Success)
+            /*if (!responseHabilitaciones.Success)
             {
                 await _controlProcesoRepository.CancelarPaso(
                     logTransaccionId,
@@ -94,32 +101,71 @@ public class RedesController : ControllerBase
                     mensaje = responseHabilitaciones.Mensaje,
                     data = ""
                 });
-            }
+            }*/
 
             var ResponseContactoVentaMes = await _repo.GetObetenerContactoVentasMes(logTransaccionId, Usuario, Inicio, Fin);
             var ResponseContactoAll = await _repo.GetRedCotactoAll(logTransaccionId, Usuario);
             var personasHabilitadas = responseHabilitaciones.Data.ToList();
 
-            var contactosActivos = ResponseContactoVentaMes.ListadoContactosActivos
+            var contactosActivosPorId = ResponseContactoVentaMes.ListadoContactosActivos
                 .Select(item => new ItemContactoActivo
                 {
                     LContactoId = item.LContactoId > 0 ? item.LContactoId : item.LVendedorId,
                     LVendedorId = item.LVendedorId > 0 ? item.LVendedorId : item.LContactoId
                 })
-                .ToList();
+                .Where(item => item.LVendedorId > 0)
+                .GroupBy(item => item.LVendedorId)
+                .ToDictionary(grupo => grupo.Key, grupo => grupo.First());
 
             foreach (var habilitado in personasHabilitadas)
             {
-                if (contactosActivos.Any(x => x.LVendedorId == habilitado.LContactoId))
+                if (habilitado.LContactoId <= 0 || contactosActivosPorId.ContainsKey(habilitado.LContactoId))
                 {
                     continue;
                 }
 
-                contactosActivos.Add(new ItemContactoActivo
+                contactosActivosPorId[habilitado.LContactoId] = new ItemContactoActivo
                 {
                     LContactoId = habilitado.LContactoId,
                     LVendedorId = habilitado.LContactoId
-                });
+                };
+            }
+
+            var redPorContacto = ResponseContactoAll.ListadoContactosCuotas
+                .Where(item => item.Hijo > 0)
+                .GroupBy(item => item.Hijo)
+                .ToDictionary(grupo => grupo.Key, grupo => grupo.First());
+
+            var habilidacionesConfiguradasNoEncontradas = _habilidacionesParaNoComprimirRed
+                .Where(id => !redPorContacto.ContainsKey(id))
+                .OrderBy(id => id)
+                .ToList();
+
+            foreach (var contactoId in _habilidacionesParaNoComprimirRed.Where(redPorContacto.ContainsKey))
+            {
+                if (contactosActivosPorId.ContainsKey(contactoId))
+                {
+                    continue;
+                }
+
+                contactosActivosPorId[contactoId] = new ItemContactoActivo
+                {
+                    LContactoId = contactoId,
+                    LVendedorId = contactoId
+                };
+            }
+
+            var contactosActivos = contactosActivosPorId.Values.ToList();
+            var contactosActivosIds = contactosActivosPorId.Keys.ToHashSet();
+
+            if (habilidacionesConfiguradasNoEncontradas.Count > 0)
+            {
+                _log.Info(
+                    logTransaccionId,
+                    NOMBREARCHIVO,
+                    "GetDatos",
+                    $"Contactos configurados en HabilidacionesParaNoComprimirRed no encontrados: {string.Join(",", habilidacionesConfiguradasNoEncontradas)}"
+                );
             }
 
             List<ItemContactoRed> Lista = new List<ItemContactoRed>();
@@ -128,18 +174,22 @@ public class RedesController : ControllerBase
                 int LContactoId = item.LVendedorId;
                 int LPatrocinadorId = 0;
                 int counter = 1;
+                var contactosVisitados = new HashSet<int> { LContactoId };
                 while (counter <= 7)
                 {
-                    //var responsePatrocinador = await _repo.GetObetenerPatrocinador(logTransaccionId, Usuario, LContactoId);
-                    var responsePatrocinador = ResponseContactoAll.ListadoContactosCuotas.Where(x => x.Hijo == LContactoId).FirstOrDefault();
-                    //LPatrocinadorId = responsePatrocinador.PatrocinadorId;
-                    LPatrocinadorId = responsePatrocinador.Padre;
-                    if(LPatrocinadorId <= 0)
-                        break;
-                    int EstaActivo = contactosActivos.Count(x => x.LVendedorId == LPatrocinadorId);
-                    if (EstaActivo > 0)
+                    if (!redPorContacto.TryGetValue(LContactoId, out var responsePatrocinador))
                     {
-                        Console.WriteLine($"{item.LContactoId} - PatrocinadorId: {responsePatrocinador.Padre}");
+                        break;
+                    }
+
+                    LPatrocinadorId = responsePatrocinador.Padre;
+                    if (LPatrocinadorId <= 0 || !contactosVisitados.Add(LPatrocinadorId))
+                    {
+                        break;
+                    }
+
+                    if (contactosActivosIds.Contains(LPatrocinadorId))
+                    {
                         ItemContactoRed ObjRedComprimidad = new ItemContactoRed
                         {
                             LContactoId = item.LVendedorId,
@@ -159,7 +209,7 @@ public class RedesController : ControllerBase
             }
             var ResponseGuardarRedComprimida = await _repo.GuardarRedComprimida(logTransaccionId, Usuario, Lista);
 
-            if (!ResponseGuardarRedComprimida.Success)
+            /*if (!ResponseGuardarRedComprimida.Success)
             {
                 await _controlProcesoRepository.CancelarPaso(
                     logTransaccionId,
@@ -195,7 +245,7 @@ public class RedesController : ControllerBase
                     mensaje = responseFinPaso.Data?.mensaje ?? responseFinPaso.Mensaje,
                     data = ""
                 });
-            }
+            }*/
 
             pasoIniciado = false;
             DateTime fin = DateTime.Now;
@@ -211,6 +261,8 @@ public class RedesController : ControllerBase
                     Nivel = contactosActivos,
                     RedComprimida = Lista,
                     personasHabilitadas,
+                    habilidacionesParaNoComprimirRed = _habilidacionesParaNoComprimirRed.OrderBy(id => id),
+                    habilidacionesConfiguradasNoEncontradas,
                     ResponseGuardarRedComprimida.Success,
                     ResponseGuardarRedComprimida.Mensaje
 

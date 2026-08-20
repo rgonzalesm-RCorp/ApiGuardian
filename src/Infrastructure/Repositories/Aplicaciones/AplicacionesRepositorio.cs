@@ -69,7 +69,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             if (soloVistaPrevia)
             {
                 estado.Notas.Add(
-                    "La vista previa no ejecuta RetencionEmpresa(), no inserta prioridades ni sincroniza tablas; usa el estado actual y simulacion en memoria."
+                    "La vista previa ejecuta RetencionEmpresa() para cargar las tablas fuente; no inserta prioridades ni AplicacionesComisionado y simula el resto del proceso."
                 );
             }
             else
@@ -83,13 +83,39 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 estado.Notas.Add(
                     "Antes de ejecutar aplicar se limpiaron por ciclo las tablas derivadas de BDQISHUR y grdsion."
                 );
+            }
 
-                var resultadoPreparacion = await CargarUltimosDatosComisionAsync();
-                if (!resultadoPreparacion.Exito)
-                {
-                    return ConstruirEstadoFallido(estado, resultadoPreparacion.Mensaje, resultadoPreparacion.EsFatal);
-                }
+            var resultadoPreparacion = await CargarUltimosDatosComisionAsync();
+            if (!resultadoPreparacion.Exito)
+            {
+                return ConstruirEstadoFallido(estado, resultadoPreparacion.Mensaje, resultadoPreparacion.EsFatal);
+            }
 
+            var resultadoConteoRetenciones = await ObtenerConteoRetencionesAsync(ciclo);
+            if (!resultadoConteoRetenciones.Exito || resultadoConteoRetenciones.Datos is null)
+            {
+                return ConstruirEstadoFallido(
+                    estado,
+                    resultadoConteoRetenciones.Mensaje,
+                    resultadoConteoRetenciones.EsFatal
+                );
+            }
+
+            if (resultadoConteoRetenciones.Datos.Total == 0)
+            {
+                return ConstruirEstadoFallido(
+                    estado,
+                    $"RetencionEmpresa() no genero informacion en tbl_retencionempresa ni tbl_retencionempresa_exterior para el ciclo {ciclo}.",
+                    true
+                );
+            }
+
+            estado.Notas.Add(
+                $"Retenciones cargadas para el ciclo {ciclo}: tbl_retencionempresa={resultadoConteoRetenciones.Datos.RetencionEmpresa}, tbl_retencionempresa_exterior={resultadoConteoRetenciones.Datos.RetencionEmpresaExterior}."
+            );
+
+            if (!soloVistaPrevia)
+            {
                 resultadoPreparacion = await CargarPrioridadesFaltantesAsync();
                 if (!resultadoPreparacion.Exito)
                 {
@@ -113,7 +139,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
             estado.ExistenComisionesPorEmpresa = resultadoComisionesEmpresaExistentes.Datos;
 
-            if (!soloVistaPrevia && !estado.ExistenComisionesPorEmpresa)
+            if (!estado.ExistenComisionesPorEmpresa)
             {
                 var resultadoSincronizacion = await SincronizarComisionesEmpresaAsync(ciclo);
                 if (!resultadoSincronizacion.Exito)
@@ -122,12 +148,12 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 }
 
                 estado.ExistenComisionesPorEmpresa = true;
-            }
-            else if (soloVistaPrevia && !estado.ExistenComisionesPorEmpresa)
-            {
-                estado.Notas.Add(
-                    "AplicacionesComisionPorEmpresa no existe para este ciclo; la vista previa construye los montos en memoria desde Guardian."
-                );
+                if (soloVistaPrevia)
+                {
+                    estado.Notas.Add(
+                        "AplicacionesComisionPorEmpresa no existia para el ciclo y fue cargada desde Guardian para completar la simulacion."
+                    );
+                }
             }
 
             var resultadoComisionadosGuardian = await ObtenerComisionadosGuardianAsync(ciclo);
@@ -138,7 +164,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
             estado.TotalComisionadosGuardian = resultadoComisionadosGuardian.Datos.Count;
 
-            var resultadoTotales = await ResolverTotalesEmpresaAsync(ciclo, soloVistaPrevia);
+            var resultadoTotales = await ObtenerTotalesEmpresaPorDocumentoAsync(ciclo);
             if (!resultadoTotales.Exito || resultadoTotales.Datos is null)
             {
                 return ConstruirEstadoFallido(estado, resultadoTotales.Mensaje, resultadoTotales.EsFatal);
@@ -227,7 +253,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             }
 
             estado.Notas.Add(soloVistaPrevia
-                ? "Vista previa finalizada. No se escribio informacion en base de datos."
+                ? "Vista previa finalizada. Se cargaron las retenciones Guardian y, cuando fue necesario, AplicacionesComisionPorEmpresa; las aplicaciones restantes fueron simuladas."
                 : "Fin del proceso, se dejara listo el envio futuro del informe.");
 
             _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Fin proceso aplicaciones. ciclo:{ciclo}, vistaPrevia:{soloVistaPrevia}");
@@ -238,44 +264,6 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             _registro.Error(logTransaccionId, NombreArchivo, metodo, "Error en proceso de aplicaciones", ex);
             return ConstruirEstadoFallido(estado, ex.Message, true);
         }
-    }
-
-    private async Task<ResultadoAplicaciones<Dictionary<string, decimal>>> ResolverTotalesEmpresaAsync(int ciclo, bool soloVistaPrevia)
-    {
-        if (!soloVistaPrevia)
-        {
-            return await ObtenerTotalesEmpresaPorDocumentoAsync(ciclo);
-        }
-
-        var resultadoExiste = await ExistenComisionesEmpresaAsync(ciclo);
-        if (!resultadoExiste.Exito)
-        {
-            return ResultadoAplicaciones<Dictionary<string, decimal>>.Fail(resultadoExiste.Mensaje, resultadoExiste.EsFatal);
-        }
-
-        if (resultadoExiste.Datos)
-        {
-            return await ObtenerTotalesEmpresaPorDocumentoAsync(ciclo);
-        }
-
-        var resultadoFilasOrigen = await ConstruirRegistrosComisionEmpresaDesdeOrigenAsync(ciclo);
-        if (!resultadoFilasOrigen.Exito || resultadoFilasOrigen.Datos is null)
-        {
-            return ResultadoAplicaciones<Dictionary<string, decimal>>.Fail(
-                resultadoFilasOrigen.Mensaje,
-                resultadoFilasOrigen.EsFatal
-            );
-        }
-
-        var totales = resultadoFilasOrigen.Datos
-            .GroupBy(item => item.NumeroDocumento.Trim(), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Sum(item => item.MontoNeto),
-                StringComparer.OrdinalIgnoreCase
-            );
-
-        return ResultadoAplicaciones<Dictionary<string, decimal>>.Ok(totales);
     }
 
     private ResultadoAplicaciones<List<ComisionadoAplicaciones>> ConstruirComisionadosRegistrar(

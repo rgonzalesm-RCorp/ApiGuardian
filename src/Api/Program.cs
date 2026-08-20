@@ -58,6 +58,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<DapperContext>();
 builder.Services.AddSingleton<DapperContextSqlServer>();
 builder.Services.AddSingleton<DapperContextSqlServer64>();
+builder.Services.AddSingleton<CambioDolarService>();
 builder.Services.AddScoped<IAdministracionContactoRepository, AdministracionContactoRepository>();
 builder.Services.AddScoped<IUtilsRepository, UtilsRepository>();
 builder.Services.AddScoped<IAdministracionContratoRepository, AdministracionContratoRepository>();

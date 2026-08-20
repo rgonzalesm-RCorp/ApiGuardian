@@ -9,6 +9,7 @@ using Org.BouncyCastle.Ocsp;
 using DocumentFormat.OpenXml.Office2019.Excel.RichData2;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
+using DocumentFormat.OpenXml.Office.CustomUI;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -319,7 +320,13 @@ public class ProcesoComisionesController : ControllerBase
 
             var requestProceso = dat;
             var ventasSeleccionadas = Data.ListaSeleccionado?.ToList() ?? new List<ItemVentaCnx>();
-
+            if (Data.Rezagada)
+            {
+                foreach(var item in ventasSeleccionadas)
+                {
+                    item.DFecha = item.DFecha.AddMonths(1);
+                }
+            }
             _ = Task.Run(async () =>
             {
                 try

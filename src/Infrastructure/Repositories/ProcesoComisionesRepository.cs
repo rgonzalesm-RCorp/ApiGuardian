@@ -213,7 +213,12 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
     {
         string nombreMetodo = "GetVtaRezada()";
 
-        string query = $@"select * from VentaRezagadasCiclo WHERE EstadoVentaRezagadasCicloId = 1 AND dFecha >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y%m01');";
+        string query = $@"select * 
+            from VentaRezagadasCiclo 
+                WHERE EstadoVentaRezagadasCicloId = 1
+                AND dFecha >= DATE_FORMAT(CURDATE() - INTERVAL 2 MONTH, '%Y%m01')
+                AND dFecha < DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y%m01');
+        ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
 

@@ -14,6 +14,20 @@ public partial class AplicacionesRepositorio
         WHERE Ciclo = @Ciclo;
         """;
 
+    private const string SqlCountGuardianCompanyCommissions = """
+        SELECT
+            (
+                SELECT COUNT(1)
+                FROM tbl_retencionempresa
+                WHERE lciclo_id = @Ciclo
+            ) RetencionEmpresa,
+            (
+                SELECT COUNT(1)
+                FROM tbl_retencionempresa_exterior
+                WHERE lciclo_id = @Ciclo
+            ) RetencionEmpresaExterior;
+        """;
+
     private const string SqlDeleteAplicacionesProrrateo = """
         DELETE FROM BDQISHUR.dbo.AplicacionesProrrateo
         WHERE Ciclo = @Ciclo;
@@ -291,10 +305,9 @@ public partial class AplicacionesRepositorio
             GROUP BY c.vendedores_mes_id
         ) bon ON ac.lcontacto_id = bon.lcontacto_id
         LEFT JOIN (
-            SELECT COUNT(c.vendedores_id) contar11, SUM(c.pagar) sumar11, c.vendedores_id lcontacto_id
-            FROM t_bono_liderazgo c
-            WHERE c.lciclo_id = @Ciclo
-            GROUP BY c.vendedores_id
+            select COUNT(bp.id) contar11, bp.bono sumar11, bp.l_contacto_ganador_id lcontacto_id  from bonopar bp 
+            where lciclo_id = @Ciclo
+            GROUP BY bp.l_contacto_ganador_id
         ) lid ON ac.lcontacto_id = lid.lcontacto_id
         LEFT JOIN (
             SELECT COUNT(c.vendedor_lcontacto_id) contar12, SUM(c.pagar) sumar12, c.vendedor_lcontacto_id lcontacto_id

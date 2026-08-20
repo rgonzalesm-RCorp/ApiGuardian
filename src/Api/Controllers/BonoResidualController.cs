@@ -1146,7 +1146,7 @@ public class BonoResidualController : ControllerBase
             var contactosBloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(responseHabilitaciones.Data);
             var habilitadosSet = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(responseHabilitaciones.Data);
             var contratosNormalesSet = responseContratos.Data
-                .Where(item => !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(item.LTipoContratoId))
+                //.Where(item => !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(item.LTipoContratoId))
                 .Select(item => item.LAsesorId)
                 .ToHashSet();
             var listaBonoPar = ResponseObtenerBonoPar.Data

@@ -17,7 +17,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
         _log = log;
     }
 
-    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContrato(string LogTransaccionId, int page, int pageSize, string? search)
+    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContrato(string LogTransaccionId, int page, int pageSize, string? search, DateTime fechaInicio, DateTime fechaFin)
     {
         string nombreMetodo = "GetAllAdministracionContrato()";
 
@@ -41,7 +41,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 A.lcontacto_id AS LAsesorId,
                 P.lcontacto_id AS LPropietarioId,
                 AC.lcomplejo_id AS LComplejoId,
-                C.dprecioinicial AS DPrecioInicial,
+                C.dprecioinicial AS DPecioInicial,
                 AEC.snombre AS EstadoContrato,
                 C.cespecial AS CEspecial
             FROM administracioncontrato C
@@ -50,7 +50,9 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
             INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
-            WHERE (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search)
+            WHERE C.dtfecha >= @FechaInicio
+              AND C.dtfecha < @FechaFinExclusiva
+              AND (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search)
             ORDER BY C.lcontrato_id DESC
             LIMIT @PageSize OFFSET @Page;
         ";
@@ -63,7 +65,9 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
             INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
-            WHERE (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search);
+            WHERE C.dtfecha >= @FechaInicio
+              AND C.dtfecha < @FechaFinExclusiva
+              AND (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search);
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [scriptData: {queryData}]");
@@ -76,6 +80,8 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             var parameters = new
             {
                 Search = string.IsNullOrEmpty(search) ? null : $"%{search}%",
+                FechaInicio = fechaInicio.Date,
+                FechaFinExclusiva = fechaFin.Date.AddDays(1),
                 PageSize = pageSize,
                 Page = page
             };
@@ -95,6 +101,78 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ListaAdministracionContrato>(), false, $"Error al consultar contratos: {ex.Message}", 0);
+        }
+    }
+
+    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje)> GetReporteAdministracionContrato(
+        string LogTransaccionId,
+        string? search,
+        DateTime fechaInicio,
+        DateTime fechaFin
+    )
+    {
+        const string nombreMetodo = "GetReporteAdministracionContrato()";
+        const string query = @"
+            SELECT
+                C.lcontrato_id AS LContratoId,
+                C.dtfechaadd AS FechaRegistro,
+                C.dtfecha AS Fecha,
+                C.snroventa AS NroVenta,
+                P.snombrecompleto AS Propietario,
+                AC.snombre AS Complejo,
+                C.suv AS Uv,
+                C.smanzano AS NroMnzo,
+                C.slote AS NroLote,
+                C.dprecio AS Precio,
+                C.dcuota_inicial AS CuotaInicial,
+                C.lestado AS Estado,
+                ATC.snombre AS TipoContrato,
+                A.snombrecompleto AS Asesor,
+                ATC.ltipocontrato_id AS LTipoContratoId,
+                A.lcontacto_id AS LAsesorId,
+                P.lcontacto_id AS LPropietarioId,
+                AC.lcomplejo_id AS LComplejoId,
+                C.dprecioinicial AS DPecioInicial,
+                AEC.snombre AS EstadoContrato,
+                C.cespecial AS CEspecial
+            FROM administracioncontrato C
+            INNER JOIN administracioncontacto P ON P.lcontacto_id = C.lcontacto_id
+            INNER JOIN administracioncontacto A ON A.lcontacto_id = C.lasesor_id
+            INNER JOIN administracioncomplejo AC ON AC.lcomplejo_id = C.lcomplejo_id
+            INNER JOIN administraciontipocontrato ATC ON ATC.ltipocontrato_id = C.ltipocontrato_id
+            INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
+            WHERE C.dtfecha >= @FechaInicio
+              AND C.dtfecha < @FechaFinExclusiva
+              AND (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search)
+            ORDER BY C.dtfecha DESC, C.lcontrato_id DESC;
+        ";
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var data = (
+                await connection.QueryAsync<ListaAdministracionContrato>(
+                    query,
+                    new
+                    {
+                        Search = string.IsNullOrEmpty(search) ? null : $"%{search}%",
+                        FechaInicio = fechaInicio.Date,
+                        FechaFinExclusiva = fechaFin.Date.AddDays(1)
+                    }
+                )
+            ).ToList();
+
+            var success = data.Count > 0;
+            var mensaje = success
+                ? "Datos del reporte de contratos obtenidos correctamente."
+                : "No se encontraron contratos para generar el reporte.";
+
+            return (data, success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<ListaAdministracionContrato>(), false, $"Error al consultar el reporte de contratos: {ex.Message}");
         }
     }
     public async Task<(bool Success, string Mensaje)> InsertContrato(string LogTransaccionId, AdministracionContrato data)
@@ -229,6 +307,40 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             return (false, $"Error al actualizar contrato: {ex.Message}");
         }
     }
+
+    public async Task<(bool Success, string Mensaje)> DeleteContrato(string LogTransaccionId, int lContratoId)
+    {
+        const string nombreMetodo = "DeleteContrato()";
+        const string query = @"
+            DELETE FROM administracioncontrato
+            WHERE lcontrato_id = @LContratoId;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+            $"Inicio de metodo [lContratoId: {lContratoId}, script: {query}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var rows = await connection.ExecuteAsync(query, new { LContratoId = lContratoId });
+
+            var success = rows > 0;
+            var mensaje = success
+                ? "Contrato eliminado correctamente."
+                : "No se encontró el contrato indicado.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje: {mensaje}, rowsAffected: {rows}, lContratoId: {lContratoId}]");
+
+            return (success, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (false, $"Error al eliminar contrato: {ex.Message}");
+        }
+    }
+
     public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje)> GetContratoXNroVenta(string LogTransaccionId, string sLote, string inicio, string fin)
     {
         string NombreMetodo = "GetContratoXNroVenta()";
@@ -255,7 +367,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 A.lcontacto_id AS LAsesorId,
                 P.lcontacto_id AS LPropietarioId,
                 AC.lcomplejo_id AS LComplejoId,
-                C.dprecioinicial AS DPrecioInicial,
+                C.dprecioinicial AS DPecioInicial,
                 AEC.snombre AS EstadoContrato,
                 C.cespecial AS CEspecial
             FROM administracioncontrato C
@@ -341,7 +453,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                 A.lcontacto_id AS LAsesorId,
                 P.lcontacto_id AS LPropietarioId,
                 AC.lcomplejo_id AS LComplejoId,
-                C.dprecioinicial AS DPrecioInicial,
+                C.dprecioinicial AS DPecioInicial,
                 AEC.snombre AS EstadoContrato,
                 C.cespecial AS CEspecial,
                 CASE
