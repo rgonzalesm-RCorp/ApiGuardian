@@ -56,4 +56,6 @@ public class ItemComisionVentaGrupoDto
     public bool EsCero { get; set; }
 
     public bool EsHabilitado { get; set; }
+
+    public bool EsComisionGrupoCeroConfigurada { get; set; }
 }

@@ -1,6 +1,7 @@
 public class ItemPlanCarrera
 {
     public int Nro { get; set; }
+    public string? Codigo { get; set; }
     public string? Ciclo { get; set; }
     public string? Tipo { get; set; }
     public string? Cuenta { get; set; }
@@ -13,4 +14,5 @@ public class ItemPlanCarrera
     public string? NivelAlcanzadoCiclo { get; set; }
     public string? NivelConsolidado { get; set; }
     public int Escalados { get; set; }
+    public bool SubieronNivel { get; set; }
 }

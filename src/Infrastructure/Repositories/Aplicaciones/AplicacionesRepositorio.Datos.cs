@@ -4,6 +4,7 @@ using System.Text;
 using System.Xml.Linq;
 using ApiGuardian.Application.Interfaces;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -59,14 +60,17 @@ public partial class AplicacionesRepositorio
         try
         {
             using var conexion = _guardianContext.CreateConnection();
+            // Retención deshabilitada temporalmente. Se conserva la invocación para reactivarla.
+            /*
             await conexion.ExecuteAsync(
                 new CommandDefinition(
                     "CALL RetencionEmpresa();",
                     commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
                 )
             );
+            */
 
-            return ResultadoAplicaciones.Ok("Carga de datos de comision ejecutada correctamente.");
+            return ResultadoAplicaciones.Ok("Cálculo de retenciones omitido.");
         }
         catch (Exception ex)
         {
@@ -98,7 +102,7 @@ public partial class AplicacionesRepositorio
         }
     }
 
-    private async Task<ResultadoAplicaciones> LimpiarDatosCicloAsync(int ciclo)
+    private async Task<ResultadoAplicaciones> LimpiarDatosCicloAsync(int ciclo, bool limpiarDatosBdQishur)
     {
         var clearGuardianResult = await LimpiarDatosCicloGuardianAsync(ciclo);
         if (!clearGuardianResult.Exito)
@@ -106,7 +110,9 @@ public partial class AplicacionesRepositorio
             return clearGuardianResult;
         }
 
-        return await LimpiarDatosCicloBdQishurAsync(ciclo);
+        return limpiarDatosBdQishur
+            ? await LimpiarDatosCicloBdQishurAsync(ciclo)
+            : ResultadoAplicaciones.Ok("Vista previa sin eliminación de datos en BDQISHUR.");
     }
 
     private async Task<ResultadoAplicaciones> LimpiarDatosCicloGuardianAsync(int ciclo)
@@ -119,6 +125,8 @@ public partial class AplicacionesRepositorio
                 dbConnection.Open();
             }
 
+            // La retención la genera otro proceso; no eliminar sus registros desde Aplicaciones.
+            /*
             using var transaccion = conexion.BeginTransaction();
             await conexion.ExecuteAsync(
                 new CommandDefinition(
@@ -137,8 +145,9 @@ public partial class AplicacionesRepositorio
                 )
             );
             transaccion.Commit();
+            */
 
-            return ResultadoAplicaciones.Ok("Datos por ciclo eliminados de grdsion.");
+            return ResultadoAplicaciones.Ok("Se conservan las retenciones del ciclo generadas por otro proceso.");
         }
         catch (Exception ex)
         {
@@ -184,14 +193,6 @@ public partial class AplicacionesRepositorio
                     _configuracionAplicaciones.TiempoEsperaComandoSegundos
                 )
             );
-            await conexion.ExecuteAsync(
-                new CommandDefinition(
-                    SqlDeleteAplicacionesComisionPorEmpresa,
-                    new { Ciclo = ciclo },
-                    transaccion,
-                    _configuracionAplicaciones.TiempoEsperaComandoSegundos
-                )
-            );
             transaccion.Commit();
 
             return ResultadoAplicaciones.Ok("Datos por ciclo eliminados de BDQISHUR.");
@@ -223,6 +224,30 @@ public partial class AplicacionesRepositorio
         {
             return ResultadoAplicaciones.Fail(
                 $"No se pudo cargar correctamente las prioridades faltantes: {ex.Message}",
+                true
+            );
+        }
+    }
+
+    private async Task<ResultadoAplicaciones> LimpiarComisionesEmpresaAsync(int ciclo)
+    {
+        try
+        {
+            using var conexion = _sqlContext.CreateConnection();
+            await conexion.ExecuteAsync(
+                new CommandDefinition(
+                    SqlDeleteAplicacionesComisionPorEmpresa,
+                    new { Ciclo = ciclo },
+                    commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
+                )
+            );
+
+            return ResultadoAplicaciones.Ok("Comisiones por empresa eliminadas para sincronizarlas nuevamente.");
+        }
+        catch (Exception ex)
+        {
+            return ResultadoAplicaciones.Fail(
+                $"No se pudieron eliminar las comisiones por empresa del ciclo {ciclo}: {ex.Message}",
                 true
             );
         }
@@ -310,7 +335,7 @@ public partial class AplicacionesRepositorio
             var guardianRows = (
                 await guardianConnection.QueryAsync<ComisionEmpresaGuardianAplicaciones>(
                     new CommandDefinition(
-                        SqlGuardianCompanyCommission,
+                        SqlGuardianCompanyCommissionComisionServicio,
                         new { Ciclo = ciclo },
                         commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
                     )
@@ -368,15 +393,33 @@ public partial class AplicacionesRepositorio
         try
         {
             using var conexion = _guardianContext.CreateConnection();
-            var filas = (
-                await conexion.QueryAsync<ComisionadoGuardianAplicaciones>(
+            var filasComision = (
+                await conexion.QueryAsync<ComisionEmpresaGuardianAplicaciones>(
                     new CommandDefinition(
-                        SqlGuardianCommissionAgents,
+                        SqlGuardianCompanyCommissionComisionServicio,
                         new { Ciclo = ciclo },
                         commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
                     )
                 )
             ).ToList();
+
+            var filas = filasComision
+                .GroupBy(item => new
+                {
+                    item.ContactoId,
+                    item.Codigo,
+                    item.NumeroDocumento,
+                    item.NombreCompleto
+                })
+                .Select(group => new ComisionadoGuardianAplicaciones
+                {
+                    ContactoId = group.Key.ContactoId,
+                    Codigo = group.Key.Codigo,
+                    NumeroDocumento = group.Key.NumeroDocumento,
+                    NombreCompleto = group.Key.NombreCompleto,
+                    TotalAplicar = group.Sum(item => item.ComisionTotal)
+                })
+                .ToList();
 
             return ResultadoAplicaciones<List<ComisionadoGuardianAplicaciones>>.Ok(filas);
         }
@@ -620,17 +663,40 @@ public partial class AplicacionesRepositorio
     {
         try
         {
+            var empresas = _configuracion
+                .GetSection("EmpresaCalculoComisiones")
+                .Get<List<EmpresaCalculoComision>>()?
+                .Where(empresa => !string.IsNullOrWhiteSpace(empresa.DataBase))
+                .ToList() ?? new List<EmpresaCalculoComision>();
+
+            if (empresas.Count == 0)
+            {
+                return ResultadoAplicaciones<HashSet<string>>.Fail(
+                    "No existen empresas configuradas para obtener productos reprogramados.",
+                    true
+                );
+            }
+
             using var conexion = _sqlContext.CreateConnection();
-            var filas = await conexion.QueryAsync<ProductoReprogramadoAplicaciones>(
-                new CommandDefinition(
-                    SqlReprogrammedProducts,
-                    new { NumeroDocumento = numeroDocumento.Trim() },
-                    commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
-                )
-            );
+            var productosReprogramados = new List<ProductoReprogramadoAplicaciones>();
+
+            foreach (var empresa in empresas)
+            {
+                var filas = await conexion.QueryAsync<ProductoReprogramadoAplicaciones>(
+                    new CommandDefinition(
+                        ConstruirSqlProductosReprogramados(empresa.DataBase, empresa.Nombre),
+                        new { NumeroDocumento = numeroDocumento.Trim() },
+                        commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
+                    )
+                );
+
+                productosReprogramados.AddRange(filas);
+            }
 
             return ResultadoAplicaciones<HashSet<string>>.Ok(
-                filas.Select(item => $"{item.ClienteId}:{item.ProductoId.Trim()}").ToHashSet(StringComparer.OrdinalIgnoreCase)
+                productosReprogramados
+                    .Select(item => $"{item.ClienteId}:{item.ProductoId.Trim()}")
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
             );
         }
         catch (Exception ex)
@@ -670,6 +736,7 @@ public partial class AplicacionesRepositorio
                         {
                             VentaId = ventaId,
                             FechaPago = fechaPago.ToString("yyyyMMdd"),
+                            FechaLimite = new DateTime(fechaPago.Year, fechaPago.Month, 1).AddMonths(1),
                             CantidadCuotas = cantidadCuotas
                         },
                         commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
@@ -1065,6 +1132,7 @@ public partial class AplicacionesRepositorio
                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                 xmlns:urn="urn:gruposion.com.bo">
+              <soap:Header/>
               <soap:Body>
                 <urn:wsGenerarFacturaRecibo soap:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
                   <login xsi:type="xsd:string">{SecurityElement.Escape(_configuracionAplicaciones.Facturacion.Usuario)}</login>
@@ -1085,7 +1153,10 @@ public partial class AplicacionesRepositorio
         {
             Content = new StringContent(xmlSolicitud, Encoding.UTF8, "text/xml")
         };
-        solicitud.Headers.Add("SOAPAction", _configuracionAplicaciones.Facturacion.AccionSoap);
+        // El WSDL de Sion define SOAPAction como la URL del método, no como el namespace urn.
+        // Se deriva del punto final para que dev y producción usen su propio host.
+        var accionSoap = ResolverAccionSoapFacturacion();
+        solicitud.Headers.TryAddWithoutValidation("SOAPAction", $"\"{accionSoap}\"");
 
         try
         {
@@ -1139,6 +1210,18 @@ public partial class AplicacionesRepositorio
     private static string IntentarObtenerValor(IDictionary<string, string> valores, string llave)
     {
         return valores.TryGetValue(llave, out var valorCrudo) ? valorCrudo : string.Empty;
+    }
+
+    private string ResolverAccionSoapFacturacion()
+    {
+        var accionConfigurada = _configuracionAplicaciones.Facturacion.AccionSoap?.Trim().Trim('"');
+        if (!string.IsNullOrWhiteSpace(accionConfigurada)
+            && !accionConfigurada.StartsWith("urn:", StringComparison.OrdinalIgnoreCase))
+        {
+            return accionConfigurada;
+        }
+
+        return $"{_configuracionAplicaciones.Facturacion.PuntoFinal.TrimEnd('/')}/wsGenerarFacturaRecibo";
     }
 }
 

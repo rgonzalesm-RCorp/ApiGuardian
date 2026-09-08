@@ -183,10 +183,10 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Servicio.ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text((v.Comision + v.Servicio).ToString("N2")).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
-                                ((v.PorcentajeRetencion <= 0 )? ((v.Comision + v.Servicio)* Convert.ToDecimal(0.13)) : 0).ToString("N2")
+                                ((v.Comision + v.Servicio) * Convert.ToDecimal(0.13)).ToString("N2")
                             ).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(
-                                ((v.PorcentajeRetencion <= 0 )? ((v.Comision + v.Servicio)* Convert.ToDecimal(0.87)) : 0).ToString("N2")
+                                ((v.Comision + v.Servicio) * Convert.ToDecimal(0.87)).ToString("N2")
                             ).FontSize(6).AlignRight();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.PorcentajeRetencion.ToString("N2")).FontSize(6).AlignCenter();
                             table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.MontoRetencion.ToString("N2")).FontSize(6).AlignRight();
@@ -202,8 +202,8 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             decimal totalComision = _data?.Sum(x => x.Comision) ?? 0;
                             decimal totalServicio = _data?.Sum(x => x.Servicio) ?? 0; 
                             decimal TtotalComision = totalComision + totalServicio ;   
-                            decimal totalTrece = _data?.Sum(x => x.PorcentajeRetencion <= 0 ?  ((x.Comision + x.Servicio)* Convert.ToDecimal(0.13)) : 0) ?? 0; 
-                            decimal totalOchoSiete = _data?.Sum(x => x.PorcentajeRetencion <= 0 ?  ((x.Comision + x.Servicio)* Convert.ToDecimal(0.87)) : 0) ?? 0; 
+                            decimal totalTrece = _data?.Sum(x => (x.Comision + x.Servicio) * Convert.ToDecimal(0.13)) ?? 0; 
+                            decimal totalOchoSiete = _data?.Sum(x => (x.Comision + x.Servicio) * Convert.ToDecimal(0.87)) ?? 0; 
 
                             decimal totalRetencion = _data?.Sum(x => x.MontoRetencion) ?? 0; 
                             decimal total = totalComision + totalServicio ; 

@@ -8,50 +8,16 @@ namespace CleanDapperApi.Api.Controllers;
 [Route("api/[controller]")]
 public class AdministracionBuscarAsesorController : ControllerBase
 {
-    private readonly IAdministracionBuscarAsesorRepository _repository;
-    private readonly ILogService _log;
-    private readonly string NOMBREARCHIVO = "AdministracionBuscarAsesorController.cs";
-    public AdministracionBuscarAsesorController(IAdministracionBuscarAsesorRepository repository, ILogService log)
+    private readonly IAdministracionBuscarAsesorService _service;
+    public AdministracionBuscarAsesorController(IAdministracionBuscarAsesorService service)
     {
-        _repository = repository;
-        _log = log;
+        _service = service;
     }
     [HttpGet]
     public async Task<IActionResult> GetAsesoreSieteNiveles([FromHeader(Name = "lContactoId")] int lContactoId)
     {
         long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "GetAsesoreSieteNiveles()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo [lContactoId:{lContactoId}]");
-
-            var responseCicloFactura = await _repository.GetAsesoreSieteNiveles(logTransaccionId.ToString(), lContactoId);
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
-                $"Fin de metodo: {responseCicloFactura.Success} - {responseCicloFactura.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseCicloFactura.Success,
-                mensaje = responseCicloFactura.Mensaje,
-                data = new
-                {
-                    dataFijos = responseCicloFactura.DataFijos,
-                    dataActivos = responseCicloFactura.DataActivos
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
+        var resultado = await _service.ObtenerAsesoresAsync(lContactoId, logTransaccionId.ToString());
+        return Ok(new { status = resultado.Success, mensaje = resultado.Mensaje, data = resultado.Data });
     }
 }

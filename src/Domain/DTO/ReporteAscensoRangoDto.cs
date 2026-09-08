@@ -9,6 +9,8 @@ public class ItemAscensoRango
     public string? Pais { get; set; }
     public int PuntosAlcanzado { get; set; }
     public string? NivelAlcanzado { get; set; }
+    public string? Adicional { get; set; }
+    public string? RangosTotalesAscendidos { get; set; }
     public decimal IncentivoDolares { get; set; }
     public string? Incentivo { get; set; }
     public decimal ValorEspecie { get; set; }

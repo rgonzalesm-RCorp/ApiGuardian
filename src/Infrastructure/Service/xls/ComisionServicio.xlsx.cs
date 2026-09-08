@@ -57,17 +57,11 @@ public class ComisionServicioXls
         fila = fila + 1;
 
         // 13%
-        ws.Cell(row, fila).Value =
-            v.PorcentajeRetencion <= 0
-                ? totalComision * 0.13m
-                : 0;
+        ws.Cell(row, fila).Value = totalComision * 0.13m;
         fila = fila + 1;
 
         // 87%
-        ws.Cell(row, fila).Value =
-            v.PorcentajeRetencion <= 0
-                ? totalComision * 0.87m
-                : 0;
+        ws.Cell(row, fila).Value = totalComision * 0.87m;
         fila = fila + 1;
         ws.Cell(row, fila).Value = v.PorcentajeRetencion;
         fila = fila + 1;
@@ -152,14 +146,10 @@ public class ComisionServicioXls
         decimal totalTotalComision = totalComision + totalServicio;
 
         decimal totalTrece = data?.Sum(x =>
-            x.PorcentajeRetencion <= 0
-                ? (x.Comision + x.Servicio) * 0.13m
-                : 0) ?? 0;
+            (x.Comision + x.Servicio) * 0.13m) ?? 0;
 
         decimal totalOchoSiete = data?.Sum(x =>
-            x.PorcentajeRetencion <= 0
-                ? (x.Comision + x.Servicio) * 0.87m
-                : 0) ?? 0;
+            (x.Comision + x.Servicio) * 0.87m) ?? 0;
 
         decimal totalRetencion = data?.Sum(x => x.MontoRetencion) ?? 0;
 
@@ -215,5 +205,4 @@ public class ComisionServicioXls
     }
 
 }
-
 

@@ -1,5 +1,114 @@
 # ApiGuardian
 
+## Configuración: `src/Api/appsettings.json`
+
+Este archivo concentra conexiones, reglas de negocio y parámetros operativos de la API. **No se deben publicar, copiar a tickets ni versionar valores reales de contraseñas, llaves o cadenas de conexión.** En producción se recomienda sobrescribir los secretos mediante variables de entorno o un gestor de secretos.
+
+### `ConnectionStrings`
+
+Cada entrada es una cadena de conexión. Los valores siguen el formato propio de MySQL o SQL Server.
+
+| Variable | Uso |
+| --- | --- |
+| `DefaultConnection` | Conexión principal a MySQL/Guardian; la usa `DapperContext` para la información operativa de la API. |
+| `DefaultConnectiontest` | Conexión MySQL de pruebas. |
+| `DefaultConnectionSqlServer_dev` | Conexión SQL Server destinada al entorno de desarrollo. |
+| `DefaultConnectionSqlServer` | Conexión SQL Server principal para datos de comisiones y sistemas externos. |
+| `DefaultConnectionSqlServerf` | Conexión SQL Server alternativa/temporal. Mantenerla solo si algún proceso la requiere. |
+| `DefaultConnectionSqlServertest` | Conexión SQL Server de pruebas. |
+| `DefaultConnectionSqlServer64` | Conexión SQL Server adicional utilizada por procesos que requieren ese contexto específico. |
+| `DefaultConnection?` | Conexión SQL Server de prueba heredada. El signo `?` forma parte de la clave actual; se recomienda renombrarla solo después de confirmar que no tenga consumidores. |
+
+Componentes habituales de una cadena: `Server` identifica el servidor, `Database` la base, `User Id` el usuario, `Password` la contraseña y opciones como `TrustServerCertificate`, `SslMode` y `AllowPublicKeyRetrieval` definen la seguridad de transporte.
+
+### `Logging`
+
+| Variable | Uso |
+| --- | --- |
+| `Logging:LogLevel:Default` | Nivel mínimo de eventos que registra la aplicación en general (`Information`, `Warning`, `Error`, etc.). |
+| `Logging:LogLevel:Microsoft.AspNetCore` | Nivel mínimo de eventos generados por el framework ASP.NET Core. |
+
+### Configuración general
+
+| Variable | Uso |
+| --- | --- |
+| `AllowedHosts` | Hosts permitidos por ASP.NET Core. `*` permite todos los hosts. |
+| `HabilidacionesParaNoComprimirRed` | Lista de IDs de contacto habilitados para conservar la red sin compresión en los procesos que aplican esa regla. |
+
+### `cambioDolar`
+
+| Variable | Uso |
+| --- | --- |
+| `cambioDolar:idsComplejosProyectos` | IDs de complejos/proyectos cuyos importes se convierten mediante la regla de tipo de cambio. |
+| `cambioDolar:tipoCambio` | Tipo de cambio usado por `CambioDolarService` para esas conversiones. |
+
+### `PagoComision`
+
+| Variable | Uso |
+| --- | --- |
+| `PagoComision:RedistribucionesPorRetencion` | Reglas de reasignación del pago cuando existe retención. |
+| `...:EmpresaOrigenId` | ID de la empresa que origina el importe retenido. |
+| `...:EmpresaAsumeId` | ID de la empresa que asumirá dicho importe. |
+
+Cada objeto de la lista representa una regla independiente; se pueden agregar más sin modificar código.
+
+### `EmpresaCalculoComisiones`
+
+Es una lista de empresas que participan en el cálculo y migración de cuotas/comisiones.
+
+| Variable | Uso |
+| --- | --- |
+| `empresaId` | ID de la empresa en Guardian. |
+| `nombre` | Nombre descriptivo de la empresa. |
+| `dataBase` | Nombre de la conexión configurada que debe usar esa empresa. |
+| `migracionCuota` | Reglas de exclusión aplicables al migrar cuotas. |
+| `migracionCuota:proyectosExcluir` | IDs de proyectos que no deben migrarse para esa empresa. |
+| `migracionCuota:productosExcluir` | Códigos de producto que no deben migrarse para esa empresa. |
+
+### `ControlProceso`
+
+| Variable | Uso |
+| --- | --- |
+| `ControlProceso:PasoValidar` | Nombre del paso que el flujo de control debe validar antes de continuar. Actualmente se configura para el paso de venta personal. |
+
+### `MonteSion`
+
+| Variable | Uso |
+| --- | --- |
+| `MonteSion:ProfundidadMaxima` | Máximo de niveles de red considerados al calcular la producción. |
+| `MonteSion:Rangos` | Lista de configuraciones por nombre de rango. Sirve para identificar incentivos y generar el reporte Bono Monte Sion. |
+| `Rangos:Nombre` | Nombre del rango. Debe coincidir con `administracionnivel` (se normalizan acentos y nombres equivalentes). |
+| `Rangos:ProduccionRequerida` | Producción mínima informativa del rango. El cálculo vigente toma los umbrales reales de `administracionnivel`. |
+| `Rangos:VmePorcentaje` | Porcentaje VME informativo/histórico. El cálculo vigente toma el VME real desde `administracionnivel`. |
+| `Rangos:BonoUsd` | Bono mensual informativo/histórico. El cálculo vigente toma el bono base desde `administracionnivel`. |
+| `Rangos:IncentivoUsd` | Importe numérico en dólares del incentivo de primera calificación. Se usa en el reporte Bono Monte Sion cuando existe ascenso. |
+| `Rangos:Incentivo` | Descripción del incentivo. Si tiene contenido, el cálculo lo trata como incentivo de primera calificación en lugar del bono del rango. |
+
+Para agregar un nuevo incentivo, incorporar un objeto con `Nombre`, `IncentivoUsd` e `Incentivo`. El rango debe existir también en `administracionnivel`.
+
+### `Aplicaciones`
+
+| Variable | Uso |
+| --- | --- |
+| `Aplicaciones:MontoMinimoParaPagoACuenta` | Importe mínimo permitido para ejecutar pagos a cuenta. |
+| `Aplicaciones:LimiteErroresFacturacion` | Máximo de errores de facturación tolerados antes de detener o marcar el proceso. |
+| `Aplicaciones:HabilitarPasarelaFacturacion` | Activa o desactiva el envío real a la pasarela de facturación. Si es `false`, el flujo no realiza la llamada externa. |
+| `Aplicaciones:RequerirCoincidenciaCantidadComisionados` | Exige que la cantidad de comisionados coincida con la esperada antes de procesar. |
+| `Aplicaciones:TiempoEsperaComandoSegundos` | Tiempo máximo, en segundos, de comandos/consultas de Aplicaciones. |
+| `Aplicaciones:TiempoEsperaPagoSegundos` | Tiempo máximo, en segundos, de la operación de pago. |
+| `Aplicaciones:PagosBolivianos:Habilitado` | Activa la conversión y procesamiento de pagos en bolivianos para las empresas listadas. |
+| `Aplicaciones:PagosBolivianos:TipoCambio` | Tipo de cambio USD a Bs usado para esos pagos. |
+| `Aplicaciones:PagosBolivianos:Empresas` | IDs de empresa a los que aplica la regla de pagos en bolivianos. |
+| `Aplicaciones:Facturacion:PuntoFinal` | URL del servicio externo de facturación. |
+| `Aplicaciones:Facturacion:AccionSoap` | Acción SOAP enviada al servicio de facturación. |
+| `Aplicaciones:Facturacion:Usuario` | Usuario técnico del servicio de facturación. **Secreto.** |
+| `Aplicaciones:Facturacion:Contrasena` | Contraseña del usuario técnico. **Secreto.** |
+| `Aplicaciones:Facturacion:CodigoAgente` | Código de agente requerido por el servicio externo. |
+| `Aplicaciones:Facturacion:LlaveConexion` | Llave de conexión del servicio externo. **Secreto.** |
+| `Aplicaciones:Facturacion:TiempoEsperaSegundos` | Tiempo máximo, en segundos, de la llamada HTTP de facturación. |
+
+> Al cambiar parámetros de `appsettings.json`, reiniciar la API para que se recargue la configuración. Verificar primero el cambio en el ambiente de pruebas y nunca incluir secretos reales en el README.
+
 ## Alcance
 Este README fue generado revisando el código de `src/Api/Controllers`, `src/Infrastructure/Repositories`, `src/Api/Program.cs` y las consultas dinámicas de `Query.Cnx` y `Query.Grd`.
 

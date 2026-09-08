@@ -30,17 +30,21 @@ public class VentaCnxRepository : IVentasCnxRepository
         var query = ScriptCnx.QueryVentaCnx(_configuration);
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+        ///inicio = "20260701";
+        //fin = "20260731";
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var data = (await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new{inicio, fin})).ToList();
+            var data = (await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new { inicio, fin })).ToList();
+
+            //data = data.Where(x => x.Lote == "KTRB5-294" || x.Lote == "MDE-M13-L20" || x.Lote == "MDN-M10-L20" || x.Lote == "MDN-M19-L24" || x.Lote == "MDN-M4-L5" || x.Lote == "MDN-M2-L56" || x.Lote == "KPBS-10-32" || x.Lote == "KTBS-5-28").ToList();
 
             foreach (var venta in data)
             {
                 _cambioDolarService.Convertir(venta);
-                 
+
             }
 
             bool success = data != null && data.Any();
@@ -55,7 +59,7 @@ public class VentaCnxRepository : IVentasCnxRepository
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ItemVentaCnx>(), false, $"Error al obtener monedas: {ex.Message}");
         }
-        
+
     }
 
     public async Task<(ItemVentaCnx Data, bool Success, string Mensaje)> GetClienteDocId(string LogTransaccionId, string docId)
@@ -70,14 +74,14 @@ public class VentaCnxRepository : IVentasCnxRepository
         {
             using var connection = _context.CreateConnection();
 
-            var data = await connection.QueryFirstOrDefaultAsync<ItemVentaCnx>(query, new{docId});
+            var data = await connection.QueryFirstOrDefaultAsync<ItemVentaCnx>(query, new { docId });
 
             return (data ?? new ItemVentaCnx(), true, "Consulta realizada correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
-            ItemVentaCnx  d =  new ItemVentaCnx();
+            ItemVentaCnx d = new ItemVentaCnx();
             return (d, false, "Error al consultar contactos.");
         }
     }
