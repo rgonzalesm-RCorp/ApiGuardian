@@ -1,3 +1,5 @@
+using ApiGuardian.Domain.Entities;
+
 namespace ApiGuardian.Application.Interfaces;
 
 public interface IAdministracionBuscarAsesorService
@@ -197,6 +199,13 @@ public interface IControlProcesoService
     Task<(bool Success, string Mensaje, object Data)> CerrarCicloAsync(string usuario, int cicloId);
 }
 
+public interface IProcesoFacturacionService
+{
+    Task<(bool Success, string Mensaje, object Data)> GuardarAsesoresAsync(
+        SolicitudGuardarAsesoresFacturacion solicitud
+    );
+}
+
 public interface ICasosEspecialesService
 {
     Task<(bool Success, string Mensaje, object Data)> ObtenerAsync(string usuario, int cicloId, string inicio, string fin);
@@ -231,5 +240,7 @@ public interface IConfiguracionProcesoComisionesService
 public interface IAplicacionesService
 {
     Task<(bool Exito, string Mensaje, object Datos)> VistaPreviaAsync(int cicloId);
-    Task<(bool Exito, string Mensaje, object Datos)> AplicarAsync(int cicloId);
+    Task<(bool Exito, string Mensaje, object Datos)> IniciarAplicacionAsync(int cicloId);
+    Task EjecutarEnSegundoPlanoAsync(int cicloId);
+    Task<(bool Exito, string Mensaje, object Datos)> ObtenerComisionadosAsync(int cicloId);
 }

@@ -5,6 +5,15 @@ public class SolicitudEjecucionAplicaciones
     public int LCicloId { get; set; }
 }
 
+public class AplicacionComisionadoDetalle
+{
+    public string Codigo { get; set; } = string.Empty;
+    public string Carnet { get; set; } = string.Empty;
+    public string Nombre { get; set; } = string.Empty;
+    public decimal TotalAplicar { get; set; }
+    public string Observacion { get; set; } = string.Empty;
+}
+
 public class RespuestaVistaPreviaAplicaciones
 {
     public int LCicloId { get; set; }

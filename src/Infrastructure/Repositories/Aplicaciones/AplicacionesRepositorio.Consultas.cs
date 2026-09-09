@@ -8,6 +8,18 @@ public partial class AplicacionesRepositorio
         WHERE Ciclo = @Ciclo;
         """;
 
+    private const string SqlAplicacionesComisionadosPorCiclo = """
+        SELECT
+            ISNULL(Codigo, '') AS Codigo,
+            ISNULL(Carnet, '') AS Carnet,
+            ISNULL(Nombre, '') AS Nombre,
+            ISNULL(TotalAplicar, 0) AS TotalAplicar,
+            ISNULL(Observacion, '') AS Observacion
+        FROM BDQISHUR.dbo.AplicacionesComisionado
+        WHERE Ciclo = @Ciclo
+        ORDER BY Nombre, Carnet;
+        """;
+
     private const string SqlExistsAplicacionesComisionPorEmpresa = """
         SELECT COUNT(1)
         FROM BDQISHUR.dbo.AplicacionesComisionPorEmpresa

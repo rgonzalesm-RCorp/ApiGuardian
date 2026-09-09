@@ -11,15 +11,11 @@ Cada entrada es una cadena de conexión. Los valores siguen el formato propio de
 | Variable | Uso |
 | --- | --- |
 | `DefaultConnection` | Conexión principal a MySQL/Guardian; la usa `DapperContext` para la información operativa de la API. |
-| `DefaultConnectiontest` | Conexión MySQL de pruebas. |
-| `DefaultConnectionSqlServer_dev` | Conexión SQL Server destinada al entorno de desarrollo. |
 | `DefaultConnectionSqlServer` | Conexión SQL Server principal para datos de comisiones y sistemas externos. |
-| `DefaultConnectionSqlServerf` | Conexión SQL Server alternativa/temporal. Mantenerla solo si algún proceso la requiere. |
-| `DefaultConnectionSqlServertest` | Conexión SQL Server de pruebas. |
-| `DefaultConnectionSqlServer64` | Conexión SQL Server adicional utilizada por procesos que requieren ese contexto específico. |
-| `DefaultConnection?` | Conexión SQL Server de prueba heredada. El signo `?` forma parte de la clave actual; se recomienda renombrarla solo después de confirmar que no tenga consumidores. |
 
 Componentes habituales de una cadena: `Server` identifica el servidor, `Database` la base, `User Id` el usuario, `Password` la contraseña y opciones como `TrustServerCertificate`, `SslMode` y `AllowPublicKeyRetrieval` definen la seguridad de transporte.
+
+`appsettings.Development.json` es un archivo de sobreescritura para el ambiente de desarrollo. Conserva los niveles de log, `AllowedHosts` y mantiene la facturación externa deshabilitada; las conexiones se deben suministrar de forma segura mediante secretos o configuración local no versionada. `appsettings.json.example` contiene una plantilla actualizada sin credenciales.
 
 ### `Logging`
 
@@ -92,7 +88,7 @@ Para agregar un nuevo incentivo, incorporar un objeto con `Nombre`, `IncentivoUs
 | --- | --- |
 | `Aplicaciones:MontoMinimoParaPagoACuenta` | Importe mínimo permitido para ejecutar pagos a cuenta. |
 | `Aplicaciones:LimiteErroresFacturacion` | Máximo de errores de facturación tolerados antes de detener o marcar el proceso. |
-| `Aplicaciones:HabilitarPasarelaFacturacion` | Activa o desactiva el envío real a la pasarela de facturación. Si es `false`, el flujo no realiza la llamada externa. |
+| `Aplicaciones:HabilitarPasarelaFacturacion` | Define si se genera factura mediante la pasarela externa. Su valor predeterminado es `false`; en ese estado se registran los pagos sin facturar. Cambiarlo a `true` solo en el ambiente autorizado. |
 | `Aplicaciones:RequerirCoincidenciaCantidadComisionados` | Exige que la cantidad de comisionados coincida con la esperada antes de procesar. |
 | `Aplicaciones:TiempoEsperaComandoSegundos` | Tiempo máximo, en segundos, de comandos/consultas de Aplicaciones. |
 | `Aplicaciones:TiempoEsperaPagoSegundos` | Tiempo máximo, en segundos, de la operación de pago. |

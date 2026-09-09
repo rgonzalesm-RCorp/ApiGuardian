@@ -26,8 +26,10 @@ public sealed class RetencionEmpresaRepository : IRetencionEmpresaRepository
             SELECT
                 @CicloId AS LCicloId,
                 componentes.empresa_id AS EmpresaId,
+                TRIM(COALESCE(empresa.snombre, '')) AS EmpresaNombre,
                 componentes.lcontacto_id AS ContactoId,
                 TRIM(COALESCE(contacto.scedulaidentidad, '')) AS Carnet,
+                TRIM(COALESCE(contacto.snombrecompleto, '')) AS SNombreCompleto,
                 SUM(componentes.vpers) AS VPers,
                 SUM(componentes.vgrupo) AS VGrupo,
                 SUM(componentes.residual) AS Residual,
@@ -137,7 +139,8 @@ public sealed class RetencionEmpresaRepository : IRetencionEmpresaRepository
                 FROM administracionciclopresentafactura
                 WHERE lciclo_id = @CicloId
             ) factura ON factura.lcontacto_id = componentes.lcontacto_id
-            GROUP BY componentes.empresa_id, componentes.lcontacto_id, contacto.scedulaidentidad, factura.lcontacto_id;
+            GROUP BY componentes.empresa_id, empresa.snombre, componentes.lcontacto_id, contacto.scedulaidentidad, contacto.snombrecompleto, factura.lcontacto_id
+            ORDER BY LPresentaFactura DESC, SNombreCompleto ASC;
             """;
 
         try

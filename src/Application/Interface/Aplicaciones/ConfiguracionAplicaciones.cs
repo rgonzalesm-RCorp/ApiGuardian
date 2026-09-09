@@ -4,7 +4,8 @@ public class ConfiguracionAplicaciones
 {
     public decimal MontoMinimoParaPagoACuenta { get; set; } = 20m;
     public int LimiteErroresFacturacion { get; set; } = 3;
-    public bool HabilitarPasarelaFacturacion { get; set; } = true;
+    // Por seguridad, la facturación externa se debe habilitar explícitamente por ambiente.
+    public bool HabilitarPasarelaFacturacion { get; set; } = false;
     public bool RequerirCoincidenciaCantidadComisionados { get; set; } = true;
     public int TiempoEsperaComandoSegundos { get; set; } = 180;
     public int TiempoEsperaPagoSegundos { get; set; } = 180;

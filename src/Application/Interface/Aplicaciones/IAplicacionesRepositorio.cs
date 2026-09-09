@@ -6,4 +6,5 @@ public interface IAplicacionesRepositorio
 {
     Task<(RespuestaVistaPreviaAplicaciones Datos, bool Exito, string Mensaje)> VistaPrevia(string logTransaccionId, int lCicloId);
     Task<(RespuestaEjecucionAplicaciones Datos, bool Exito, string Mensaje)> Aplicar(string logTransaccionId, int lCicloId);
+    Task<(List<AplicacionComisionadoDetalle> Datos, bool Exito, string Mensaje)> ObtenerComisionadosAsync(int cicloId);
 }

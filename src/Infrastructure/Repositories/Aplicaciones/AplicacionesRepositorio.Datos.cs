@@ -3,6 +3,7 @@ using System.Security;
 using System.Text;
 using System.Xml.Linq;
 using ApiGuardian.Application.Interfaces;
+using ApiGuardian.Domain.Entities;
 using Dapper;
 using Microsoft.Extensions.Configuration;
 
@@ -10,6 +11,26 @@ namespace ApiGuardian.Infrastructure.Repositories;
 
 public partial class AplicacionesRepositorio
 {
+    public async Task<(List<AplicacionComisionadoDetalle> Datos, bool Exito, string Mensaje)> ObtenerComisionadosAsync(int cicloId)
+    {
+        try
+        {
+            using var conexion = _sqlContext.CreateConnection();
+            var filas = await conexion.QueryAsync<AplicacionComisionadoDetalle>(
+                new CommandDefinition(
+                    SqlAplicacionesComisionadosPorCiclo,
+                    new { Ciclo = cicloId },
+                    commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
+                )
+            );
+            return (filas.ToList(), true, "Aplicaciones obtenidas correctamente.");
+        }
+        catch (Exception ex)
+        {
+            return ([], false, $"No se pudieron obtener las aplicaciones del ciclo {cicloId}: {ex.Message}");
+        }
+    }
+
     private async Task<ResultadoAplicaciones> ValidarConexionesAsync()
     {
         var guardian = await ValidarConexionGuardianAsync();

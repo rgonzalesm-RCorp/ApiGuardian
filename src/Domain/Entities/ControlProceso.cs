@@ -126,6 +126,10 @@ public static class PasosDiccionario
     public const string COMISION_LIDERAZGO = "COMISION LIDERAZGO";
     public const string COMISION_VENTA_RESIDUAL = "COMISION VENTA RESIDUAL";
     public const string BONO_PAR = "BONO PAR";
+    public const string RETENCION = "RETENCION";
+    public const string APLICACION = "APLICACION";
+    public const string FACTURACION = "FACTURACION";
+    public const string MIGRACION_APLICACIONES = "MIGRACION APLICACIONES";
     public const string VENTAS_ESPECIALES = "VENTAS ESPECIALES";
     public const string REGISTRO_HABILITACIONES = "REGISTRO_HABILITACIONES";
 
