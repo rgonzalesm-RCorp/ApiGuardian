@@ -8,6 +8,7 @@ namespace ApiGuardian.Infrastructure.Repositories
 {
     public class AdministracionCicloRepository : IAdministracionCicloRepository
     {
+        private const int PrimerCicloDisponible = 147;
         private readonly DapperContext _context;
         private readonly ILogService _log;
         private readonly string NOMBREARCHIVO = "AdministracionCicloRepository.cs";
@@ -38,6 +39,7 @@ namespace ApiGuardian.Infrastructure.Repositories
                     susuariomod AS SUsuarioMod,
                     dtfechamod AS DtFechaMod
                 FROM administracionciclo
+                WHERE lciclo_id >= @PrimerCicloDisponible
                 ORDER BY lciclo_id DESC;
             ";
 
@@ -47,7 +49,7 @@ namespace ApiGuardian.Infrastructure.Repositories
             {
                 using var con = _context.CreateConnection();
 
-                var result = await con.QueryAsync<AdministracionCicloABM>(query);
+                var result = await con.QueryAsync<AdministracionCicloABM>(query, new { PrimerCicloDisponible });
 
                 bool success = result != null && result.Any();
                 string mensaje = success ? "Ciclos obtenidos correctamente." : "No se encontraron ciclos.";
@@ -128,11 +130,12 @@ namespace ApiGuardian.Infrastructure.Repositories
                     susuariomod AS SUsuarioMod,
                     dtfechamod AS DtFechaMod
                 FROM administracionciclo
+                WHERE lciclo_id >= @PrimerCicloDisponible
                 ORDER BY lciclo_id DESC
                 LIMIT @pageSize OFFSET @page;
             ";
 
-            string countQuery = "SELECT COUNT(*) FROM administracionciclo;";
+            const string countQuery = "SELECT COUNT(*) FROM administracionciclo WHERE lciclo_id >= @PrimerCicloDisponible;";
 
             _log.Info(log, NOMBREARCHIVO, metodo, $"Inicio query: {query}");
 
@@ -140,8 +143,9 @@ namespace ApiGuardian.Infrastructure.Repositories
             {
                 using var con = _context.CreateConnection();
 
-                var ciclos = await con.QueryAsync<AdministracionCicloABM>(query, new { page, pageSize });
-                var total = await con.ExecuteScalarAsync<int>(countQuery);
+                var parametros = new { page, pageSize, PrimerCicloDisponible };
+                var ciclos = await con.QueryAsync<AdministracionCicloABM>(query, parametros);
+                var total = await con.ExecuteScalarAsync<int>(countQuery, parametros);
 
                 bool success = ciclos != null && ciclos.Any();
                 string mensaje = success ? "Ciclos obtenidos." : "No hay registros.";
