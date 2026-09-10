@@ -25,6 +25,7 @@ public class EmpresaHeaderPagarComision
 
 public sealed class DescuentoAplicacionesProrrateo
 {
+    public int ContactoId { get; set; }
     public string Documento { get; set; } = string.Empty;
     public int EmpresaId { get; set; }
     public decimal Monto { get; set; }
