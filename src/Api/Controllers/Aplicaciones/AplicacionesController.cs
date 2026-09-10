@@ -9,6 +9,7 @@ namespace CleanDapperApi.Api.Controllers;
 [Route("api/aplicaciones")]
 public class AplicacionesController : ControllerBase
 {
+    private const int CicloReprocesoGrupoSion = 147;
     private readonly IAplicacionesService _service;
     private readonly IAplicacionesBackgroundQueue _backgroundQueue;
 
@@ -29,6 +30,13 @@ public class AplicacionesController : ControllerBase
     public async Task<IActionResult> Aplicar([FromBody] SolicitudEjecucionAplicaciones solicitud)
     {
         var r = await _service.IniciarAplicacionAsync(solicitud.LCicloId);
+        return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos });
+    }
+
+    [HttpPost("reprocesar-grupo-sion")]
+    public async Task<IActionResult> ReprocesarGrupoSion()
+    {
+        var r = await _service.ReprocesarGrupoSionAsync(CicloReprocesoGrupoSion);
         return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos });
     }
 

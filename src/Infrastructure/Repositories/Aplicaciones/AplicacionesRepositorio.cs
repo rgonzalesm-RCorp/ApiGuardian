@@ -59,6 +59,58 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         return (respuesta, resultado.Exito, resultado.Mensaje);
     }
 
+    public async Task<(RespuestaEjecucionAplicaciones Datos, bool Exito, string Mensaje)> ReprocesarGrupoSion(
+        string logTransaccionId,
+        int lCicloId
+    )
+    {
+        const string metodo = "ReprocesarGrupoSion";
+        var estado = new EstadoProcesoAplicaciones(lCicloId, omitirPagosGrupoSion: false, marcarComisionadosProcesados: true);
+
+        try
+        {
+            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio reproceso completo de aplicaciones. ciclo:{lCicloId}");
+
+            var resultadoPendientes = await ObtenerComisionadosPendientesAsync(lCicloId);
+            if (!resultadoPendientes.Exito || resultadoPendientes.Datos is null)
+            {
+                var respuestaFallida = ConstruirRespuestaEjecucion(estado);
+                return (respuestaFallida, false, resultadoPendientes.Mensaje);
+            }
+
+            var comisionadosPendientes = resultadoPendientes.Datos;
+            estado.AplicacionesComisionadoExiste = true;
+            estado.TotalPendientes = comisionadosPendientes.Count;
+            estado.TotalPendienteAplicar = comisionadosPendientes.Sum(item => item.MontoRestante);
+
+            foreach (var comisionado in comisionadosPendientes)
+            {
+                var resultadoProceso = await ProcesarComisionadoAsync(logTransaccionId, comisionado, estado);
+                if (!resultadoProceso.Exito)
+                {
+                    estado.TotalErrores++;
+                }
+            }
+
+            estado.Notas.Add("Se reprocesaron los comisionados pendientes hasta prorrateo, sin eliminar ni sincronizar datos del ciclo.");
+            var respuesta = ConstruirRespuestaEjecucion(estado);
+            var exito = estado.TotalErrores == 0;
+            var mensaje = exito
+                ? "Reproceso completo de aplicaciones finalizado correctamente."
+                : $"Reproceso completo de aplicaciones finalizado con {estado.TotalErrores} error(es).";
+
+            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Fin reproceso completo de aplicaciones. ciclo:{lCicloId}, procesados:{estado.TotalProcesados}, errores:{estado.TotalErrores}");
+            return (respuesta, exito, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _registro.Error(logTransaccionId, NombreArchivo, metodo, "Error en reproceso completo de aplicaciones", ex);
+            estado.ErrorGrave = true;
+            estado.ErrorGraveMensaje = ex.Message;
+            return (ConstruirRespuestaEjecucion(estado), false, ex.Message);
+        }
+    }
+
     private async Task<ResultadoAplicaciones<EstadoProcesoAplicaciones>> EjecutarProcesoAsync(
         string logTransaccionId,
         int ciclo,
@@ -1314,6 +1366,37 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
         var esPagoEnBolivianos = EsPagoEnBolivianos(producto.EmpresaId);
         var decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, esPagoEnBolivianos);
+
+        if (decisionPago.EsFechaValor)
+        {
+            var resultadoCuotasFechaValor = await ObtenerCuotasAsync(
+                producto.EmpresaId,
+                producto.VentaId,
+                decisionPago.FechaPagoEfectiva,
+                1
+            );
+            if (!resultadoCuotasFechaValor.Exito || resultadoCuotasFechaValor.Datos is null)
+            {
+                return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Fail(
+                    resultadoCuotasFechaValor.Mensaje,
+                    resultadoCuotasFechaValor.EsFatal
+                );
+            }
+
+            var cuotaFechaValor = resultadoCuotasFechaValor.Datos.FirstOrDefault(
+                item => item.NumeroCuota == cuota.NumeroCuota
+            );
+            if (cuotaFechaValor is null)
+            {
+                return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Fail(
+                    $"No se pudo recalcular la cuota {cuota.NumeroCuota} para la fecha valor {decisionPago.FechaPagoEfectiva:yyyy-MM-dd}."
+                );
+            }
+
+            cuota = cuotaFechaValor;
+            decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, esPagoEnBolivianos);
+        }
+
         if (decisionPago.MontoPagar <= 0)
         {
             return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Ok(
@@ -1577,6 +1660,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             MonedaPago = esPagoEnBolivianos ? "BOB" : "USD",
             TipoCambio = esPagoEnBolivianos ? _configuracionAplicaciones.PagosBolivianos.TipoCambio : null,
             FechaPagoEfectiva = fechaValor ? cuota.FechaVencimiento : ahora,
+            EsFechaValor = fechaValor,
             Modo = pagoCompleto ? "Completo" : "A Cuenta",
             Tiempo = fechaValor ? "Fecha Valor" : "Normal",
             SufijoObservacion = ConstruirSufijoObservacion(pagoCompleto, fechaValor)
@@ -1862,6 +1946,7 @@ internal sealed class DecisionPagoAplicaciones
     public string MonedaPago { get; set; } = "USD";
     public decimal? TipoCambio { get; set; }
     public DateTime FechaPagoEfectiva { get; set; }
+    public bool EsFechaValor { get; set; }
     public string Modo { get; set; } = string.Empty;
     public string Tiempo { get; set; } = string.Empty;
     public string SufijoObservacion { get; set; } = string.Empty;

@@ -9,9 +9,6 @@ namespace ApiGuardian.Infrastructure.Repositories;
 public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicacionesProrrateoRepository
 {
     private const int TipoDescuentoAplicacionesId = 1;
-    // El prorrateo ya fue calculado por Aplicaciones en Conexión para este ciclo.
-    // El ciclo recibido por el endpoint se utiliza únicamente como ciclo destino en Guardian.
-    private const int CicloOrigenProrrateo = 147;
     private readonly DapperContext _guardianContext;
     private readonly DapperContextSqlServer _sqlContext;
     private readonly IAdministracionComplejoRepository _administracionComplejoRepository;
@@ -40,6 +37,15 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
     }
 
     public async Task<(ResultadoMigracionAplicacionesProrrateo Datos, bool Exito, string Mensaje)> EjecutarAsync(SolicitudMigracionAplicacionesProrrateo solicitud)
+        => await EjecutarInternoAsync(solicitud, limpiarDescuentosCiclo: false);
+
+    public async Task<(ResultadoMigracionAplicacionesProrrateo Datos, bool Exito, string Mensaje)> EjecutarDesdeCeroAsync(SolicitudMigracionAplicacionesProrrateo solicitud)
+        => await EjecutarInternoAsync(solicitud, limpiarDescuentosCiclo: true);
+
+    private async Task<(ResultadoMigracionAplicacionesProrrateo Datos, bool Exito, string Mensaje)> EjecutarInternoAsync(
+        SolicitudMigracionAplicacionesProrrateo solicitud,
+        bool limpiarDescuentosCiclo
+    )
     {
         var validacion = ValidarSolicitud(solicitud);
         if (validacion is not null)
@@ -58,6 +64,23 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
         {
             // Evita que el resumen sdetalles se trunque al consolidar múltiples descuentos.
             await conexion.ExecuteAsync("SET SESSION group_concat_max_len = 1048576;", transaction: transaccion);
+
+            if (limpiarDescuentosCiclo)
+            {
+                await conexion.ExecuteAsync("""
+                    DELETE detalle
+                    FROM administraciondescuentociclodetalle detalle
+                    INNER JOIN administraciondescuentociclo encabezado
+                        ON encabezado.ldescuentociclo_id = detalle.ldescuentociclo_id
+                    WHERE encabezado.lciclo_id = @CicloDestino;
+                    """, new { CicloDestino = cicloDestino }, transaccion);
+
+                await conexion.ExecuteAsync(
+                    "DELETE FROM administraciondescuentociclo WHERE lciclo_id = @CicloDestino;",
+                    new { CicloDestino = cicloDestino },
+                    transaccion
+                );
+            }
 
             var encabezados = (await conexion.QueryAsync<EncabezadoDescuento>(
                 "SELECT ldescuentociclo_id Id, lcontacto_id ContactoId FROM administraciondescuentociclo WHERE lciclo_id = @CicloDestino;",
@@ -127,7 +150,10 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
     {
         var cicloDestino = solicitud.Ciclo;
         using var origen = _sqlContext.CreateConnection();
-        var origenFilas = (await origen.QueryAsync<FilaOrigen>(SqlOrigen, new { solicitud.FechaInicio })).ToList();
+        var origenFilas = (await origen.QueryAsync<FilaOrigen>(
+            SqlOrigen,
+            new { solicitud.FechaInicio, CicloOrigen = cicloDestino }
+        )).ToList();
         var resultado = new ResultadoMigracionAplicacionesProrrateo { RegistrosOrigen = origenFilas.Count };
 
         using var guardian = _guardianContext.CreateConnection();
@@ -167,7 +193,7 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
 
         var prorrateosOrigen = (await origen.QueryAsync<ProrrateoConexionOrigen>(
             SqlProrrateoOrigen,
-            new { CicloOrigen = CicloOrigenProrrateo }
+            new { CicloOrigen = cicloDestino }
         )).ToList();
         resultado.ProrrateosOrigen = prorrateosOrigen.Count;
 
@@ -373,13 +399,18 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
         SELECT AP.CI_Cliente CiCliente, C.IDEMPRESA EmpresaId, C.IDALMACEN IdAlmacen, '' Manzano, '' Lote, C.LOTES Lotes, AP.Monto Monto, RTRIM(C.CONCEPTO1) Observaciones, C.IDRECIBO IdRecibo
         FROM BDQISHUR.dbo.AplicacionesPagos AP
         INNER JOIN (
-            SELECT 8 IDEMPRESA, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionADVEL.dbo.INRECIBO R INNER JOIN BDConexionADVEL.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionADVEL.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
-            UNION SELECT 2, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionQUINTAS.dbo.INRECIBO R INNER JOIN BDConexionQUINTAS.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionQUINTAS.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
-            UNION SELECT 12, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionJAYIL.dbo.INRECIBO R INNER JOIN BDConexionJAYIL.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionJAYIL.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
-            UNION SELECT 3, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionZURIEL.dbo.INRECIBO R INNER JOIN BDConexionZURIEL.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionZURIEL.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
-            UNION SELECT 33, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionADVELbs.dbo.INRECIBO R INNER JOIN BDConexionADVELbs.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionADVELbs.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
-            UNION SELECT 32, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionARARAT.dbo.INRECIBO R INNER JOIN BDConexionARARAT.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionARARAT.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+            SELECT IDEMPRESA, IDRECIBO, MAX(LOTES) LOTES, MAX(IDALMACEN) IDALMACEN, MAX(CONCEPTO1) CONCEPTO1
+            FROM (
+                SELECT 8 IDEMPRESA, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionADVEL.dbo.INRECIBO R INNER JOIN BDConexionADVEL.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionADVEL.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+                UNION SELECT 2, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionQUINTAS.dbo.INRECIBO R INNER JOIN BDConexionQUINTAS.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionQUINTAS.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+                UNION SELECT 12, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionJAYIL.dbo.INRECIBO R INNER JOIN BDConexionJAYIL.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionJAYIL.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+                UNION SELECT 3, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionZURIEL.dbo.INRECIBO R INNER JOIN BDConexionZURIEL.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionZURIEL.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+                UNION SELECT 33, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionADVELbs.dbo.INRECIBO R INNER JOIN BDConexionADVELbs.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionADVELbs.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+                UNION SELECT 32, R.*, VC.LOTES, V.IDALMACEN FROM BDConexionARARAT.dbo.INRECIBO R INNER JOIN BDConexionARARAT.dbo.INVENTA V ON V.IDVENTA = R.IDVENTA INNER JOIN BDConexionARARAT.dbo.INVENTA_CCN VC ON VC.IDVENTA = V.IDVENTA WHERE R.MODUSER = 'COMI' AND R.FECHA >= @FechaInicio
+            ) recibos
+            GROUP BY IDEMPRESA, IDRECIBO
         ) C ON C.IDEMPRESA = AP.Id_Empresa AND C.IDRECIBO = AP.Id_Recibo
+        WHERE AP.Ciclo = @CicloOrigen
         ;
         """;
 

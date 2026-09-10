@@ -69,6 +69,18 @@ public sealed class MigracionAplicacionesProrrateoController : ControllerBase
         return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos });
     }
 
+    [HttpPost("ejecutar-sin-control-pasos")]
+    public async Task<IActionResult> EjecutarSinControlPasos([FromBody] SolicitudMigracionAplicacionesProrrateo solicitud)
+    {
+        var fechaInicio = await ObtenerFechaInicioCicloAsync(solicitud);
+        if (!fechaInicio.Exito)
+            return Ok(new { estado = false, mensaje = fechaInicio.Mensaje, datos = new ResultadoMigracionAplicacionesProrrateo() });
+
+        solicitud.FechaInicio = fechaInicio.FechaInicio;
+        var r = await _repository.EjecutarDesdeCeroAsync(solicitud);
+        return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos });
+    }
+
     private async Task<(bool Exito, string Mensaje, string FechaInicio)> ObtenerFechaInicioCicloAsync(
         SolicitudMigracionAplicacionesProrrateo solicitud
     )

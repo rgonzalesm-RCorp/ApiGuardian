@@ -241,6 +241,7 @@ public interface IAplicacionesService
 {
     Task<(bool Exito, string Mensaje, object Datos)> VistaPreviaAsync(int cicloId);
     Task<(bool Exito, string Mensaje, object Datos)> IniciarAplicacionAsync(int cicloId);
+    Task<(bool Exito, string Mensaje, object Datos)> ReprocesarGrupoSionAsync(int cicloId);
     Task EjecutarEnSegundoPlanoAsync(int cicloId);
     Task<(bool Exito, string Mensaje, object Datos)> ObtenerComisionadosAsync(int cicloId);
 }

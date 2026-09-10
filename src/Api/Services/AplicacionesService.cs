@@ -62,6 +62,28 @@ public sealed class AplicacionesService : IAplicacionesService
         return (true, "La aplicación de pagos fue iniciada y se ejecuta en segundo plano.", new { LCicloId = cicloId, EnSegundoPlano = true });
     }
 
+    public async Task<(bool Exito, string Mensaje, object Datos)> ReprocesarGrupoSionAsync(int cicloId)
+    {
+        try
+        {
+            var r = await _repository.ReprocesarGrupoSion(Id(), cicloId);
+            return (r.Exito, r.Mensaje, r.Datos);
+        }
+        catch (Exception ex)
+        {
+            return (
+                false,
+                ex.Message,
+                new RespuestaEjecucionAplicaciones
+                {
+                    LCicloId = cicloId,
+                    ErrorGrave = true,
+                    ErrorGraveMensaje = ex.Message,
+                }
+            );
+        }
+    }
+
     public async Task EjecutarEnSegundoPlanoAsync(int cicloId)
     {
         var logId = Id();
