@@ -989,34 +989,30 @@ public class ReportesRepository : IReportesRepository
         }
     }
 
-    public async Task<(IEnumerable<DescuentoAplicacionesProrrateo> Data, bool Success, string Mensaje)> GetDescuentosAplicacionesProrrateo(string LogTransaccionId)
+    public async Task<(IEnumerable<DescuentoAplicacionesProrrateo> Data, bool Success, string Mensaje)> GetDescuentosAplicacionesProrrateo(string LogTransaccionId, int lCicloId)
     {
         const string nombreMetodo = "GetDescuentosAplicacionesProrrateo()";
         const string sql = """
             SELECT
-                LTRIM(RTRIM(prorrateo.CiCliente)) Documento,
-                mapeo.lempresa_id EmpresaId,
-                SUM(COALESCE(prorrateo.Monto, 0)) Monto
-            FROM BDQISHUR.dbo.AplicacionesProrrateo prorrateo
-            INNER JOIN (
-                SELECT DISTINCT IDBD, lempresa_id
-                FROM BDQISHUR.dbo.AplicacionesEmpresaGuardianAsumeSion
-                WHERE IDBD IN (8, 2, 12, 33, 32, 3)
-                  AND empresa <> 'MEXICO'
-                  AND lempresa_id NOT IN (15, 18, 10)
-            ) mapeo ON mapeo.IDBD = prorrateo.EmpresaPresta
-            WHERE prorrateo.Ciclo = 147
-            GROUP BY LTRIM(RTRIM(prorrateo.CiCliente)), mapeo.lempresa_id;
+                encabezado.lcontacto_id ContactoId,
+                SUM(COALESCE(detalle.dmonto, 0)) Monto
+            FROM administraciondescuentociclo encabezado
+            INNER JOIN administraciondescuentociclodetalle detalle
+                ON detalle.ldescuentociclo_id = encabezado.ldescuentociclo_id
+            WHERE encabezado.lciclo_id = @LCicloId
+              AND encabezado.lcontacto_id > 3
+              AND encabezado.lcontacto_id <> 6474
+            GROUP BY encabezado.lcontacto_id;
             """;
         try
         {
-            using var connection = _sqlContext.CreateConnection();
-            var descuentos = await connection.QueryAsync<DescuentoAplicacionesProrrateo>(sql);
-            return (descuentos, true, "Descuentos de AplicacionesProrrateo obtenidos correctamente.");
+            using var connection = _context.CreateConnection();
+            var descuentos = await connection.QueryAsync<DescuentoAplicacionesProrrateo>(sql, new { LCicloId = lCicloId });
+            return (descuentos, true, "Descuentos obtenidos correctamente.");
         }
         catch (Exception ex)
         {
-            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Error al obtener descuentos de AplicacionesProrrateo.", ex);
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Error al obtener descuentos del ciclo.", ex);
             return (Enumerable.Empty<DescuentoAplicacionesProrrateo>(), false, ex.Message);
         }
     }

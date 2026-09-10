@@ -255,9 +255,9 @@ public sealed class ReportesService : IReportesService
         {
             var pagar = await _repository.GetReportePagarComision(Id(), cicloId);
             var prorrateo = await _repository.GetReporteProrrateo(Id(), cicloId);
-            var descuentosAplicaciones = await _repository.GetDescuentosAplicacionesProrrateo(Id());
+            var descuentosAplicaciones = await _repository.GetDescuentosAplicacionesProrrateo(Id(), cicloId);
             if (!descuentosAplicaciones.Success)
-                return (false, $"No se pudieron obtener los descuentos de AplicacionesProrrateo: {descuentosAplicaciones.Mensaje}", SinArchivo());
+                return (false, $"No se pudieron obtener los descuentos del ciclo: {descuentosAplicaciones.Mensaje}", SinArchivo());
             var listaP = prorrateo.Data.ToList();
             var headers = listaP
                 .GroupBy(x => x.EmpresaId)
@@ -270,18 +270,17 @@ public sealed class ReportesService : IReportesService
             if (pagar.Data == null || !pagar.Data.Any())
                 return (false, "No existe datos para el ciclo seleccionado", SinArchivo());
             var lista = pagar.Data.ToList();
-            var descuentosPorDocumento = descuentosAplicaciones.Data
-                .GroupBy(item => item.Documento.Trim(), StringComparer.OrdinalIgnoreCase)
+            var descuentosPorContacto = descuentosAplicaciones.Data
+                .GroupBy(item => item.ContactoId)
                 .ToDictionary(
                     grupo => grupo.Key,
-                    grupo => grupo.Sum(item => item.Monto),
-                    StringComparer.OrdinalIgnoreCase
+                    grupo => grupo.Sum(item => item.Monto)
                 );
             foreach (var item in lista)
             {
                 item.ComisionDespuesRetencion =
                     item.Personal + item.BonoPar + item.Residual + item.Grupo - item.Retencion;
-                item.TotalDescuento = descuentosPorDocumento.GetValueOrDefault(item.CedulaIdentidad?.Trim() ?? string.Empty);
+                item.TotalDescuento = descuentosPorContacto.GetValueOrDefault(item.LContactold);
             }
             var pdf = Convert.ToBase64String(
                 new ReportePagarComision(lista, listaP, headers, _pagoComisionOpciones.RedistribucionesPorRetencion).GeneratePdf()

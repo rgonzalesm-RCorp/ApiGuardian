@@ -13,7 +13,7 @@ public interface IReportesRepository
     Task<(IEnumerable<RptProrrateo> Data , bool Success, string Mensaje)> GetReporteProrrateo(string LogTransaccionId, int lCicloId);
     Task<(IEnumerable<RptComisionServicio> Data , bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId);
     Task<(IEnumerable<RptPagarComision> Data , bool Success, string Mensaje)> GetReportePagarComision(string LogTransaccionId, int LCicloId);
-    Task<(IEnumerable<DescuentoAplicacionesProrrateo> Data, bool Success, string Mensaje)> GetDescuentosAplicacionesProrrateo(string LogTransaccionId);
+    Task<(IEnumerable<DescuentoAplicacionesProrrateo> Data, bool Success, string Mensaje)> GetDescuentosAplicacionesProrrateo(string LogTransaccionId, int lCicloId);
     Task<(IEnumerable<ItemPlanCarrera> Data , bool Success, string Mensaje)> GetReportePlanCarrera(string LogTransaccionId, int LCicloId);
     Task<(IEnumerable<ItemAscensoRango> Data , bool Success, string Mensaje)> GetReporteAscensoRango(string LogTransaccionId, int LCicloId);
 }
