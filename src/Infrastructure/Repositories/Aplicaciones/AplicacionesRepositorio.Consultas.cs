@@ -8,10 +8,36 @@ public partial class AplicacionesRepositorio
         WHERE Ciclo = @Ciclo;
         """;
 
+    private const string SqlAplicacionesComisionadosPorCiclo = """
+        SELECT
+            ISNULL(Codigo, '') AS Codigo,
+            ISNULL(Carnet, '') AS Carnet,
+            ISNULL(Nombre, '') AS Nombre,
+            ISNULL(TotalAplicar, 0) AS TotalAplicar,
+            ISNULL(Observacion, '') AS Observacion
+        FROM BDQISHUR.dbo.AplicacionesComisionado
+        WHERE Ciclo = @Ciclo
+        ORDER BY Nombre, Carnet;
+        """;
+
     private const string SqlExistsAplicacionesComisionPorEmpresa = """
         SELECT COUNT(1)
         FROM BDQISHUR.dbo.AplicacionesComisionPorEmpresa
         WHERE Ciclo = @Ciclo;
+        """;
+
+    private const string SqlCountGuardianCompanyCommissions = """
+        SELECT
+            (
+                SELECT COUNT(1)
+                FROM tbl_retencionempresa
+                WHERE lciclo_id = @Ciclo
+            ) RetencionEmpresa,
+            (
+                SELECT COUNT(1)
+                FROM tbl_retencionempresa_exterior
+                WHERE lciclo_id = @Ciclo
+            ) RetencionEmpresaExterior;
         """;
 
     private const string SqlDeleteAplicacionesProrrateo = """
@@ -226,7 +252,11 @@ public partial class AplicacionesRepositorio
             COALESCE(e.montoretencion, 0) MontoRetencion,
             COALESCE(e.total_comision, 0) ComisionTotal
         FROM tbl_retencionempresa e
+        INNER JOIN administracioncontacto c ON c.lcontacto_id = e.lcontacto_id
         WHERE e.lciclo_id = @Ciclo
+          AND e.lcontacto_id > 3
+          AND e.lcontacto_id <> 6474
+          AND c.cbaja = 0
 
         UNION ALL
 
@@ -243,7 +273,37 @@ public partial class AplicacionesRepositorio
             COALESCE(e.montoretencion, 0) MontoRetencion,
             COALESCE(e.total_comision, 0) ComisionTotal
         FROM tbl_retencionempresa_exterior e
-        WHERE e.lciclo_id = @Ciclo;
+        INNER JOIN administracioncontacto c ON c.lcontacto_id = e.lcontacto_id
+        WHERE e.lciclo_id = @Ciclo
+          AND e.lcontacto_id > 3
+          AND e.lcontacto_id <> 6474
+          AND c.cbaja = 0;
+        """;
+
+    // Fuente única para Reporte Comisión/Servicio y Aplicaciones.
+    // Las retenciones son generadas por el proceso independiente de Retención Empresa.
+    private const string SqlGuardianCompanyCommissionComisionServicio = """
+        SELECT
+            retencion.lciclo_id Ciclo,
+            contacto.lcontacto_id ContactoId,
+            CAST(contacto.scodigo AS SIGNED) Codigo,
+            TRIM(contacto.scedulaidentidad) NumeroDocumento,
+            contacto.snombrecompleto NombreCompleto,
+            retencion.idempresa EmpresaLegadaId,
+            COALESCE(retencion.vpers, 0) VentasPersonales,
+            COALESCE(retencion.vgrupo, 0) VentasGrupales,
+            COALESCE(retencion.residual, 0) Residual,
+            COALESCE(retencion.montocomision, 0) MontoComision,
+            COALESCE(retencion.lpresentafactura, 0) IndicadorFactura,
+            COALESCE(retencion.montoretencion, 0) MontoRetencion,
+            COALESCE(retencion.total_comision, 0) ComisionTotal
+        FROM tbl_retencionempresa retencion
+        INNER JOIN administracioncontacto contacto ON contacto.lcontacto_id = retencion.lcontacto_id
+        WHERE retencion.lciclo_id = @Ciclo
+          AND retencion.lcontacto_id > 3
+          AND retencion.lcontacto_id <> 6474
+          AND contacto.cbaja = 0
+          AND COALESCE(retencion.total_comision, 0) > 0;
         """;
 
     private const string SqlGuardianCommissionAgents = """
@@ -291,10 +351,9 @@ public partial class AplicacionesRepositorio
             GROUP BY c.vendedores_mes_id
         ) bon ON ac.lcontacto_id = bon.lcontacto_id
         LEFT JOIN (
-            SELECT COUNT(c.vendedores_id) contar11, SUM(c.pagar) sumar11, c.vendedores_id lcontacto_id
-            FROM t_bono_liderazgo c
-            WHERE c.lciclo_id = @Ciclo
-            GROUP BY c.vendedores_id
+            select COUNT(bp.id) contar11, bp.bono sumar11, bp.l_contacto_ganador_id lcontacto_id  from bonopar bp 
+            where lciclo_id = @Ciclo
+            GROUP BY bp.l_contacto_ganador_id
         ) lid ON ac.lcontacto_id = lid.lcontacto_id
         LEFT JOIN (
             SELECT COUNT(c.vendedor_lcontacto_id) contar12, SUM(c.pagar) sumar12, c.vendedor_lcontacto_id lcontacto_id
@@ -304,26 +363,113 @@ public partial class AplicacionesRepositorio
         ) top ON ac.lcontacto_id = top.lcontacto_id
         LEFT JOIN (
             SELECT
-                a.lcontacto_id,
-                SUM(a.MontoRet) MontoRet
+                comisiones.lcontacto_id,
+                SUM(
+                    CASE
+                        WHEN factura.lcontacto_id IS NULL
+                            THEN ROUND((comisiones.ComisionPersonal + comisiones.Servicio) * 0.16, 2)
+                        ELSE 0
+                    END
+                ) MontoRet
             FROM (
                 SELECT
-                    IFNULL(SUM(montoretencion), 0) MontoRet,
-                    lcontacto_id
-                FROM tbl_retencionempresa
-                WHERE lciclo_id = @Ciclo
-                GROUP BY lcontacto_id
+                    detalle.lcontacto_id,
+                    detalle.lciclo_id,
+                    detalle.empresa_id,
+                    SUM(detalle.ComisionPersonal) ComisionPersonal,
+                    SUM(detalle.Servicio) Servicio
+                FROM (
+                    SELECT
+                        avp.lcontacto_id,
+                        avp.lciclo_id,
+                        ce.empresa_id,
+                        SUM(avp.dcomision) ComisionPersonal,
+                        0 Servicio
+                    FROM administracionventapersonal avp
+                    INNER JOIN administracioncontrato ac ON ac.lcontrato_id = avp.lcontrato_id
+                    INNER JOIN administracioncontacto act
+                        ON act.lcontacto_id = avp.lcontacto_id
+                       AND act.cbaja = 0
+                       AND act.lcontacto_id <> 6474
+                    INNER JOIN (
+                        SELECT DISTINCT complejo_id lcomplejo_id, empresa_id
+                        FROM empresa_complejo
+                    ) ce ON ce.lcomplejo_id = ac.lcomplejo_id
+                    WHERE avp.lciclo_id = @Ciclo AND avp.lcontacto_id > 3
+                    GROUP BY avp.lcontacto_id, ce.empresa_id
 
-                UNION ALL
+                    UNION ALL
 
-                SELECT
-                    IFNULL(SUM(montoretencion), 0) MontoRet,
-                    lcontacto_id
-                FROM tbl_retencionempresa_exterior
-                WHERE lciclo_id = @Ciclo
-                GROUP BY lcontacto_id
-            ) a
-            GROUP BY a.lcontacto_id
+                    SELECT
+                        avgc.lcontacto_id,
+                        avgc.lciclo_id,
+                        ce.empresa_id,
+                        0,
+                        SUM(avgc.dcomision)
+                    FROM administracionventagrupo avgc
+                    INNER JOIN administracioncontrato ac ON ac.lcontrato_id = avgc.lcontrato_id
+                    INNER JOIN administracioncontacto act
+                        ON act.lcontacto_id = avgc.lcontacto_id
+                       AND act.cbaja = 0
+                       AND act.lcontacto_id <> 6474
+                    INNER JOIN (
+                        SELECT DISTINCT complejo_id lcomplejo_id, empresa_id
+                        FROM empresa_complejo
+                    ) ce ON ce.lcomplejo_id = ac.lcomplejo_id
+                    WHERE avgc.lciclo_id = @Ciclo AND avgc.lcontacto_id > 3
+                    GROUP BY avgc.lcontacto_id, ce.empresa_id
+
+                    UNION ALL
+
+                    SELECT
+                        abr.lcontacto_id,
+                        abr.lciclo_id,
+                        ce.empresa_id,
+                        0,
+                        SUM(abr.dmonto)
+                    FROM administracionredempresacomplejo abr
+                    INNER JOIN administracioncontacto act
+                        ON act.lcontacto_id = abr.lcontacto_id
+                       AND act.cbaja = 0
+                       AND act.lcontacto_id <> 6474
+                    INNER JOIN (
+                        SELECT DISTINCT complejo_id lcomplejo_id, empresa_id
+                        FROM empresa_complejo
+                    ) ce ON ce.lcomplejo_id = abr.lcomplejo_id
+                    WHERE abr.lciclo_id = @Ciclo AND abr.lcontacto_id > 3
+                    GROUP BY abr.lcontacto_id, ce.empresa_id
+
+                    UNION ALL
+
+                    SELECT
+                        bp.l_contacto_ganador_id,
+                        bp.lciclo_id,
+                        ce.empresa_id,
+                        0,
+                        SUM(IFNULL(bp.bono / NULLIF(bp.cantidad_venta, 0), 0))
+                    FROM bonopar bp
+                    INNER JOIN administracioncontacto act
+                        ON act.lcontacto_id = bp.l_contacto_ganador_id
+                       AND act.cbaja = 0
+                       AND act.lcontacto_id <> 6474
+                    INNER JOIN bonopardetalle bpd ON bpd.bonopar_id = bp.id
+                    INNER JOIN administracioncontrato ac ON ac.lcontrato_id = bpd.l_contrato_id
+                    INNER JOIN (
+                        SELECT DISTINCT complejo_id lcomplejo_id, empresa_id
+                        FROM empresa_complejo
+                    ) ce ON ce.lcomplejo_id = ac.lcomplejo_id
+                    WHERE bp.lciclo_id = @Ciclo AND bp.l_contacto_ganador_id > 3
+                    GROUP BY bp.l_contacto_ganador_id, ce.empresa_id
+                ) detalle
+                GROUP BY detalle.lcontacto_id, detalle.lciclo_id, detalle.empresa_id
+            ) comisiones
+            LEFT JOIN (
+                SELECT DISTINCT lciclo_id, lcontacto_id
+                FROM administracionciclopresentafactura
+            ) factura
+                ON factura.lciclo_id = comisiones.lciclo_id
+               AND factura.lcontacto_id = comisiones.lcontacto_id
+            GROUP BY comisiones.lcontacto_id
         ) rete ON rete.lcontacto_id = ac.lcontacto_id
         INNER JOIN administracionventapersonal h ON ac.lcontacto_id = h.lcontacto_id AND h.lciclo_id = @Ciclo
         WHERE ac.scedulaidentidad <> '4823437'
@@ -371,23 +517,28 @@ public partial class AplicacionesRepositorio
             CAST(ISNULL(p.IDCLIENTE, 0) AS INT) ClienteId,
             p.MODFECHA FechaModificacion,
             RTRIM(ISNULL(p.EMPRESA, '')) NombreEmpresa,
-            ISNULL(a.prioridad, 1000) Prioridad,
+            a.prioridad Prioridad,
             CONCAT(CAST(ISNULL(p.IDCLIENTE, 0) AS varchar(20)), ':', LTRIM(RTRIM(p.LOTE))) ClaveProducto
         FROM BDComisiones.dbo.vwLOTES_GRL_DOCID p
-        LEFT JOIN BDQISHUR.dbo.AplicacionesPrioridad a
+        INNER JOIN BDQISHUR.dbo.AplicacionesPrioridad a
             ON a.idEmpresa = p.IDEMPRESA
            AND a.idProyecto = CAST(p.IDPROYECTO AS INT)
         WHERE LTRIM(RTRIM(p.DOCID)) = @NumeroDocumento
           AND CAST(p.IDPROYECTO AS INT) <> 51
           AND CAST(p.IDPROYECTO AS INT) <> 46
           AND p.IDEMPRESA <> 13
-          /*AND NOT EXISTS (
+          AND NOT (
+              LTRIM(RTRIM(p.DOCID)) = '7833514'
+              AND LTRIM(RTRIM(p.LOTE)) = 'AC-RPFC-6928'
+          )
+          AND NOT EXISTS (
               SELECT 1
-              FROM BDQISHUR.dbo.AplicacionesProyectosExcluidos e
-              WHERE e.idEntidad = 1
+              FROM BDQISHUR.dbo.AplicacionesEmpresaProyecto e
+              WHERE e.idEmpresa = 1
+                AND e.excluidoTodoElProyecto = 1
                 AND e.idProyecto = CAST(p.IDPROYECTO AS INT)
-          )*/
-        ORDER BY ISNULL(a.prioridad, 1000) ASC, p.CUOTASVENCIDAS DESC;
+          )
+        ORDER BY a.prioridad ASC, p.CUOTASVENCIDAS DESC;
         """;
 
     private const string SqlProductPaidOff = """
@@ -398,14 +549,73 @@ public partial class AplicacionesRepositorio
           AND ISNULL(TOTALDEUDA, 0) = 0;
         """;
 
-    private const string SqlReprogrammedProducts = """
-        SELECT
-            LTRIM(RTRIM(r.IDPRODUCTO)) ProductoId,
-            CAST(r.IDCLIENTE AS INT) ClienteId
-        FROM BDComisiones.dbo.vwLISTAPRODUCTOS_NEW r
-        INNER JOIN BDComisiones.dbo.vwLOTES_GRL_DOCID C ON C.IDCLIENTE = R.IDCLIENTE
-        WHERE r.GLOSA LIKE '%reprogramacion%' AND C.DOCID = @NumeroDocumento;
-        """;
+    private static string ConstruirSqlProductosReprogramados(string baseDatos, string empresa)
+    {
+        var nombreBaseDatos = baseDatos.Replace("]", "]]", StringComparison.Ordinal);
+        var nombreEmpresa = empresa.Replace("'", "''", StringComparison.Ordinal);
+
+        return $"""
+            ;WITH KitPorVenta AS
+            (
+                SELECT K.idVenta, ISNULL(MIN(K.codKit), 1) AS Kit
+                FROM
+                (
+                    SELECT IUK.idVenta, IUK.codKit FROM [{nombreBaseDatos}].dbo.INVENTA_UPG AS IUK
+                    UNION ALL
+                    SELECT RK.idVenta, RK.codKit FROM [{nombreBaseDatos}].dbo.INRECIBO_UPG AS RK
+                ) AS K
+                GROUP BY K.idVenta
+            ),
+
+            PagoReserva AS
+            (
+                SELECT V.IDVENTA, MAX(NC.FECHA) AS FECHA_PAGO_RESERVA, MAX(C.MODHORA) AS MOD_HORA
+                FROM [{nombreBaseDatos}].dbo.INNOTACREDITO AS NC
+                INNER JOIN [{nombreBaseDatos}].dbo.INPROFORMA AS P ON P.IDPROFORMA = NC.IDVENTA
+                INNER JOIN [{nombreBaseDatos}].dbo.INVENTA AS V ON V.IDVENTA = P.IDVENTAPROFORMA
+                LEFT JOIN [{nombreBaseDatos}].dbo.COMPROBANTE AS C ON C.NRODOC = CONVERT(VARCHAR(50), NC.IDNOTACREDITO)
+                GROUP BY V.IDVENTA
+            ),
+
+            CuotasVencidas AS
+            (
+                SELECT C.IDVENTA, COUNT(*) AS CuotasRetrasadas
+                FROM [{nombreBaseDatos}].dbo.INCUOTA AS C
+                WHERE C.FVENCIMIENTO <= GETDATE() AND C.MONTODEUDA > 0
+                GROUP BY C.IDVENTA
+            ),
+
+            Productos AS
+            (
+                SELECT
+                    '{nombreEmpresa}' AS EMPRESA, LP.*, I.NRODOC,
+                    CASE
+                        WHEN I.FECHA < '20170501' THEN 1
+                        WHEN ISNULL(I.NRODOC, '') <> '' THEN ISNULL(KV.Kit, 1)
+                        WHEN ISNULL(CONVERT(VARCHAR(50), VC.IDVENTAORIGINAL), '') <> '' THEN ISNULL(KVO.Kit, 1)
+                        ELSE 100
+                    END AS Kit,
+                    I.MODUSER, I.MODHORA, I.IDTIPOVENTA,
+                    PR.FECHA_PAGO_RESERVA, PR.MOD_HORA, I.GLOSA,
+                    ISNULL(CV.CuotasRetrasadas, 0) AS CuotasRetrasadas,
+                    C.DOCID
+                FROM [{nombreBaseDatos}].dbo.vwLISTAPRODUCTOS AS LP
+                INNER JOIN [{nombreBaseDatos}].dbo.INVENTA AS I ON I.IDVENTA = LP.IDVENTA
+                INNER JOIN [{nombreBaseDatos}].dbo.INVENTA_CCN AS VC ON VC.IDVENTA = I.IDVENTA
+                INNER JOIN [{nombreBaseDatos}].dbo.INCLIENTE AS C ON C.IDCLIENTE = I.IDCLIENTE
+                LEFT JOIN KitPorVenta AS KV ON KV.idVenta = I.IDVENTA
+                LEFT JOIN KitPorVenta AS KVO ON KVO.idVenta = VC.IDVENTAORIGINAL
+                LEFT JOIN PagoReserva AS PR ON PR.IDVENTA = LP.IDVENTAORIGINAL
+                LEFT JOIN CuotasVencidas AS CV ON CV.IDVENTA = LP.IDVENTA
+                WHERE C.DOCID = @NumeroDocumento
+            )
+
+            SELECT
+                LTRIM(RTRIM(IDPRODUCTO)) AS ProductoId,
+                CAST(IDCLIENTE AS INT) AS ClienteId
+            FROM Productos;
+            """;
+    }
 
     private const string SqlLetters = """
         SELECT
@@ -614,7 +824,8 @@ public partial class AplicacionesRepositorio
                 PAGOS_A_CUENTA_DISTRIBUIDO PagosParcialesDistribuidos,
                 MONTO_PAGO MontoPago,
                 PAGOS_A_CUENTA PagosParciales
-            FROM {nombreBaseDatos}.dbo.ffObtenerMontoAPagar(@VentaId, @FechaPago, @CantidadCuotas);
+            FROM {nombreBaseDatos}.dbo.ffObtenerMontoAPagar(@VentaId, @FechaPago, @CantidadCuotas)
+            WHERE FVENCIMIENTO < @FechaLimite;
             """;
     }
 
@@ -802,8 +1013,11 @@ internal sealed class MapeoEmpresaAplicaciones
 internal sealed class ComisionEmpresaGuardianAplicaciones
 {
     public int Ciclo { get; set; }
-    public int EmpresaLegadaId { get; set; }
+    public int ContactoId { get; set; }
+    public int Codigo { get; set; }
     public string NumeroDocumento { get; set; } = string.Empty;
+    public string NombreCompleto { get; set; } = string.Empty;
+    public int EmpresaLegadaId { get; set; }
     public decimal VentasPersonales { get; set; }
     public decimal VentasGrupales { get; set; }
     public decimal Residual { get; set; }

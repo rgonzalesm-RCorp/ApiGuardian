@@ -8,6 +8,7 @@ namespace ApiGuardian.Infrastructure.Repositories
 {
     public class AdministracionCicloRepository : IAdministracionCicloRepository
     {
+        private const int PrimerCicloDisponible = 147;
         private readonly DapperContext _context;
         private readonly ILogService _log;
         private readonly string NOMBREARCHIVO = "AdministracionCicloRepository.cs";
@@ -38,6 +39,7 @@ namespace ApiGuardian.Infrastructure.Repositories
                     susuariomod AS SUsuarioMod,
                     dtfechamod AS DtFechaMod
                 FROM administracionciclo
+                WHERE lciclo_id >= @PrimerCicloDisponible
                 ORDER BY lciclo_id DESC;
             ";
 
@@ -47,7 +49,7 @@ namespace ApiGuardian.Infrastructure.Repositories
             {
                 using var con = _context.CreateConnection();
 
-                var result = await con.QueryAsync<AdministracionCicloABM>(query);
+                var result = await con.QueryAsync<AdministracionCicloABM>(query, new { PrimerCicloDisponible });
 
                 bool success = result != null && result.Any();
                 string mensaje = success ? "Ciclos obtenidos correctamente." : "No se encontraron ciclos.";
@@ -59,6 +61,51 @@ namespace ApiGuardian.Infrastructure.Repositories
             {
                 _log.Error(log, NOMBREARCHIVO, metodo, "Fin con error", ex);
                 return (Enumerable.Empty<AdministracionCicloABM>(), false, ex.Message);
+            }
+        }
+
+        public async Task<(AdministracionCicloABM Data, bool Success, string Mensaje)> GetCiclo(string log, int LCicloId)
+        {
+            string metodo = "GetCiclo()";
+            string query = @"
+                SELECT 
+                    lciclo_id AS LCicloId,
+                    UPPER(snombre) AS SNombre,
+                    DATE_FORMAT(dtfechainicio,'%Y%m%d') AS DtFechaInicio,
+                    DATE_FORMAT(dtfechafin,'%Y%m%d') AS DtFechaFin,
+                    lestado AS LEstado,
+                    dtfechacierre AS DtFechaCierre,
+                    dtfechaprecierre1 AS DtFechaPreCierre1,
+                    dtfechaprecierre2 AS DtFechaPreCierre2,
+                    cverenweb AS CVerEnWeb,
+                    estadogestor AS EstadoGestor,
+                    susuarioadd AS SUsuarioAdd,
+                    dtfechaadd AS DtFechaAdd,
+                    susuariomod AS SUsuarioMod,
+                    dtfechamod AS DtFechaMod
+                FROM administracionciclo
+                WHERE lciclo_id = @LCicloId
+                LIMIT 1;
+            ";
+
+            _log.Info(log, NOMBREARCHIVO, metodo, $"Inicio [script: {query}, LCicloId:{LCicloId}]");
+
+            try
+            {
+                using var con = _context.CreateConnection();
+
+                var result = await con.QueryFirstOrDefaultAsync<AdministracionCicloABM>(query, new { LCicloId });
+
+                bool success = result != null && result.LCicloId > 0;
+                string mensaje = success ? "Ciclo obtenido correctamente." : "No se encontró el ciclo solicitado.";
+                _log.Info(log, NOMBREARCHIVO, metodo, $"Fin de metodo [mensaje: {mensaje}]");
+
+                return (result ?? new AdministracionCicloABM(), success, mensaje);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(log, NOMBREARCHIVO, metodo, "Fin con error", ex);
+                return (new AdministracionCicloABM(), false, ex.Message);
             }
         }
 
@@ -83,11 +130,12 @@ namespace ApiGuardian.Infrastructure.Repositories
                     susuariomod AS SUsuarioMod,
                     dtfechamod AS DtFechaMod
                 FROM administracionciclo
+                WHERE lciclo_id >= @PrimerCicloDisponible
                 ORDER BY lciclo_id DESC
                 LIMIT @pageSize OFFSET @page;
             ";
 
-            string countQuery = "SELECT COUNT(*) FROM administracionciclo;";
+            const string countQuery = "SELECT COUNT(*) FROM administracionciclo WHERE lciclo_id >= @PrimerCicloDisponible;";
 
             _log.Info(log, NOMBREARCHIVO, metodo, $"Inicio query: {query}");
 
@@ -95,8 +143,9 @@ namespace ApiGuardian.Infrastructure.Repositories
             {
                 using var con = _context.CreateConnection();
 
-                var ciclos = await con.QueryAsync<AdministracionCicloABM>(query, new { page, pageSize });
-                var total = await con.ExecuteScalarAsync<int>(countQuery);
+                var parametros = new { page, pageSize, PrimerCicloDisponible };
+                var ciclos = await con.QueryAsync<AdministracionCicloABM>(query, parametros);
+                var total = await con.ExecuteScalarAsync<int>(countQuery, parametros);
 
                 bool success = ciclos != null && ciclos.Any();
                 string mensaje = success ? "Ciclos obtenidos." : "No hay registros.";

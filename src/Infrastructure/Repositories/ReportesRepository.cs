@@ -10,6 +10,7 @@ namespace ApiGuardian.Infrastructure.Repositories;
 public class ReportesRepository : IReportesRepository
 {
     private readonly DapperContext _context;
+    private readonly DapperContextSqlServer _sqlContext;
     private readonly ILogService _log;
     private string NOMBREARCHIVO = "ReportesRepository.CS";
 
@@ -457,8 +458,14 @@ public class ReportesRepository : IReportesRepository
                                                 , snombrecompleto SNombreCompleto
                                                 , sum(comisionpersonal) Comision
                                                 , sum(servicio) Servicio
-                                                , max(PorcentajeRetencion) PorcentajeRetencion
-                                                , sum(MontoRetencion) MontoRetencion
+                                                , CASE
+                                                    WHEN MAX(Factura.lcontacto_id) IS NULL THEN 16
+                                                    ELSE 0
+                                                  END PorcentajeRetencion
+                                                , CASE
+                                                    WHEN MAX(Factura.lcontacto_id) IS NULL THEN ROUND(SUM(comisionpersonal + servicio) * 0.16, 2)
+                                                    ELSE 0
+                                                  END MontoRetencion
                                                 , empresa_id EmpresaId
                                                 , AE.snombre Empresa
                                                 , AE.snit SNit
@@ -570,6 +577,12 @@ public class ReportesRepository : IReportesRepository
                                             ) DAT
                                             inner join administracionempresa AE on AE.lempresa_id = DAT.empresa_id 
                                             inner join administracionciclo ACI on ACI.lciclo_id = DAT.lciclo_id
+                                            LEFT JOIN (
+                                                SELECT DISTINCT lciclo_id, lcontacto_id
+                                                FROM administracionciclopresentafactura
+                                            ) Factura
+                                                ON Factura.lciclo_id = DAT.lciclo_id
+                                               AND Factura.lcontacto_id = DAT.lcontacto_id
                                             where CASE WHEN @Empresaid > 0 THEN empresa_id ELSE @Empresaid END = @Empresaid
                                             group by scodigo 
                                             , snombrecompleto 
@@ -578,6 +591,38 @@ public class ReportesRepository : IReportesRepository
  
                                             ";
     #endregion 
+
+    // Fuente única de importes para Comisión/Servicio y Aplicaciones.
+    const string QUERY_COMISION_SERVICIO_RETENCION = @"SELECT
+        contacto.scodigo SCodigo,
+        contacto.snombrecompleto SNombreCompleto,
+        SUM(COALESCE(retencion.vpers, 0)) Comision,
+        SUM(COALESCE(retencion.vgrupo, 0) + COALESCE(retencion.residual, 0)) Servicio,
+        MAX(COALESCE(retencion.porcentajeret, 0)) PorcentajeRetencion,
+        SUM(COALESCE(retencion.montoretencion, 0)) MontoRetencion,
+        empresa.snombre Empresa,
+        empresa.snit SNit,
+        UPPER(ciclo.snombre) Ciclo,
+        ciclo.dtfechainicio FechaInicio,
+        ciclo.dtfechafin FechaFin
+    FROM tbl_retencionempresa retencion
+    INNER JOIN administracioncontacto contacto ON contacto.lcontacto_id = retencion.lcontacto_id
+    INNER JOIN administracionempresa empresa ON empresa.lempresa_id = retencion.idempresa
+    INNER JOIN administracionciclo ciclo ON ciclo.lciclo_id = retencion.lciclo_id
+    WHERE retencion.lciclo_id = @LCicloId
+      AND retencion.lcontacto_id > 3
+      AND retencion.lcontacto_id <> 6474
+      AND contacto.cbaja = 0
+      AND CASE WHEN @EmpresaId > 0 THEN retencion.idempresa ELSE @EmpresaId END = @EmpresaId
+    GROUP BY
+        contacto.scodigo,
+        contacto.snombrecompleto,
+        empresa.lempresa_id,
+        empresa.snombre,
+        empresa.snit,
+        ciclo.snombre,
+        ciclo.dtfechainicio,
+        ciclo.dtfechafin;";
     #region "SCRIPT_PAGAR_COMISION"
     private const string QUERY_PAGAR_COMISION = @"
                                             SELECT
@@ -659,7 +704,7 @@ public class ReportesRepository : IReportesRepository
                                                     CASE WHEN vp.lciclo_id>=105 THEN a.Monto ELSE a.puntosacumulados END PuntosAc,
                                                     a.nivel_ciclo,
                                                     vp.lciclo_id sciclo, 
-                                                    a.subieron_nivel ,
+                                                    a.subieron_nivel SubieronNivel,
                                                     a.Produccion Produccion
                                                 FROM reportesmontesion a
                                                 INNER JOIN  administracioncontacto ac ON a.lcontacto_id=ac.lcontacto_id 
@@ -679,7 +724,17 @@ public class ReportesRepository : IReportesRepository
                                                     , b.sciudad Ciudad
                                                     , d.sNombre Pais 
                                                     , a.lpuntosmesrango PuntosAlcanzado
-                                                    , c.rango NivelAlcanzado
+                                                    , CONCAT(nivelAlcanzado.lnivel_id, ': ', UPPER(nivelAlcanzado.snombre)) NivelAlcanzado
+                                                    , (
+                                                        SELECT GROUP_CONCAT(UPPER(nivelAscendido.snombre) ORDER BY nivelAscendido.lnivel_id SEPARATOR ' / ')
+                                                        FROM administracionnivel nivelAscendido
+                                                        WHERE nivelAscendido.lnivel_id BETWEEN GREATEST(1, a.nivel_ciclo - a.niveles_escalados + 1) AND a.nivel_ciclo
+                                                    ) RangosTotalesAscendidos
+                                                    , CASE
+                                                        WHEN a.niveles_escalados = 1 THEN 'CERTIFICADO Y PIN DE RANGO'
+                                                        WHEN a.niveles_escalados > 1 THEN 'CERTIFICADOS Y PINES DE RANGOS'
+                                                        ELSE ''
+                                                    END Adicional
                                                     , CASE 
                                                         WHEN a.niveles_escalados=1 THEN c.monto_incentivo
                                                         WHEN (a.niveles_escalados =2 AND a.nivel_ciclo=3) THEN (160.00+470.00)
@@ -757,14 +812,18 @@ public class ReportesRepository : IReportesRepository
                                                 INNER JOIN  administracioncontacto b ON a.lcontacto_id=b.lcontacto_id 
                                                 INNER JOIN administracionciclo ab ON ab.lciclo_id=a.lciclo_id 
                                                 INNER JOIN nuevospremiosmontesion c ON a.nivel_ciclo =c.lpremiosmonte_id 
+                                                INNER JOIN administracionnivel nivelAlcanzado ON nivelAlcanzado.lnivel_id = a.nivel_ciclo
                                                 INNER JOIN basepais d ON d.lPais_id=b.lpais_id 
                                                 INNER JOIN administracionnivel e ON e.lnivel_id=a.nivel_consolidado_mes
-                                                WHERE a.subieron_nivel=1 AND ab.lCiclo_id = @LCicloId 
+                                                WHERE a.subieron_nivel=1
+                                                  AND ab.lCiclo_id = @LCicloId
+                                                  AND a.nivel_ciclo > a.nivel_consolidado_mes
                                                 ORDER BY a.nroascensos";
     #endregion
-    public ReportesRepository(DapperContext context, ILogService log)
+    public ReportesRepository(DapperContext context, DapperContextSqlServer sqlContext, ILogService log)
     {
         _context = context;
+        _sqlContext = sqlContext;
         _log = log;
     }
     public async Task<( ReporteComisionesDto Data ,  bool Success, string Mensaje)> GetReporteComision(string LogTransaccionId, int lCicloId, int lContactoId)
@@ -890,13 +949,13 @@ public class ReportesRepository : IReportesRepository
     public async Task<(IEnumerable<RptComisionServicio> Data , bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId)
     {
         const string NombreMetodo = "GetReporteComisionServicio()";
-        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script prorrateo: {QUERY_COMISION_SERVICIO}]");
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Inicio de reporte Comisión/Servicio desde tbl_retencionempresa.");
         try
         {
             using var connection = _context.CreateConnection();
 
             var Prorrateo = await connection.QueryAsync<RptComisionServicio>(
-                QUERY_COMISION_SERVICIO,
+                QUERY_COMISION_SERVICIO_RETENCION,
                 new { LCicloId, EmpresaId }
             );
 
@@ -929,6 +988,38 @@ public class ReportesRepository : IReportesRepository
             return (Enumerable.Empty<RptPagarComision>(), false,  $"Error al obtener la pagar de comision: {ex.Message}");
         }
     }
+
+    public async Task<(IEnumerable<DescuentoAplicacionesProrrateo> Data, bool Success, string Mensaje)> GetDescuentosAplicacionesProrrateo(string LogTransaccionId)
+    {
+        const string nombreMetodo = "GetDescuentosAplicacionesProrrateo()";
+        const string sql = """
+            SELECT
+                LTRIM(RTRIM(prorrateo.CiCliente)) Documento,
+                mapeo.lempresa_id EmpresaId,
+                SUM(COALESCE(prorrateo.Monto, 0)) Monto
+            FROM BDQISHUR.dbo.AplicacionesProrrateo prorrateo
+            INNER JOIN (
+                SELECT DISTINCT IDBD, lempresa_id
+                FROM BDQISHUR.dbo.AplicacionesEmpresaGuardianAsumeSion
+                WHERE IDBD IN (8, 2, 12, 33, 32, 3)
+                  AND empresa <> 'MEXICO'
+                  AND lempresa_id NOT IN (15, 18, 10)
+            ) mapeo ON mapeo.IDBD = prorrateo.EmpresaPresta
+            WHERE prorrateo.Ciclo = 147
+            GROUP BY LTRIM(RTRIM(prorrateo.CiCliente)), mapeo.lempresa_id;
+            """;
+        try
+        {
+            using var connection = _sqlContext.CreateConnection();
+            var descuentos = await connection.QueryAsync<DescuentoAplicacionesProrrateo>(sql);
+            return (descuentos, true, "Descuentos de AplicacionesProrrateo obtenidos correctamente.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Error al obtener descuentos de AplicacionesProrrateo.", ex);
+            return (Enumerable.Empty<DescuentoAplicacionesProrrateo>(), false, ex.Message);
+        }
+    }
     public async Task<(IEnumerable<ItemPlanCarrera> Data , bool Success, string Mensaje)> GetReportePlanCarrera(string LogTransaccionId, int LCicloId)
     {
         const string NombreMetodo = "GetReportePlanCarrera()";
@@ -958,10 +1049,13 @@ public class ReportesRepository : IReportesRepository
         {
             using var connection = _context.CreateConnection();
 
-            var ascesoRango = await connection.QueryAsync<ItemAscensoRango>(
+            var ascesoRango = (await connection.QueryAsync<ItemAscensoRango>(
                 QUERY_ASCENSO_RANGO,
                 new { LCicloId }
-            );
+            )).ToList();
+
+            for (var indice = 0; indice < ascesoRango.Count; indice++)
+                ascesoRango[indice].Nro = indice + 1;
 
             return (ascesoRango, true, "listado de plan de carrera obtenidos correctamente.");
         }

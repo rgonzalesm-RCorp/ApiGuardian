@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System.Text;
 using Query.Cnx;
 using Microsoft.Extensions.Configuration;
+using ApiGuardian.Infrastructure.Services;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -16,13 +17,15 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
     private readonly ILogService _log;
     private string NOMBREARCHIVO = "CasosEspecialesRepository.CS";
     private readonly IConfiguration _configuration;
+    private readonly CambioDolarService _cambioDolarService;
 
-    public CasosEspecialesRepository(DapperContext context, ILogService log, IConfiguration configuration, DapperContextSqlServer contextSql)
+    public CasosEspecialesRepository(DapperContext context, ILogService log, IConfiguration configuration, DapperContextSqlServer contextSql, CambioDolarService cambioDolarService)
     {
         _context = context;
         _log = log;
         _configuration = configuration;
         _contextSql = contextSql;
+        _cambioDolarService = cambioDolarService;
     }
     public async Task<(IEnumerable<ItemVentaCnx> VentasCasosEspeciales, bool Success, string Mensaje)> GetVentasCasosEspeciales(string LogTransaccionId,string Usuario, string Inicio, string Fin)
     {
@@ -40,6 +43,11 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
             var listaEspeciales = (await connection.QueryAsync<ItemVentaCnx>(query, new {Inicio, Fin}))
                 .Where(item => HabilitacionComisionHelper.TiposComisionablesEspecialesCnx.Contains(item.TipoComisionable))
                 .ToList();
+
+            foreach (var venta in listaEspeciales)
+            {
+                _cambioDolarService.Convertir(venta);
+            }
 
             var documentosVendedores = listaEspeciales
                 .Select(item => item.SCedulaIdentidadVendedor?.Trim())
@@ -142,10 +150,15 @@ public class CasosEspecialesRepository : ICasosEspecialesRepository
         {
             using var connection = _contextSql.CreateConnection();
 
-            var lista = await connection.QueryAsync<UpgradeSolicitudDto>(
+            var lista = (await connection.QueryAsync<UpgradeSolicitudDto>(
                 query,
                 new { UpgVentaIds }
-            );
+            )).ToList();
+
+            foreach (var solicitud in lista)
+            {
+                _cambioDolarService.Convertir(solicitud);
+            }
 
             bool success = lista.Any();
 

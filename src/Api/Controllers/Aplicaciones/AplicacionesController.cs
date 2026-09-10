@@ -1,93 +1,49 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
+using CleanDapperApi.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanDapperApi.Api.Controllers;
 
 [ApiController]
-[Controller]
 [Route("api/aplicaciones")]
 public class AplicacionesController : ControllerBase
 {
-    private readonly IAplicacionesRepositorio _repositorioAplicaciones;
-    private readonly ILogService _registro;
-    private const string NombreArchivo = "AplicacionesController.cs";
+    private const int CicloReprocesoGrupoSion = 147;
+    private readonly IAplicacionesService _service;
+    private readonly IAplicacionesBackgroundQueue _backgroundQueue;
 
-    public AplicacionesController(IAplicacionesRepositorio repositorioAplicaciones, ILogService registro)
+    public AplicacionesController(IAplicacionesService service, IAplicacionesBackgroundQueue backgroundQueue)
     {
-        _repositorioAplicaciones = repositorioAplicaciones;
-        _registro = registro;
+        _service = service;
+        _backgroundQueue = backgroundQueue;
     }
 
     [HttpGet("vista-previa")]
-    public async Task<IActionResult> VistaPrevia([FromHeader(Name = "lCicloId")] int lCicloId)
+    public async Task<IActionResult> VistaPrevia([FromHeader(Name = "lCicloId")] int cicloId)
     {
-        var idTransaccionLog = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        const string nombreMetodo = "VistaPrevia()";
-
-        try
-        {
-            _registro.Info(idTransaccionLog, NombreArchivo, nombreMetodo, $"Inicio vista previa de aplicaciones. lCicloId:{lCicloId}");
-            var respuesta = await _repositorioAplicaciones.VistaPrevia(idTransaccionLog, lCicloId);
-
-            return Ok(new
-            {
-                estado = respuesta.Exito,
-                mensaje = respuesta.Mensaje,
-                datos = respuesta.Datos
-            });
-        }
-        catch (Exception excepcion)
-        {
-            _registro.Error(idTransaccionLog, NombreArchivo, nombreMetodo, "Error en vista previa de aplicaciones", excepcion);
-            return Ok(new
-            {
-                estado = false,
-                mensaje = excepcion.Message,
-                datos = new RespuestaVistaPreviaAplicaciones
-                {
-                    LCicloId = lCicloId,
-                    VistaPrevia = true,
-                    ErrorGrave = true,
-                    ErrorGraveMensaje = excepcion.Message
-                }
-            });
-        }
+        var r = await _service.VistaPreviaAsync(cicloId);
+        return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos, enProceso = _backgroundQueue.EstaEnProceso(cicloId) });
     }
 
     [HttpPost("aplicar")]
     public async Task<IActionResult> Aplicar([FromBody] SolicitudEjecucionAplicaciones solicitud)
     {
-        var idTransaccionLog = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        const string nombreMetodo = "Aplicar()";
+        var r = await _service.IniciarAplicacionAsync(solicitud.LCicloId);
+        return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos });
+    }
 
-        try
-        {
-            _registro.Info(idTransaccionLog, NombreArchivo, nombreMetodo, $"Inicio aplicación de aplicaciones. lCicloId:{solicitud.LCicloId}");
-            var respuesta = await _repositorioAplicaciones.Aplicar(idTransaccionLog, solicitud.LCicloId);
+    [HttpPost("reprocesar-grupo-sion")]
+    public async Task<IActionResult> ReprocesarGrupoSion()
+    {
+        var r = await _service.ReprocesarGrupoSionAsync(CicloReprocesoGrupoSion);
+        return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos });
+    }
 
-            return Ok(new
-            {
-                estado = respuesta.Exito,
-                mensaje = respuesta.Mensaje,
-                datos = respuesta.Datos
-            });
-        }
-        catch (Exception excepcion)
-        {
-            _registro.Error(idTransaccionLog, NombreArchivo, nombreMetodo, "Error en aplicación de aplicaciones", excepcion);
-            return Ok(new
-            {
-                estado = false,
-                mensaje = excepcion.Message,
-                datos = new RespuestaEjecucionAplicaciones
-                {
-                    LCicloId = solicitud.LCicloId,
-                    VistaPrevia = false,
-                    ErrorGrave = true,
-                    ErrorGraveMensaje = excepcion.Message
-                }
-            });
-        }
+    [HttpGet("comisionados")]
+    public async Task<IActionResult> ObtenerComisionados([FromHeader(Name = "lCicloId")] int cicloId)
+    {
+        var r = await _service.ObtenerComisionadosAsync(cicloId);
+        return Ok(new { estado = r.Exito, mensaje = r.Mensaje, datos = r.Datos, enProceso = _backgroundQueue.EstaEnProceso(cicloId) });
     }
 }

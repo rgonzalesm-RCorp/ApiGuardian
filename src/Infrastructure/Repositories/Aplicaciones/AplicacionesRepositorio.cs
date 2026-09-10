@@ -35,30 +35,96 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
     public async Task<(RespuestaVistaPreviaAplicaciones Datos, bool Exito, string Mensaje)> VistaPrevia(string logTransaccionId, int lCicloId)
     {
-        var resultado = await EjecutarProcesoAsync(logTransaccionId, lCicloId, soloVistaPrevia: true);
-        var respuesta = ConstruirRespuestaVistaPrevia(resultado.Datos ?? new EstadoProcesoAplicaciones(lCicloId, true));
+        var resultado = await EjecutarProcesoAsync(
+            logTransaccionId,
+            lCicloId,
+            omitirPagosGrupoSion: true,
+            marcarComisionadosProcesados: false,
+            limpiarDatosBdQishur: true
+        );
+        var respuesta = ConstruirRespuestaVistaPrevia(resultado.Datos ?? new EstadoProcesoAplicaciones(lCicloId, true, false));
         return (respuesta, resultado.Exito, resultado.Mensaje);
     }
 
     public async Task<(RespuestaEjecucionAplicaciones Datos, bool Exito, string Mensaje)> Aplicar(string logTransaccionId, int lCicloId)
     {
-        var resultado = await EjecutarProcesoAsync(logTransaccionId, lCicloId, soloVistaPrevia: false);
-        var respuesta = ConstruirRespuestaEjecucion(resultado.Datos ?? new EstadoProcesoAplicaciones(lCicloId, false));
+        var resultado = await EjecutarProcesoAsync(
+            logTransaccionId,
+            lCicloId,
+            omitirPagosGrupoSion: false,
+            marcarComisionadosProcesados: true,
+            limpiarDatosBdQishur: false
+        );
+        var respuesta = ConstruirRespuestaEjecucion(resultado.Datos ?? new EstadoProcesoAplicaciones(lCicloId, false, true));
         return (respuesta, resultado.Exito, resultado.Mensaje);
+    }
+
+    public async Task<(RespuestaEjecucionAplicaciones Datos, bool Exito, string Mensaje)> ReprocesarGrupoSion(
+        string logTransaccionId,
+        int lCicloId
+    )
+    {
+        const string metodo = "ReprocesarGrupoSion";
+        var estado = new EstadoProcesoAplicaciones(lCicloId, omitirPagosGrupoSion: false, marcarComisionadosProcesados: true);
+
+        try
+        {
+            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio reproceso completo de aplicaciones. ciclo:{lCicloId}");
+
+            var resultadoPendientes = await ObtenerComisionadosPendientesAsync(lCicloId);
+            if (!resultadoPendientes.Exito || resultadoPendientes.Datos is null)
+            {
+                var respuestaFallida = ConstruirRespuestaEjecucion(estado);
+                return (respuestaFallida, false, resultadoPendientes.Mensaje);
+            }
+
+            var comisionadosPendientes = resultadoPendientes.Datos;
+            estado.AplicacionesComisionadoExiste = true;
+            estado.TotalPendientes = comisionadosPendientes.Count;
+            estado.TotalPendienteAplicar = comisionadosPendientes.Sum(item => item.MontoRestante);
+
+            foreach (var comisionado in comisionadosPendientes)
+            {
+                var resultadoProceso = await ProcesarComisionadoAsync(logTransaccionId, comisionado, estado);
+                if (!resultadoProceso.Exito)
+                {
+                    estado.TotalErrores++;
+                }
+            }
+
+            estado.Notas.Add("Se reprocesaron los comisionados pendientes hasta prorrateo, sin eliminar ni sincronizar datos del ciclo.");
+            var respuesta = ConstruirRespuestaEjecucion(estado);
+            var exito = estado.TotalErrores == 0;
+            var mensaje = exito
+                ? "Reproceso completo de aplicaciones finalizado correctamente."
+                : $"Reproceso completo de aplicaciones finalizado con {estado.TotalErrores} error(es).";
+
+            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Fin reproceso completo de aplicaciones. ciclo:{lCicloId}, procesados:{estado.TotalProcesados}, errores:{estado.TotalErrores}");
+            return (respuesta, exito, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _registro.Error(logTransaccionId, NombreArchivo, metodo, "Error en reproceso completo de aplicaciones", ex);
+            estado.ErrorGrave = true;
+            estado.ErrorGraveMensaje = ex.Message;
+            return (ConstruirRespuestaEjecucion(estado), false, ex.Message);
+        }
     }
 
     private async Task<ResultadoAplicaciones<EstadoProcesoAplicaciones>> EjecutarProcesoAsync(
         string logTransaccionId,
         int ciclo,
-        bool soloVistaPrevia
+        bool omitirPagosGrupoSion,
+        bool marcarComisionadosProcesados,
+        bool limpiarDatosBdQishur
     )
     {
-        var estado = new EstadoProcesoAplicaciones(ciclo, soloVistaPrevia);
-        var metodo = soloVistaPrevia ? "VistaPrevia" : "Aplicar";
+        var estado = new EstadoProcesoAplicaciones(ciclo, omitirPagosGrupoSion, marcarComisionadosProcesados);
+        var metodo = omitirPagosGrupoSion ? "VistaPrevia" : "Aplicar";
 
         try
         {
-            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio proceso aplicaciones. ciclo:{ciclo}, vistaPrevia:{soloVistaPrevia}");
+            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio proceso aplicaciones. ciclo:{ciclo}, omitirPagosGrupoSion:{omitirPagosGrupoSion}");
 
             var resultadoValidacion = await ValidarConexionesAsync();
             if (!resultadoValidacion.Exito)
@@ -66,35 +132,50 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 return ConstruirEstadoFallido(estado, resultadoValidacion.Mensaje, resultadoValidacion.EsFatal);
             }
 
-            if (soloVistaPrevia)
+            var resultadoLimpiarDatosCiclo = await LimpiarDatosCicloAsync(ciclo, limpiarDatosBdQishur);
+            if (!resultadoLimpiarDatosCiclo.Exito)
             {
-                estado.Notas.Add(
-                    "La vista previa no ejecuta RetencionEmpresa(), no inserta prioridades ni sincroniza tablas; usa el estado actual y simulacion en memoria."
+                return ConstruirEstadoFallido(estado, resultadoLimpiarDatosCiclo.Mensaje, resultadoLimpiarDatosCiclo.EsFatal);
+            }
+
+            estado.Notas.Add(limpiarDatosBdQishur
+                ? "Se limpiaron por ciclo las tablas derivadas de BDQISHUR y grdsion antes de ejecutar el proceso."
+                : "Se omitió la eliminación de datos en BDQISHUR."
+            );
+
+            var resultadoPreparacion = await CargarUltimosDatosComisionAsync();
+            if (!resultadoPreparacion.Exito)
+            {
+                return ConstruirEstadoFallido(estado, resultadoPreparacion.Mensaje, resultadoPreparacion.EsFatal);
+            }
+
+            var resultadoConteoRetenciones = await ObtenerConteoRetencionesAsync(ciclo);
+            if (!resultadoConteoRetenciones.Exito || resultadoConteoRetenciones.Datos is null)
+            {
+                return ConstruirEstadoFallido(
+                    estado,
+                    resultadoConteoRetenciones.Mensaje,
+                    resultadoConteoRetenciones.EsFatal
                 );
             }
-            else
+
+            if (resultadoConteoRetenciones.Datos.Total == 0)
             {
-                var resultadoLimpiarDatosCiclo = await LimpiarDatosCicloAsync(ciclo);
-                if (!resultadoLimpiarDatosCiclo.Exito)
-                {
-                    return ConstruirEstadoFallido(estado, resultadoLimpiarDatosCiclo.Mensaje, resultadoLimpiarDatosCiclo.EsFatal);
-                }
-
-                estado.Notas.Add(
-                    "Antes de ejecutar aplicar se limpiaron por ciclo las tablas derivadas de BDQISHUR y grdsion."
+                return ConstruirEstadoFallido(
+                    estado,
+                    $"RetencionEmpresa() no genero informacion en tbl_retencionempresa ni tbl_retencionempresa_exterior para el ciclo {ciclo}.",
+                    true
                 );
+            }
 
-                var resultadoPreparacion = await CargarUltimosDatosComisionAsync();
-                if (!resultadoPreparacion.Exito)
-                {
-                    return ConstruirEstadoFallido(estado, resultadoPreparacion.Mensaje, resultadoPreparacion.EsFatal);
-                }
+            estado.Notas.Add(
+                $"Retenciones cargadas para el ciclo {ciclo}: tbl_retencionempresa={resultadoConteoRetenciones.Datos.RetencionEmpresa}, tbl_retencionempresa_exterior={resultadoConteoRetenciones.Datos.RetencionEmpresaExterior}."
+            );
 
-                resultadoPreparacion = await CargarPrioridadesFaltantesAsync();
-                if (!resultadoPreparacion.Exito)
-                {
-                    return ConstruirEstadoFallido(estado, resultadoPreparacion.Mensaje, resultadoPreparacion.EsFatal);
-                }
+            resultadoPreparacion = await CargarPrioridadesFaltantesAsync();
+            if (!resultadoPreparacion.Exito)
+            {
+                return ConstruirEstadoFallido(estado, resultadoPreparacion.Mensaje, resultadoPreparacion.EsFatal);
             }
 
             var resultadoPagosSesion = await ObtenerPagosPorCicloAsync(ciclo);
@@ -105,30 +186,20 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
             estado.PagosSesion = resultadoPagosSesion.Datos;
 
-            var resultadoComisionesEmpresaExistentes = await ExistenComisionesEmpresaAsync(ciclo);
-            if (!resultadoComisionesEmpresaExistentes.Exito)
+            var resultadoLimpiarComisionesEmpresa = await LimpiarComisionesEmpresaAsync(ciclo);
+            if (!resultadoLimpiarComisionesEmpresa.Exito)
             {
-                return ConstruirEstadoFallido(estado, resultadoComisionesEmpresaExistentes.Mensaje, resultadoComisionesEmpresaExistentes.EsFatal);
+                return ConstruirEstadoFallido(estado, resultadoLimpiarComisionesEmpresa.Mensaje, resultadoLimpiarComisionesEmpresa.EsFatal);
             }
 
-            estado.ExistenComisionesPorEmpresa = resultadoComisionesEmpresaExistentes.Datos;
-
-            if (!soloVistaPrevia && !estado.ExistenComisionesPorEmpresa)
+            var resultadoSincronizacion = await SincronizarComisionesEmpresaAsync(ciclo);
+            if (!resultadoSincronizacion.Exito)
             {
-                var resultadoSincronizacion = await SincronizarComisionesEmpresaAsync(ciclo);
-                if (!resultadoSincronizacion.Exito)
-                {
-                    return ConstruirEstadoFallido(estado, resultadoSincronizacion.Mensaje, resultadoSincronizacion.EsFatal);
-                }
+                return ConstruirEstadoFallido(estado, resultadoSincronizacion.Mensaje, resultadoSincronizacion.EsFatal);
+            }
 
-                estado.ExistenComisionesPorEmpresa = true;
-            }
-            else if (soloVistaPrevia && !estado.ExistenComisionesPorEmpresa)
-            {
-                estado.Notas.Add(
-                    "AplicacionesComisionPorEmpresa no existe para este ciclo; la vista previa construye los montos en memoria desde Guardian."
-                );
-            }
+            estado.ExistenComisionesPorEmpresa = true;
+            estado.Notas.Add("AplicacionesComisionPorEmpresa fue eliminada y cargada nuevamente desde Guardian.");
 
             var resultadoComisionadosGuardian = await ObtenerComisionadosGuardianAsync(ciclo);
             if (!resultadoComisionadosGuardian.Exito || resultadoComisionadosGuardian.Datos is null)
@@ -138,7 +209,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
             estado.TotalComisionadosGuardian = resultadoComisionadosGuardian.Datos.Count;
 
-            var resultadoTotales = await ResolverTotalesEmpresaAsync(ciclo, soloVistaPrevia);
+            var resultadoTotales = await ObtenerTotalesEmpresaPorDocumentoAsync(ciclo);
             if (!resultadoTotales.Exito || resultadoTotales.Datos is null)
             {
                 return ConstruirEstadoFallido(estado, resultadoTotales.Mensaje, resultadoTotales.EsFatal);
@@ -177,28 +248,20 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     return ConstruirEstadoFallido(estado, resultadoConstruccionComisionados.Mensaje, resultadoConstruccionComisionados.EsFatal);
                 }
 
-                if (soloVistaPrevia)
+                var resultadoRegistro = await RegistrarComisionadosAsync(resultadoConstruccionComisionados.Datos);
+                if (!resultadoRegistro.Exito)
                 {
-                    comisionadosPendientes = ConstruirComisionadosPendientesVistaPrevia(resultadoConstruccionComisionados.Datos, estado.PagosSesion);
-                    estado.Notas.Add("La vista previa no inserta en AplicacionesComisionado; el listado pendiente es simulado.");
+                    return ConstruirEstadoFallido(estado, resultadoRegistro.Mensaje, resultadoRegistro.EsFatal);
                 }
-                else
+
+                var resultadoPendientes = await ObtenerComisionadosPendientesAsync(ciclo);
+                if (!resultadoPendientes.Exito || resultadoPendientes.Datos is null)
                 {
-                    var resultadoRegistro = await RegistrarComisionadosAsync(resultadoConstruccionComisionados.Datos);
-                    if (!resultadoRegistro.Exito)
-                    {
-                        return ConstruirEstadoFallido(estado, resultadoRegistro.Mensaje, resultadoRegistro.EsFatal);
-                    }
-
-                    var resultadoPendientes = await ObtenerComisionadosPendientesAsync(ciclo);
-                    if (!resultadoPendientes.Exito || resultadoPendientes.Datos is null)
-                    {
-                        return ConstruirEstadoFallido(estado, resultadoPendientes.Mensaje, resultadoPendientes.EsFatal);
-                    }
-
-                    comisionadosPendientes = resultadoPendientes.Datos;
-                    estado.AplicacionesComisionadoExiste = true;
+                    return ConstruirEstadoFallido(estado, resultadoPendientes.Mensaje, resultadoPendientes.EsFatal);
                 }
+
+                comisionadosPendientes = resultadoPendientes.Datos;
+                estado.AplicacionesComisionadoExiste = true;
             }
 
             estado.TotalPendientes = comisionadosPendientes.Count;
@@ -226,11 +289,11 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 }
             }
 
-            estado.Notas.Add(soloVistaPrevia
-                ? "Vista previa finalizada. No se escribio informacion en base de datos."
+            estado.Notas.Add(omitirPagosGrupoSion
+                ? "Vista previa finalizada. Los pagos, descuentos y prorrateos quedaron planificados; no se registraron operaciones de ejecución. Los comisionados no fueron marcados como procesados."
                 : "Fin del proceso, se dejara listo el envio futuro del informe.");
 
-            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Fin proceso aplicaciones. ciclo:{ciclo}, vistaPrevia:{soloVistaPrevia}");
+            _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Fin proceso aplicaciones. ciclo:{ciclo}, omitirPagosGrupoSion:{omitirPagosGrupoSion}");
             return ResultadoAplicaciones<EstadoProcesoAplicaciones>.Ok(estado, "Proceso de aplicaciones ejecutado correctamente.");
         }
         catch (Exception ex)
@@ -238,44 +301,6 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             _registro.Error(logTransaccionId, NombreArchivo, metodo, "Error en proceso de aplicaciones", ex);
             return ConstruirEstadoFallido(estado, ex.Message, true);
         }
-    }
-
-    private async Task<ResultadoAplicaciones<Dictionary<string, decimal>>> ResolverTotalesEmpresaAsync(int ciclo, bool soloVistaPrevia)
-    {
-        if (!soloVistaPrevia)
-        {
-            return await ObtenerTotalesEmpresaPorDocumentoAsync(ciclo);
-        }
-
-        var resultadoExiste = await ExistenComisionesEmpresaAsync(ciclo);
-        if (!resultadoExiste.Exito)
-        {
-            return ResultadoAplicaciones<Dictionary<string, decimal>>.Fail(resultadoExiste.Mensaje, resultadoExiste.EsFatal);
-        }
-
-        if (resultadoExiste.Datos)
-        {
-            return await ObtenerTotalesEmpresaPorDocumentoAsync(ciclo);
-        }
-
-        var resultadoFilasOrigen = await ConstruirRegistrosComisionEmpresaDesdeOrigenAsync(ciclo);
-        if (!resultadoFilasOrigen.Exito || resultadoFilasOrigen.Datos is null)
-        {
-            return ResultadoAplicaciones<Dictionary<string, decimal>>.Fail(
-                resultadoFilasOrigen.Mensaje,
-                resultadoFilasOrigen.EsFatal
-            );
-        }
-
-        var totales = resultadoFilasOrigen.Datos
-            .GroupBy(item => item.NumeroDocumento.Trim(), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Sum(item => item.MontoNeto),
-                StringComparer.OrdinalIgnoreCase
-            );
-
-        return ResultadoAplicaciones<Dictionary<string, decimal>>.Ok(totales);
     }
 
     private ResultadoAplicaciones<List<ComisionadoAplicaciones>> ConstruirComisionadosRegistrar(
@@ -400,7 +425,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             return resultadoProrrateo;
         }
 
-        if (estado.SoloVistaPrevia)
+        if (!estado.MarcarComisionadosProcesados)
         {
             resultadoComisionado.Operaciones.Add(
                 new OperacionAplicacion
@@ -445,6 +470,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         var primeraIteracion = true;
         var debeContinuar = true;
         var expensasPerdonadas = false;
+        var cuotasAplicadas = new HashSet<(int EmpresaId, int VentaId, int NumeroCuota)>();
 
         var resultadoClavesReprogramadas = await ObtenerClavesProductosReprogramadosAsync(comisionado.NumeroDocumento);
         if (!resultadoClavesReprogramadas.Exito || resultadoClavesReprogramadas.Datos is null)
@@ -478,7 +504,9 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                         return ResultadoAplicaciones.Fail(resultadoCuotas.Mensaje, resultadoCuotas.EsFatal);
                     }
 
-                    var primeraCuota = resultadoCuotas.Datos.FirstOrDefault();
+                    var primeraCuota = resultadoCuotas.Datos.FirstOrDefault(cuota =>
+                        !cuotasAplicadas.Contains((producto.EmpresaId, producto.VentaId, cuota.NumeroCuota))
+                    );
                     if (primeraCuota is null)
                     {
                         continue;
@@ -491,6 +519,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     }
 
                     saldoRestante = resultadoAplicacion.Datos;
+                    cuotasAplicadas.Add((producto.EmpresaId, producto.VentaId, primeraCuota.NumeroCuota));
                     if (saldoRestante <= 0)
                     {
                         break;
@@ -503,7 +532,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
             if (tieneProductosVencidos)
             {
-                var resultadoCandidatosVencidos = await ConstruirCandidatosVencidosAsync(productos);
+                var resultadoCandidatosVencidos = await ConstruirCandidatosVencidosAsync(productos, cuotasAplicadas);
                 if (!resultadoCandidatosVencidos.Exito || resultadoCandidatosVencidos.Datos is null)
                 {
                     return ResultadoAplicaciones.Fail(resultadoCandidatosVencidos.Mensaje, resultadoCandidatosVencidos.EsFatal);
@@ -521,7 +550,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     saldoRestante,
                     comisionado,
                     estado,
-                    resultadoComisionado
+                    resultadoComisionado,
+                    cuotasAplicadas
                 );
                 if (!resultadoAplicacionVencidos.Exito)
                 {
@@ -536,7 +566,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             {
                 var resultadoMesActual = await ConstruirCandidatosCuotaAsync(
                     productos,
-                    cuota => cuota.FechaVencimiento.Month == DateTime.Now.Month && cuota.FechaVencimiento.Year == DateTime.Now.Year
+                    cuota => cuota.FechaVencimiento.Month == DateTime.Now.Month && cuota.FechaVencimiento.Year == DateTime.Now.Year,
+                    cuotasAplicadas
                 );
                 if (!resultadoMesActual.Exito || resultadoMesActual.Datos is null)
                 {
@@ -550,7 +581,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     saldoRestante,
                     comisionado,
                     estado,
-                    resultadoComisionado
+                    resultadoComisionado,
+                    cuotasAplicadas
                 );
                 if (!resultadoAplicacionMesActual.Exito)
                 {
@@ -561,7 +593,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
                 var resultadoProximoMes = await ConstruirCandidatosCuotaAsync(
                     productos,
-                    cuota => cuota.NumeroCuota == 2 && EsProximoMes(cuota.FechaVencimiento, DateTime.Now)
+                    cuota => cuota.NumeroCuota == 2 && EsProximoMes(cuota.FechaVencimiento, DateTime.Now),
+                    cuotasAplicadas
                 );
                 if (!resultadoProximoMes.Exito || resultadoProximoMes.Datos is null)
                 {
@@ -575,7 +608,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     saldoRestante,
                     comisionado,
                     estado,
-                    resultadoComisionado
+                    resultadoComisionado,
+                    cuotasAplicadas
                 );
                 if (!resultadoAplicacionProximoMes.Exito)
                 {
@@ -589,7 +623,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     .ToList();
                 var resultadoReprogramados = await ConstruirCandidatosCuotaAsync(
                     productosReprogramados,
-                    cuota => cuota.FechaVencimiento.Date <= DateTime.Now.Date
+                    cuota => cuota.FechaVencimiento.Date <= DateTime.Now.Date,
+                    cuotasAplicadas
                 );
                 if (!resultadoReprogramados.Exito || resultadoReprogramados.Datos is null)
                 {
@@ -603,7 +638,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     saldoRestante,
                     comisionado,
                     estado,
-                    resultadoComisionado
+                    resultadoComisionado,
+                    cuotasAplicadas
                 );
                 if (!resultadoAplicacionReprogramados.Exito)
                 {
@@ -617,7 +653,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 {
                     var resultadoACuenta = await ConstruirCandidatosCuotaAsync(
                         productos,
-                        cuota => cuota.FechaVencimiento >= DateTime.Now.AddMonths(1) || cuota.NumeroCuota == 3
+                        cuota => cuota.FechaVencimiento >= DateTime.Now.AddMonths(1) || cuota.NumeroCuota == 3,
+                        cuotasAplicadas
                     );
                     if (!resultadoACuenta.Exito || resultadoACuenta.Datos is null)
                     {
@@ -631,7 +668,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                         saldoRestante,
                         comisionado,
                         estado,
-                        resultadoComisionado
+                        resultadoComisionado,
+                        cuotasAplicadas
                     );
                     if (!resultadoAplicacionACuenta.Exito)
                     {
@@ -701,13 +739,26 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     break;
                 }
 
+                if (!EsCuotaHastaFinDelMesActual(cuota.FechaVencimiento))
+                {
+                    estado.Notas.Add(
+                        $"Cuota de carta {cuota.NumeroCuota} con vencimiento {cuota.FechaVencimiento:yyyy-MM-dd} omitida: corresponde a un mes posterior."
+                    );
+                    break;
+                }
+
                 var resultadoBeneficiario = await ObtenerClientePorDocumentoAsync(carta.DocumentoBeneficiario);
                 if (!resultadoBeneficiario.Exito || resultadoBeneficiario.Datos is null)
                 {
                     return ResultadoAplicaciones.Fail(resultadoBeneficiario.Mensaje, resultadoBeneficiario.EsFatal);
                 }
 
-                if (DebeOmitirCartaYaRegistrada(estado.PagosSesion, comisionado.NumeroDocumento, carta, cuota.MontoPago))
+                if (DebeOmitirCartaYaRegistrada(
+                    estado.PagosSesion,
+                    comisionado.NumeroDocumento,
+                    carta,
+                    ConvertirMontoCuotaAUsd(carta.EmpresaId, cuota.MontoPago)
+                ))
                 {
                     break;
                 }
@@ -753,6 +804,13 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 }
 
                 saldoRestante = resultadoEjecucion.Datos!.SaldoRestante;
+
+                // La vista previa conserva el cálculo del saldo, pero no consulta una cuota
+                // recién pagada porque no ejecutó ningún pago real.
+                if (estado.OmitirPagosGrupoSion)
+                {
+                    break;
+                }
 
                 var resultadoPagado = await EstaProductoPagadoAsync(carta.DocumentoBeneficiario, carta.CodigoProducto);
                 if (!resultadoPagado.Exito)
@@ -856,8 +914,9 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 BanderaIntercompania = descuento.BanderaIntercompania
             };
 
-            if (estado.SoloVistaPrevia)
+            if (estado.OmitirPagosGrupoSion)
             {
+                estado.PagosSesion.Add(ClonarRegistroPago(registroPago));
                 resultadoComisionado.Operaciones.Add(
                     new OperacionAplicacion
                     {
@@ -865,10 +924,10 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                         Estado = "Planificado",
                         EmpresaId = descuento.EmpresaId,
                         Monto = monto,
+                        MontoEjecutado = monto,
                         Observacion = observacion
                     }
                 );
-                estado.PagosSesion.Add(ClonarRegistroPago(registroPago));
             }
             else
             {
@@ -930,7 +989,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             return ResultadoAplicaciones.Ok();
         }
 
-        if (resultadoExistente.Datos.Count > 0 && !estado.SoloVistaPrevia)
+        if (resultadoExistente.Datos.Count > 0 && !estado.OmitirPagosGrupoSion)
         {
             var resultadoDeshabilitacion = await DeshabilitarProrrateosAsync(comisionado.Ciclo, comisionado.NumeroDocumento);
             if (!resultadoDeshabilitacion.Exito)
@@ -1019,22 +1078,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         decimal monto
     )
     {
-        var registro = new RegistroProrrateoAplicaciones
-        {
-            DocumentoCliente = comisionado.NumeroDocumento,
-            Ciclo = comisionado.Ciclo,
-            EmpresaPrestaId = comision.EmpresaId,
-            EmpresaRecibeId = aplicacion.EmpresaId,
-            ClienteId = aplicacion.ClienteId,
-            ReciboId = aplicacion.ReciboId ?? 0,
-            Monto = monto,
-            Habilitado = true,
-            ComprobanteReciboId = 0,
-            BanderaIntercompania = aplicacion.BanderaIntercompania,
-            TipoPagoId = aplicacion.TipoPagoId
-        };
-
-        if (estado.SoloVistaPrevia)
+        if (estado.OmitirPagosGrupoSion)
         {
             resultadoComisionado.Operaciones.Add(
                 new OperacionAplicacion
@@ -1049,6 +1093,21 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             );
             return;
         }
+
+        var registro = new RegistroProrrateoAplicaciones
+        {
+            DocumentoCliente = comisionado.NumeroDocumento,
+            Ciclo = comisionado.Ciclo,
+            EmpresaPrestaId = comision.EmpresaId,
+            EmpresaRecibeId = aplicacion.EmpresaId,
+            ClienteId = aplicacion.ClienteId,
+            ReciboId = aplicacion.ReciboId ?? 0,
+            Monto = monto,
+            Habilitado = true,
+            ComprobanteReciboId = 0,
+            BanderaIntercompania = aplicacion.BanderaIntercompania,
+            TipoPagoId = aplicacion.TipoPagoId
+        };
 
         var resultadoInsercion = await InsertarProrrateoAsync(registro);
         if (resultadoInsercion.Exito)
@@ -1082,7 +1141,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
     }
 
     private async Task<ResultadoAplicaciones<List<CandidatoPagoAplicaciones>>> ConstruirCandidatosVencidosAsync(
-        IReadOnlyCollection<ProductoCarteraAplicaciones> productos
+        IReadOnlyCollection<ProductoCarteraAplicaciones> productos,
+        ISet<(int EmpresaId, int VentaId, int NumeroCuota)> cuotasAplicadas
     )
     {
         var candidatos = new List<CandidatoPagoAplicaciones>();
@@ -1100,6 +1160,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
             foreach (var cuota in resultadoCuotas.Datos
                          .Where(item => item.FechaVencimiento.Date <= DateTime.Now.Date)
+                         .Where(item => !cuotasAplicadas.Contains((producto.EmpresaId, producto.VentaId, item.NumeroCuota)))
                          .OrderBy(item => item.FechaVencimiento)
                          .ThenBy(item => item.NumeroCuota))
             {
@@ -1117,7 +1178,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
     private async Task<ResultadoAplicaciones<List<CandidatoPagoAplicaciones>>> ConstruirCandidatosCuotaAsync(
         IReadOnlyCollection<ProductoCarteraAplicaciones> productos,
-        Func<CuotaAplicaciones, bool> criterio
+        Func<CuotaAplicaciones, bool> criterio,
+        ISet<(int EmpresaId, int VentaId, int NumeroCuota)> cuotasAplicadas
     )
     {
         var candidatos = new List<CandidatoPagoAplicaciones>();
@@ -1133,7 +1195,11 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 );
             }
 
-            var cuota = resultadoCuotas.Datos.FirstOrDefault(criterio);
+            var cuota = resultadoCuotas.Datos.FirstOrDefault(item =>
+                EsCuotaHastaFinDelMesActual(item.FechaVencimiento)
+                && !cuotasAplicadas.Contains((producto.EmpresaId, producto.VentaId, item.NumeroCuota))
+                && criterio(item)
+            );
             if (cuota is null)
             {
                 continue;
@@ -1157,7 +1223,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         decimal saldoRestante,
         ComisionadoPendienteAplicaciones comisionado,
         EstadoProcesoAplicaciones estado,
-        ResultadoComisionadoAplicaciones resultadoComisionado
+        ResultadoComisionadoAplicaciones resultadoComisionado,
+        ISet<(int EmpresaId, int VentaId, int NumeroCuota)> cuotasAplicadas
     )
     {
         foreach (var candidato in candidatos)
@@ -1184,6 +1251,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             }
 
             saldoRestante = resultadoAplicacion.Datos;
+            cuotasAplicadas.Add((candidato.Producto.EmpresaId, candidato.Producto.VentaId, candidato.Cuota.NumeroCuota));
         }
 
         return ResultadoAplicaciones<decimal>.Ok(saldoRestante);
@@ -1200,10 +1268,14 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         ResultadoComisionadoAplicaciones resultadoComisionado
     )
     {
-        var resultadoLimiteFactura = await ValidarLimiteErroresFacturacionAsync(comisionado.Ciclo);
-        if (!resultadoLimiteFactura.Exito)
+        var debeFacturar = DebeFacturarEmpresa(producto.EmpresaId);
+        if (debeFacturar)
         {
-            return ResultadoAplicaciones<decimal>.Fail(resultadoLimiteFactura.Mensaje, resultadoLimiteFactura.EsFatal);
+            var resultadoLimiteFactura = await ValidarLimiteErroresFacturacionAsync(comisionado.Ciclo);
+            if (!resultadoLimiteFactura.Exito)
+            {
+                return ResultadoAplicaciones<decimal>.Fail(resultadoLimiteFactura.Mensaje, resultadoLimiteFactura.EsFatal);
+            }
         }
 
         var resultadoPago = await EjecutarPagoAsync(
@@ -1266,6 +1338,24 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         ResultadoComisionadoAplicaciones resultadoComisionado
     )
     {
+        var debeFacturar = DebeFacturarEmpresa(producto.EmpresaId);
+        if (!EsCuotaHastaFinDelMesActual(cuota.FechaVencimiento))
+        {
+            var ultimoDiaMesActual = new DateTime(
+                DateTime.Now.Year,
+                DateTime.Now.Month,
+                DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month)
+            );
+            var mensaje =
+                $"Cuota {cuota.NumeroCuota} con vencimiento {cuota.FechaVencimiento:yyyy-MM-dd} omitida: solo se aplican cuotas hasta {ultimoDiaMesActual:yyyy-MM-dd}.";
+            estado.Notas.Add(mensaje);
+
+            return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Ok(
+                new ResultadoEjecucionPagoAplicaciones { SaldoRestante = montoDisponible },
+                mensaje
+            );
+        }
+
         if (montoDisponible <= 0)
         {
             return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Ok(
@@ -1274,7 +1364,39 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             );
         }
 
-        var decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now);
+        var esPagoEnBolivianos = EsPagoEnBolivianos(producto.EmpresaId);
+        var decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, esPagoEnBolivianos);
+
+        if (decisionPago.EsFechaValor)
+        {
+            var resultadoCuotasFechaValor = await ObtenerCuotasAsync(
+                producto.EmpresaId,
+                producto.VentaId,
+                decisionPago.FechaPagoEfectiva,
+                1
+            );
+            if (!resultadoCuotasFechaValor.Exito || resultadoCuotasFechaValor.Datos is null)
+            {
+                return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Fail(
+                    resultadoCuotasFechaValor.Mensaje,
+                    resultadoCuotasFechaValor.EsFatal
+                );
+            }
+
+            var cuotaFechaValor = resultadoCuotasFechaValor.Datos.FirstOrDefault(
+                item => item.NumeroCuota == cuota.NumeroCuota
+            );
+            if (cuotaFechaValor is null)
+            {
+                return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Fail(
+                    $"No se pudo recalcular la cuota {cuota.NumeroCuota} para la fecha valor {decisionPago.FechaPagoEfectiva:yyyy-MM-dd}."
+                );
+            }
+
+            cuota = cuotaFechaValor;
+            decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, esPagoEnBolivianos);
+        }
+
         if (decisionPago.MontoPagar <= 0)
         {
             return ResultadoAplicaciones<ResultadoEjecucionPagoAplicaciones>.Ok(
@@ -1292,7 +1414,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             );
         }
 
-        if (estado.SoloVistaPrevia)
+        if (estado.OmitirPagosGrupoSion)
         {
             var clienteContableVistaPrevia = await ResolverClienteContableAsync(context);
             if (!clienteContableVistaPrevia.Exito || clienteContableVistaPrevia.Datos is null)
@@ -1304,6 +1426,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             }
 
             var observacionVistaPrevia = ConstruirObservacionFinal(context.Observacion, decisionPago.SufijoObservacion);
+            observacionVistaPrevia = AgregarDetalleMoneda(observacionVistaPrevia, esPagoEnBolivianos, decisionPago);
             estado.PagosSesion.Add(
                 new RegistroPagoAplicaciones
                 {
@@ -1323,7 +1446,6 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     BanderaIntercompania = context.BanderaIntercompania
                 }
             );
-
             resultadoComisionado.Operaciones.Add(
                 new OperacionAplicacion
                 {
@@ -1333,6 +1455,9 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     VentaId = producto.VentaId,
                     ProductoId = context.ProductoId,
                     Monto = decisionPago.MontoPagar,
+                    MontoEjecutado = decisionPago.MontoEjecutar,
+                    MonedaPago = decisionPago.MonedaPago,
+                    TipoCambio = decisionPago.TipoCambio,
                     Observacion = observacionVistaPrevia,
                     TipoPago = decisionPago.Modo,
                     TiempoPago = decisionPago.Tiempo
@@ -1356,7 +1481,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             producto.VentaId,
             decisionPago.FechaPagoEfectiva,
             ConstruirNumeroTransaccionExterna(),
-            decisionPago.MontoPagar
+            decisionPago.MontoEjecutar
         );
         if (!resultadoPago.Exito || resultadoPago.Datos <= 0)
         {
@@ -1376,6 +1501,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         }
 
         var observacion = ConstruirObservacionFinal(context.Observacion, decisionPago.SufijoObservacion);
+        observacion = AgregarDetalleMoneda(observacion, esPagoEnBolivianos, decisionPago);
         var registroPago = new RegistroPagoAplicaciones
         {
             Ciclo = context.Ciclo,
@@ -1388,7 +1514,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             Monto = decisionPago.MontoPagar,
             FechaCreacion = DateTime.Now,
             ReciboId = resultadoPago.Datos,
-            FacturaId = -1,
+            FacturaId = 0,
             Observacion = observacion,
             TipoPagoId = context.TipoPagoId,
             BanderaIntercompania = context.BanderaIntercompania
@@ -1409,26 +1535,39 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
         var facturaId = 0;
         var observacionFinal = observacion;
-        var resultadoFactura = await GenerarFacturaAsync(
-            resultadoEmpresa.Datos.EmpresaServicioWebId,
-            producto.ProyectoId,
-            producto.VentaId,
-            resultadoPago.Datos,
-            context.ProductoId
-        );
 
-        if (resultadoFactura.Exito && resultadoFactura.Datos is not null)
+        if (debeFacturar)
         {
-            facturaId = resultadoFactura.Datos.EjecutadoCorrectamente ? resultadoFactura.Datos.FacturaId : -1;
-            if (!resultadoFactura.Datos.EjecutadoCorrectamente && !string.IsNullOrWhiteSpace(resultadoFactura.Datos.MensajeError))
+            var resultadoFactura = await GenerarFacturaAsync(
+                resultadoEmpresa.Datos.EmpresaServicioWebId,
+                producto.ProyectoId,
+                producto.VentaId,
+                resultadoPago.Datos,
+                context.ProductoId
+            );
+
+            if (resultadoFactura.Exito && resultadoFactura.Datos is not null)
             {
-                observacionFinal = $"{observacion} - Error En Facturacion= {resultadoFactura.Datos.MensajeError}";
+                facturaId = resultadoFactura.Datos.EjecutadoCorrectamente ? resultadoFactura.Datos.FacturaId : -1;
+                if (!resultadoFactura.Datos.EjecutadoCorrectamente)
+                {
+                    var detalleError = !string.IsNullOrWhiteSpace(resultadoFactura.Datos.MensajeError)
+                        ? resultadoFactura.Datos.MensajeError
+                        : resultadoFactura.Datos.MensajeServicio;
+                    observacionFinal = $"{observacion} - Error en facturacion: {detalleError}";
+                }
+            }
+            else
+            {
+                facturaId = -1;
+                observacionFinal = $"{observacion} - Error en facturacion: {resultadoFactura.Mensaje}";
             }
         }
         else
         {
-            facturaId = -1;
-            observacionFinal = $"{observacion} - Error En Facturacion= {resultadoFactura.Mensaje}";
+            observacionFinal = _configuracionAplicaciones.HabilitarPasarelaFacturacion
+                ? $"{observacion} - Facturacion no aplica para la empresa {producto.EmpresaId}."
+                : $"{observacion} - Facturacion deshabilitada por configuracion.";
         }
 
         var resultadoActualizacion = await ActualizarFacturaAsync(producto.EmpresaId, producto.VentaId, resultadoPago.Datos, facturaId, observacionFinal);
@@ -1450,6 +1589,9 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 VentaId = producto.VentaId,
                 ProductoId = context.ProductoId,
                 Monto = decisionPago.MontoPagar,
+                MontoEjecutado = decisionPago.MontoEjecutar,
+                MonedaPago = decisionPago.MonedaPago,
+                TipoCambio = decisionPago.TipoCambio,
                 Observacion = observacionFinal,
                 ReciboId = resultadoPago.Datos,
                 FacturaId = facturaId,
@@ -1489,24 +1631,73 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         return await ObtenerClientePorDocumentoAsync(context.DocumentoComisionadoContable);
     }
 
-    private static DecisionPagoAplicaciones DecidirPago(
+    private DecisionPagoAplicaciones DecidirPago(
         CuotaAplicaciones cuota,
         decimal montoDisponible,
-        DateTime ahora
+        DateTime ahora,
+        bool esPagoEnBolivianos
     )
     {
-        var montoPagar = Math.Min(cuota.MontoPago, montoDisponible);
-        var pagoCompleto = montoDisponible >= cuota.MontoPago;
+        var montoCuotaUsd = ConvertirMontoCuotaAUsd(esPagoEnBolivianos, cuota.MontoPago);
+        var montoPagar = Math.Min(montoCuotaUsd, montoDisponible);
+        var pagoCompleto = montoDisponible >= montoCuotaUsd;
         var fechaValor = PuedePagarAFechaValor(cuota.FechaVencimiento, ahora);
+        var montoEjecutar = montoPagar;
+
+        if (esPagoEnBolivianos)
+        {
+            // La cuota completa se paga exactamente como llega de Sion (en BOB).
+            // El tipo de cambio solo permite validar y descontar el saldo de comisión en USD.
+            montoEjecutar = pagoCompleto
+                ? cuota.MontoPago
+                : decimal.Round(montoPagar * _configuracionAplicaciones.PagosBolivianos.TipoCambio, 2, MidpointRounding.AwayFromZero);
+        }
 
         return new DecisionPagoAplicaciones
         {
             MontoPagar = montoPagar,
+            MontoEjecutar = montoEjecutar,
+            MonedaPago = esPagoEnBolivianos ? "BOB" : "USD",
+            TipoCambio = esPagoEnBolivianos ? _configuracionAplicaciones.PagosBolivianos.TipoCambio : null,
             FechaPagoEfectiva = fechaValor ? cuota.FechaVencimiento : ahora,
+            EsFechaValor = fechaValor,
             Modo = pagoCompleto ? "Completo" : "A Cuenta",
             Tiempo = fechaValor ? "Fecha Valor" : "Normal",
             SufijoObservacion = ConstruirSufijoObservacion(pagoCompleto, fechaValor)
         };
+    }
+
+    private bool EsPagoEnBolivianos(int empresaId)
+    {
+        var configuracion = _configuracionAplicaciones.PagosBolivianos;
+        return configuracion.Habilitado
+            && configuracion.TipoCambio > 0
+            && configuracion.Empresas.Contains(empresaId);
+    }
+
+    private bool DebeFacturarEmpresa(int empresaId)
+    {
+        return _configuracionAplicaciones.HabilitarPasarelaFacturacion
+            && !_configuracionAplicaciones.EmpresasSinFacturacion.Contains(empresaId);
+    }
+
+    private decimal ConvertirMontoCuotaAUsd(int empresaId, decimal montoCuota)
+    {
+        return ConvertirMontoCuotaAUsd(EsPagoEnBolivianos(empresaId), montoCuota);
+    }
+
+    private decimal ConvertirMontoCuotaAUsd(bool esPagoEnBolivianos, decimal montoCuota)
+    {
+        return esPagoEnBolivianos
+            ? decimal.Round(montoCuota / _configuracionAplicaciones.PagosBolivianos.TipoCambio, 2, MidpointRounding.AwayFromZero)
+            : montoCuota;
+    }
+
+    private static string AgregarDetalleMoneda(string observacion, bool esPagoEnBolivianos, DecisionPagoAplicaciones decision)
+    {
+        return esPagoEnBolivianos
+            ? $"{observacion} - Pago BOB {decision.MontoEjecutar:N2}; consume USD {decision.MontoPagar:N2}; TC {decision.TipoCambio:N2}."
+            : observacion;
     }
 
     private static bool PuedePagarAFechaValor(DateTime fechaVencimiento, DateTime ahora)
@@ -1554,6 +1745,18 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         return filtered
             .Where(item => item.EmpresaId != 17 && item.EmpresaId != 21)
             .ToList();
+    }
+
+    private static bool EsCuotaHastaFinDelMesActual(DateTime fechaVencimiento)
+    {
+        var ahora = DateTime.Now;
+        var ultimoDiaMesActual = new DateTime(
+            ahora.Year,
+            ahora.Month,
+            DateTime.DaysInMonth(ahora.Year, ahora.Month)
+        );
+
+        return fechaVencimiento.Date <= ultimoDiaMesActual;
     }
 
     private static bool EsProximoMes(DateTime fechaVencimiento, DateTime ahora)
@@ -1699,14 +1902,16 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
 internal sealed class EstadoProcesoAplicaciones
 {
-    public EstadoProcesoAplicaciones(int ciclo, bool soloVistaPrevia)
+    public EstadoProcesoAplicaciones(int ciclo, bool omitirPagosGrupoSion, bool marcarComisionadosProcesados)
     {
         Ciclo = ciclo;
-        SoloVistaPrevia = soloVistaPrevia;
+        OmitirPagosGrupoSion = omitirPagosGrupoSion;
+        MarcarComisionadosProcesados = marcarComisionadosProcesados;
     }
 
     public int Ciclo { get; }
-    public bool SoloVistaPrevia { get; }
+    public bool OmitirPagosGrupoSion { get; }
+    public bool MarcarComisionadosProcesados { get; }
     public bool AplicacionesComisionadoExiste { get; set; }
     public bool ExistenComisionesPorEmpresa { get; set; }
     public bool RequiereRegistrarComisionados { get; set; }
@@ -1737,7 +1942,11 @@ internal sealed class CandidatoPagoAplicaciones
 internal sealed class DecisionPagoAplicaciones
 {
     public decimal MontoPagar { get; set; }
+    public decimal MontoEjecutar { get; set; }
+    public string MonedaPago { get; set; } = "USD";
+    public decimal? TipoCambio { get; set; }
     public DateTime FechaPagoEfectiva { get; set; }
+    public bool EsFechaValor { get; set; }
     public string Modo { get; set; } = string.Empty;
     public string Tiempo { get; set; } = string.Empty;
     public string SufijoObservacion { get; set; } = string.Empty;

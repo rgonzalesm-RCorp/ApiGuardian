@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
-using Org.BouncyCastle.Asn1.IsisMtt.X509;
-using Newtonsoft.Json;
 
 namespace CleanDapperApi.Api.Controllers;
 
@@ -10,196 +8,21 @@ namespace CleanDapperApi.Api.Controllers;
 [Route("api/[controller]")]
 public class AdministracionContactoController : ControllerBase
 {
-    private readonly IAdministracionContactoRepository _repository;
-    private readonly string NOMBREARCHIVO = "AdministracionContactoController.cs";
-    private readonly ILogService _log;
-    public AdministracionContactoController(IAdministracionContactoRepository repository, ILogService log)
-    {
-        _repository = repository;
-        _log = log;
-    }
- 
+    private readonly IAdministracionContactoService _service;
+    public AdministracionContactoController(IAdministracionContactoService service) => _service = service;
     [HttpGet]
-    public async Task<IActionResult> GetAll( 
-    [FromQuery] int page,
-    [FromQuery] int pageSize,
-    [FromQuery] string? search)
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string NombreMetodo = "GetAllAdministracionContacto()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [page:{ page}, pageSize:{pageSize}, search:{search}]");
-
-            var responseContacto = await _repository.GetAllAdministracionContacto(logTransaccionId.ToString(), page, pageSize, search);
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseContacto.Success,
-                mensaje = responseContacto.Mensaje,
-                data = new
-                {
-                    listaContacto = responseContacto.Data,
-                    total = responseContacto.Total
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-    }
+    public async Task<IActionResult> GetAll([FromQuery] int page, [FromQuery] int pageSize, [FromQuery] string? search)
+    { var r = await _service.ObtenerAsync(page, pageSize, search, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()); return Ok(new { status = r.Success, mensaje = r.Mensaje, data = r.Data }); }
     [HttpPost("insert")]
     public async Task<IActionResult> InsertContacto(AdministracionContacto data)
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "InsertContacto()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data, Formatting.Indented)}");
-
-            var responseContacto = await _repository.InsertContacto(logTransaccionId.ToString(), data);
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
-                $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseContacto.Success,
-                mensaje = responseContacto.Mensaje,
-                data = ""
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-    }
+    { var r = await _service.InsertarAsync(data, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()); return Ok(new { status = r.Success, mensaje = r.Mensaje, data = "" }); }
     [HttpPut("update")]
     public async Task<IActionResult> UpdateContacto(AdministracionContacto data)
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "UpdateContacto()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data, Formatting.Indented)}");
-
-            var responseContacto = await _repository.UpdateContacto(logTransaccionId.ToString(), data);
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
-                $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseContacto.Success,
-                mensaje = responseContacto.Mensaje,
-                data = ""
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-    }
+    { var r = await _service.ActualizarAsync(data, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()); return Ok(new { status = r.Success, mensaje = r.Mensaje, data = "" }); }
     [HttpDelete("baja")]
     public async Task<IActionResult> BajaContacto(AdministracionContactoBaja data)
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string nombreArchivo = "BajaContacto()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, $"Inicio de metodo AdministracionContacto : {JsonConvert.SerializeObject(data, Formatting.Indented)}");
-
-            var responseContacto = await _repository.BajaContacto(logTransaccionId.ToString(), data);
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo,
-                $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseContacto.Success,
-                mensaje = responseContacto.Mensaje,
-                data = ""
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, nombreArchivo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-    }
+    { var r = await _service.DarDeBajaAsync(data, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()); return Ok(new { status = r.Success, mensaje = r.Mensaje, data = "" }); }
     [HttpGet("verificar/estado")]
-    public async Task<IActionResult> VerificarEstadoContacto(
-        [FromHeader(Name = "Usuario")] string Usuario,
-        [FromHeader(Name = "Documento")] string Documento
-    )
-    {
-        long logTransaccionId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string NombreMetodo = "GetAllAdministracionContacto()";
-
-        try
-        {
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [Usuario:{Usuario}, pageSize:{Documento}]");
-
-            var responseContacto = await _repository.VerificarEstadoContacto(logTransaccionId.ToString(), Usuario, Documento);
-
-            _log.Info(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo,
-                $"Fin de metodo: {responseContacto.Success} - {responseContacto.Mensaje}");
-
-            return Ok(new
-            {
-                status = responseContacto.Success,
-                mensaje = responseContacto.Mensaje,
-                data = new
-                {
-                    Estado = responseContacto.Estado
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logTransaccionId.ToString(), NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-
-            return Ok(new
-            {
-                status = false,
-                mensaje = ex.Message,
-                data = ""
-            });
-        }
-    }
-    
+    public async Task<IActionResult> VerificarEstadoContacto([FromHeader(Name = "Usuario")] string Usuario, [FromHeader(Name = "Documento")] string Documento)
+    { var r = await _service.VerificarEstadoAsync(Usuario, Documento, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()); return Ok(new { status = r.Success, mensaje = r.Mensaje, data = r.Data }); }
 }

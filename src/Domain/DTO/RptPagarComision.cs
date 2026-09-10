@@ -13,10 +13,30 @@ public class RptPagarComision
     public decimal Grupo { get; set; }
     public decimal Descuento { get; set; }
     public decimal Retencion { get; set; }
+    public decimal ComisionDespuesRetencion { get; set; }
+    public decimal TotalDescuento { get; set; }
     public string? Ciclo { get; set; }
 }
 public class EmpresaHeaderPagarComision
 {
     public string? SEmpresa { get; set; }
     public int EmpresaId { get; set; }
+}
+
+public sealed class DescuentoAplicacionesProrrateo
+{
+    public string Documento { get; set; } = string.Empty;
+    public int EmpresaId { get; set; }
+    public decimal Monto { get; set; }
+}
+
+public sealed class PagoComisionOpciones
+{
+    public List<RedistribucionPagoComision> RedistribucionesPorRetencion { get; set; } = [];
+}
+
+public sealed class RedistribucionPagoComision
+{
+    public int EmpresaOrigenId { get; set; }
+    public int EmpresaAsumeId { get; set; }
 }

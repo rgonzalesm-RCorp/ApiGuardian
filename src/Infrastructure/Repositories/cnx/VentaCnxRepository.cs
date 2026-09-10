@@ -5,6 +5,7 @@ using ApiGuardian.Infrastructure.Persistence;
 using Newtonsoft.Json;
 using Query.Cnx;
 using Microsoft.Extensions.Configuration;
+using ApiGuardian.Infrastructure.Services;
 
 namespace ApiGuardian.Infrastructure.Repositories;
 
@@ -13,12 +14,14 @@ public class VentaCnxRepository : IVentasCnxRepository
     private readonly DapperContextSqlServer _context;
     private readonly ILogService _log;
     private readonly IConfiguration _configuration;
+    private readonly CambioDolarService _cambioDolarService;
     private string NOMBREARCHIVO = "AdministracionBancoRepository.cs";
-    public VentaCnxRepository(DapperContextSqlServer context, ILogService log, IConfiguration configuration)
+    public VentaCnxRepository(DapperContextSqlServer context, ILogService log, IConfiguration configuration, CambioDolarService cambioDolarService)
     {
         _context = context;
         _log = log;
         _configuration = configuration;
+        _cambioDolarService = cambioDolarService;
     }
     public async Task<(IEnumerable<ItemVentaCnx> Data, bool Success, string Mensaje)> GetVentaCnx(string LogTransaccionId, string inicio, string fin)
     {
@@ -27,12 +30,22 @@ public class VentaCnxRepository : IVentasCnxRepository
         var query = ScriptCnx.QueryVentaCnx(_configuration);
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}]");
+        ///inicio = "20260701";
+        //fin = "20260731";
 
         try
         {
             using var connection = _context.CreateConnection();
 
-            var data = await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new{inicio, fin});
+            var data = (await connection.QueryAsync<ItemVentaCnx>(query.ToString(), new { inicio, fin })).ToList();
+
+            //data = data.Where(x => x.Lote == "KTRB5-294" || x.Lote == "MDE-M13-L20" || x.Lote == "MDN-M10-L20" || x.Lote == "MDN-M19-L24" || x.Lote == "MDN-M4-L5" || x.Lote == "MDN-M2-L56" || x.Lote == "KPBS-10-32" || x.Lote == "KTBS-5-28").ToList();
+
+            foreach (var venta in data)
+            {
+                _cambioDolarService.Convertir(venta);
+
+            }
 
             bool success = data != null && data.Any();
             string mensaje = success ? "Datos obtenidos correctamente." : "No se encontraron registros.";
@@ -46,7 +59,7 @@ public class VentaCnxRepository : IVentasCnxRepository
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
             return (Enumerable.Empty<ItemVentaCnx>(), false, $"Error al obtener monedas: {ex.Message}");
         }
-        
+
     }
 
     public async Task<(ItemVentaCnx Data, bool Success, string Mensaje)> GetClienteDocId(string LogTransaccionId, string docId)
@@ -61,14 +74,14 @@ public class VentaCnxRepository : IVentasCnxRepository
         {
             using var connection = _context.CreateConnection();
 
-            var data = await connection.QueryFirstOrDefaultAsync<ItemVentaCnx>(query, new{docId});
+            var data = await connection.QueryFirstOrDefaultAsync<ItemVentaCnx>(query, new { docId });
 
             return (data ?? new ItemVentaCnx(), true, "Consulta realizada correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
-            ItemVentaCnx  d =  new ItemVentaCnx();
+            ItemVentaCnx d = new ItemVentaCnx();
             return (d, false, "Error al consultar contactos.");
         }
     }

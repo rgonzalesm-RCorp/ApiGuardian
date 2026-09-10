@@ -1,9 +1,11 @@
 
 
 using ApiGuardian.Application.Interfaces;
+using ApiGuardian.Domain.DTO;
 using ApiGuardian.Infrastructure.Repositories;
 using ApiGuardian.Infrastructure.Persistence;
 using ApiGuardian.Infrastructure.Services;
+using CleanDapperApi.Api.Services;
 using Quartz;
 
 
@@ -53,21 +55,28 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IAplicacionesBackgroundQueue, AplicacionesBackgroundQueue>();
+builder.Services.AddHostedService<AplicacionesBackgroundService>();
 //builder.Services.AddHostedService<MiCronJob>();
 
 builder.Services.AddSingleton<DapperContext>();
 builder.Services.AddSingleton<DapperContextSqlServer>();
 builder.Services.AddSingleton<DapperContextSqlServer64>();
+builder.Services.AddSingleton<CambioDolarService>();
+builder.Services.Configure<MonteSionOpciones>(builder.Configuration.GetSection("MonteSion"));
+builder.Services.Configure<PagoComisionOpciones>(builder.Configuration.GetSection("PagoComision"));
 builder.Services.AddScoped<IAdministracionContactoRepository, AdministracionContactoRepository>();
 builder.Services.AddScoped<IUtilsRepository, UtilsRepository>();
 builder.Services.AddScoped<IAdministracionContratoRepository, AdministracionContratoRepository>();
 builder.Services.AddScoped<IAdministracionCicloFacturaRepository, AdministracionCicloFacturaRepository>();
+builder.Services.AddScoped<IProcesoFacturacionRepository, ProcesoFacturacionRepository>();
 builder.Services.AddScoped<IAdministracionHabilitacionComisionRepository, AdministracionHabilitacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionObservacionComisionRepository, AdministracionObservacionComisionRepository>();
 builder.Services.AddScoped<IAdministracionBuscarAsesorRepository, AdministracionBuscarAsesorRepository>();
 builder.Services.AddScoped<IAdministracionCuentaBancoRepository, AdministracionCuentaBancoRepository>();
 builder.Services.AddScoped<IAdministracionBancoRepository, AdministracionBancoRepository>();
 builder.Services.AddScoped<IAdministracionDescuentoComisionRepository, AdministracionDescuentoComisionRepository>();
+builder.Services.AddScoped<IMigracionAplicacionesProrrateoRepository, MigracionAplicacionesProrrateoRepository>();
 builder.Services.AddScoped<IAdministracionNivelRepository, AdministracionNivelRepository>();
 builder.Services.AddScoped<IAdministracionCicloRepository, AdministracionCicloRepository>();
 builder.Services.AddScoped<IAdministracionComplejoRepository, AdministracionComplejoRepository>();
@@ -88,10 +97,47 @@ builder.Services.AddScoped<IControlProcesoRepository, ControlProcesoRepository>(
 builder.Services.AddScoped<IBonoResidualRepository, BonoResidualRepository>();
 builder.Services.AddScoped<IBrConfiguracionRepository, BrConfiguracionRepository>();
 builder.Services.AddScoped<IAdministracionBonoResidualRepository, AdministracionBonoResidualRepository>();
+builder.Services.AddScoped<IRetencionEmpresaRepository, RetencionEmpresaRepository>();
 builder.Services.AddScoped<IRedesRepository, RedesRepository>();
+builder.Services.AddScoped<IMonteSionRepository, MonteSionRepository>();
 builder.Services.AddScoped<IBonoParRepository, BonoParRepository>();
 builder.Services.AddScoped<ICuotasVentaResidualRepository, CuotasVentaResidualRepository>();
 builder.Services.AddScoped<ICasosEspecialesRepository, CasosEspecialesRepository>();
+builder.Services.AddScoped<IProcesoComisionesService, ProcesoComisionesService>();
+builder.Services.AddScoped<IBonoResidualService, BonoResidualService>();
+builder.Services.AddScoped<IAdministracionBuscarAsesorService, AdministracionBuscarAsesorService>();
+builder.Services.AddScoped<IAdministracionCicloFacturaService, AdministracionCicloFacturaService>();
+builder.Services.AddScoped<IProcesoFacturacionService, ProcesoFacturacionService>();
+builder.Services.AddScoped<IAdministracionBancoService, AdministracionBancoService>();
+builder.Services.AddScoped<IAdministracionComplejoService, AdministracionComplejoService>();
+builder.Services.AddScoped<IAdministracionContactoService, AdministracionContactoService>();
+builder.Services.AddScoped<IAdministracionCuentaBancoService, AdministracionCuentaBancoService>();
+builder.Services.AddScoped<IAdministracionDescuentoCicloTipoService, AdministracionDescuentoCicloTipoService>();
+builder.Services.AddScoped<IAdministracionDescuentoComisionService, AdministracionDescuentoComisionService>();
+builder.Services.AddScoped<IAdministracionDetalleFacturaService, AdministracionDetalleFacturaService>();
+builder.Services.AddScoped<IAdministracionEmpresaService, AdministracionEmpresaService>();
+builder.Services.AddScoped<IAdministracionHabilitacionComisionService, AdministracionHabilitacionComisionService>();
+builder.Services.AddScoped<IAdministracionNivelService, AdministracionNivelService>();
+builder.Services.AddScoped<IAdministracionObservacionComisionService, AdministracionObservacionComisionService>();
+builder.Services.AddScoped<IAdministracionSemanaCicloService, AdministracionSemanaCicloService>();
+builder.Services.AddScoped<IAdministracionSemanaService, AdministracionSemanaService>();
+builder.Services.AddScoped<IAdministracionTipoContactoService, AdministracionTipoContactoService>();
+builder.Services.AddScoped<IAdministracionCicloService, AdministracionCicloService>();
+builder.Services.AddScoped<IAdministracionContratoService, AdministracionContratoService>();
+builder.Services.AddScoped<IAdministracionTipoContratoService, AdministracionTipoContratoService>();
+builder.Services.AddScoped<ICuotasVentaResidualService, CuotasVentaResidualService>();
+builder.Services.AddScoped<IRetencionEmpresaService, RetencionEmpresaService>();
+builder.Services.AddScoped<IRedesService, RedesService>();
+builder.Services.AddScoped<IMonteSionService, MonteSionService>();
+builder.Services.AddScoped<IReportesService, ReportesService>();
+builder.Services.AddScoped<ICasosObservadosService, CasosObservadosService>();
+builder.Services.AddScoped<IControlProcesoService, ControlProcesoService>();
+builder.Services.AddScoped<ICasosEspecialesService, CasosEspecialesService>();
+builder.Services.AddScoped<IUtilsService, UtilsService>();
+builder.Services.AddScoped<IBrConfiguracionService, BrConfiguracionService>();
+builder.Services.AddScoped<IConfiguracionProcesoComisionesService, ConfiguracionProcesoComisionesService>();
+builder.Services.AddScoped<IAplicacionesService, AplicacionesService>();
+builder.Services.AddScoped<ICasosObservadosRepository, CasosObservadosRepository>();
 builder.Services.AddScoped<IAplicacionesRepositorio, AplicacionesRepositorio>();
 
 builder.Services.AddSingleton<ILogService, LogService>();

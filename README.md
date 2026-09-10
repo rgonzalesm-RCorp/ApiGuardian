@@ -1,5 +1,110 @@
 # ApiGuardian
 
+## Configuración: `src/Api/appsettings.json`
+
+Este archivo concentra conexiones, reglas de negocio y parámetros operativos de la API. **No se deben publicar, copiar a tickets ni versionar valores reales de contraseñas, llaves o cadenas de conexión.** En producción se recomienda sobrescribir los secretos mediante variables de entorno o un gestor de secretos.
+
+### `ConnectionStrings`
+
+Cada entrada es una cadena de conexión. Los valores siguen el formato propio de MySQL o SQL Server.
+
+| Variable | Uso |
+| --- | --- |
+| `DefaultConnection` | Conexión principal a MySQL/Guardian; la usa `DapperContext` para la información operativa de la API. |
+| `DefaultConnectionSqlServer` | Conexión SQL Server principal para datos de comisiones y sistemas externos. |
+
+Componentes habituales de una cadena: `Server` identifica el servidor, `Database` la base, `User Id` el usuario, `Password` la contraseña y opciones como `TrustServerCertificate`, `SslMode` y `AllowPublicKeyRetrieval` definen la seguridad de transporte.
+
+`appsettings.Development.json` es un archivo de sobreescritura para el ambiente de desarrollo. Conserva los niveles de log, `AllowedHosts` y mantiene la facturación externa deshabilitada; las conexiones se deben suministrar de forma segura mediante secretos o configuración local no versionada. `appsettings.json.example` contiene una plantilla actualizada sin credenciales.
+
+### `Logging`
+
+| Variable | Uso |
+| --- | --- |
+| `Logging:LogLevel:Default` | Nivel mínimo de eventos que registra la aplicación en general (`Information`, `Warning`, `Error`, etc.). |
+| `Logging:LogLevel:Microsoft.AspNetCore` | Nivel mínimo de eventos generados por el framework ASP.NET Core. |
+
+### Configuración general
+
+| Variable | Uso |
+| --- | --- |
+| `AllowedHosts` | Hosts permitidos por ASP.NET Core. `*` permite todos los hosts. |
+| `HabilidacionesParaNoComprimirRed` | Lista de IDs de contacto habilitados para conservar la red sin compresión en los procesos que aplican esa regla. |
+
+### `cambioDolar`
+
+| Variable | Uso |
+| --- | --- |
+| `cambioDolar:idsComplejosProyectos` | IDs de complejos/proyectos cuyos importes se convierten mediante la regla de tipo de cambio. |
+| `cambioDolar:tipoCambio` | Tipo de cambio usado por `CambioDolarService` para esas conversiones. |
+
+### `PagoComision`
+
+| Variable | Uso |
+| --- | --- |
+| `PagoComision:RedistribucionesPorRetencion` | Reglas de reasignación del pago cuando existe retención. |
+| `...:EmpresaOrigenId` | ID de la empresa que origina el importe retenido. |
+| `...:EmpresaAsumeId` | ID de la empresa que asumirá dicho importe. |
+
+Cada objeto de la lista representa una regla independiente; se pueden agregar más sin modificar código.
+
+### `EmpresaCalculoComisiones`
+
+Es una lista de empresas que participan en el cálculo y migración de cuotas/comisiones.
+
+| Variable | Uso |
+| --- | --- |
+| `empresaId` | ID de la empresa en Guardian. |
+| `nombre` | Nombre descriptivo de la empresa. |
+| `dataBase` | Nombre de la conexión configurada que debe usar esa empresa. |
+| `migracionCuota` | Reglas de exclusión aplicables al migrar cuotas. |
+| `migracionCuota:proyectosExcluir` | IDs de proyectos que no deben migrarse para esa empresa. |
+| `migracionCuota:productosExcluir` | Códigos de producto que no deben migrarse para esa empresa. |
+
+### `ControlProceso`
+
+| Variable | Uso |
+| --- | --- |
+| `ControlProceso:PasoValidar` | Nombre del paso que el flujo de control debe validar antes de continuar. Actualmente se configura para el paso de venta personal. |
+
+### `MonteSion`
+
+| Variable | Uso |
+| --- | --- |
+| `MonteSion:ProfundidadMaxima` | Máximo de niveles de red considerados al calcular la producción. |
+| `MonteSion:Rangos` | Lista de configuraciones por nombre de rango. Sirve para identificar incentivos y generar el reporte Bono Monte Sion. |
+| `Rangos:Nombre` | Nombre del rango. Debe coincidir con `administracionnivel` (se normalizan acentos y nombres equivalentes). |
+| `Rangos:ProduccionRequerida` | Producción mínima informativa del rango. El cálculo vigente toma los umbrales reales de `administracionnivel`. |
+| `Rangos:VmePorcentaje` | Porcentaje VME informativo/histórico. El cálculo vigente toma el VME real desde `administracionnivel`. |
+| `Rangos:BonoUsd` | Bono mensual informativo/histórico. El cálculo vigente toma el bono base desde `administracionnivel`. |
+| `Rangos:IncentivoUsd` | Importe numérico en dólares del incentivo de primera calificación. Se usa en el reporte Bono Monte Sion cuando existe ascenso. |
+| `Rangos:Incentivo` | Descripción del incentivo. Si tiene contenido, el cálculo lo trata como incentivo de primera calificación en lugar del bono del rango. |
+
+Para agregar un nuevo incentivo, incorporar un objeto con `Nombre`, `IncentivoUsd` e `Incentivo`. El rango debe existir también en `administracionnivel`.
+
+### `Aplicaciones`
+
+| Variable | Uso |
+| --- | --- |
+| `Aplicaciones:MontoMinimoParaPagoACuenta` | Importe mínimo permitido para ejecutar pagos a cuenta. |
+| `Aplicaciones:LimiteErroresFacturacion` | Máximo de errores de facturación tolerados antes de detener o marcar el proceso. |
+| `Aplicaciones:HabilitarPasarelaFacturacion` | Define si se genera factura mediante la pasarela externa. Su valor predeterminado es `false`; en ese estado se registran los pagos sin facturar. Cambiarlo a `true` solo en el ambiente autorizado. |
+| `Aplicaciones:RequerirCoincidenciaCantidadComisionados` | Exige que la cantidad de comisionados coincida con la esperada antes de procesar. |
+| `Aplicaciones:TiempoEsperaComandoSegundos` | Tiempo máximo, en segundos, de comandos/consultas de Aplicaciones. |
+| `Aplicaciones:TiempoEsperaPagoSegundos` | Tiempo máximo, en segundos, de la operación de pago. |
+| `Aplicaciones:PagosBolivianos:Habilitado` | Activa la conversión y procesamiento de pagos en bolivianos para las empresas listadas. |
+| `Aplicaciones:PagosBolivianos:TipoCambio` | Tipo de cambio USD a Bs usado para esos pagos. |
+| `Aplicaciones:PagosBolivianos:Empresas` | IDs de empresa a los que aplica la regla de pagos en bolivianos. |
+| `Aplicaciones:Facturacion:PuntoFinal` | URL del servicio externo de facturación. |
+| `Aplicaciones:Facturacion:AccionSoap` | Acción SOAP enviada al servicio de facturación. |
+| `Aplicaciones:Facturacion:Usuario` | Usuario técnico del servicio de facturación. **Secreto.** |
+| `Aplicaciones:Facturacion:Contrasena` | Contraseña del usuario técnico. **Secreto.** |
+| `Aplicaciones:Facturacion:CodigoAgente` | Código de agente requerido por el servicio externo. |
+| `Aplicaciones:Facturacion:LlaveConexion` | Llave de conexión del servicio externo. **Secreto.** |
+| `Aplicaciones:Facturacion:TiempoEsperaSegundos` | Tiempo máximo, en segundos, de la llamada HTTP de facturación. |
+
+> Al cambiar parámetros de `appsettings.json`, reiniciar la API para que se recargue la configuración. Verificar primero el cambio en el ambiente de pruebas y nunca incluir secretos reales en el README.
+
 ## Alcance
 Este README fue generado revisando el código de `src/Api/Controllers`, `src/Infrastructure/Repositories`, `src/Api/Program.cs` y las consultas dinámicas de `Query.Cnx` y `Query.Grd`.
 
@@ -114,7 +219,7 @@ Patrón: consulta y mantenimiento de contratos.
 
 | Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GetAll` | `GET /api/AdministracionContrato` | Headers `page`, `pageSize`, `search?` | Sin validaciones visibles | `IAdministracionContratoRepository.GetAllAdministracionContrato` | `administracioncontrato`, `administracioncontacto`, `administracioncomplejo`, `administraciontipocontrato`, `administracionestadocontrato` | Lista paginada y total |
+| `GetAll` | `GET /api/AdministracionContrato` | Headers `page`, `pageSize`, `search?`, `fechaInicio`, `fechaFin` | Valida fechas obligatorias y rango; filtra inclusivamente por `administracioncontrato.dtfecha` | `IAdministracionContratoRepository.GetAllAdministracionContrato`, `GetReporteAdministracionContrato` | `administracioncontrato`, `administracioncontacto`, `administracioncomplejo`, `administraciontipocontrato`, `administracionestadocontrato` | Lista paginada, total y reportes PDF/XLS en Base64 |
 | `InsertContrato` | `POST /api/AdministracionContrato/insert` | Body `AdministracionContrato` | Sin validaciones en controller; el repo genera correlativo | `IAdministracionContratoRepository.InsertContrato` | `administracioncontrato` | Confirmación |
 | `UpdateContrato` | `PUT /api/AdministracionContrato/update` | Body `AdministracionContrato` | Sin validaciones en controller | `IAdministracionContratoRepository.UpdateContrato` | `administracioncontrato` | Confirmación |
 
@@ -650,7 +755,7 @@ Patrón: orquestación del proceso legado de aplicaciones en una carpeta aislada
 
 | Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `VistaPrevia` | `GET /api/aplicaciones/vista-previa` | Header `lCicloId` | Ejecuta el flujo en memoria; no limpia tablas, no inserta en `AplicacionesComisionado` y no marca procesados | `IAplicacionesRepositorio.VistaPrevia` | Reutiliza fuentes de Guardian, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, comisionados y operaciones planificadas |
+| `VistaPrevia` | `GET /api/aplicaciones/vista-previa` | Header `lCicloId` | Ejecuta `RetencionEmpresa()`, valida la carga de `tbl_retencionempresa` y `tbl_retencionempresa_exterior`, carga `AplicacionesComisionPorEmpresa` si no existe para el ciclo y simula el resto del flujo; no inserta en `AplicacionesComisionado` ni marca procesados | `IAplicacionesRepositorio.VistaPrevia` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesPagos`, cartera CNX y catálogos de aplicaciones | Resumen del ciclo, conteo de retenciones, comisionados y operaciones planificadas |
 | `Aplicar` | `POST /api/aplicaciones/aplicar` | Body `SolicitudEjecucionAplicaciones` con `lCicloId` | Valida conexiones, limpia tablas del ciclo en `grdsion` y `BDQISHUR`, recarga datos base, sincroniza comisiones, procesa cada comisionado y marca procesados | `IAplicacionesRepositorio.Aplicar` | `tbl_retencionempresa`, `tbl_retencionempresa_exterior`, `AplicacionesComisionPorEmpresa`, `AplicacionesComisionado`, `AplicacionesPagos`, `AplicacionesProrrateo` y tablas CNX/Guardian del flujo | Estado final del proceso, comisionados procesados, errores y operaciones ejecutadas |
 
 ### Método: Aplicar
@@ -791,13 +896,13 @@ Patrón: generación de red comprimida y red completa temporal para bonos de gru
 
 | Método | PuntoFinal | Parámetros | Validaciones / internos | Invoca | Tablas / vistas | Respuesta esperada |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GetDatos` | `GET /api/Redes/armar/red/comprimida/mes` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Valida paso `RED_COMPRIMIDA`; mezcla vendedores activos con habilitados y sube hasta 7 patrocinadores activos | `GetSiguientePaso`, `IniciarPaso`, `GetHabilitaciones`, `GetObetenerContactoVentasMes`, `GetRedCotactoAll`, `GuardarRedComprimida`, `FinalizarPaso`, `CancelarPaso` | `administracioncontrato`, `administracioncontacto`, `administracionhabilitacioncomision`, `red_comprimida`, `tmp_residual_contacto` | Red comprimida generada y resumen |
+| `GetDatos` | `GET /api/Redes/armar/red/comprimida/mes` | Headers `Usuario`, `LCicloId`, `Inicio`, `Fin` | Valida paso `RED_COMPRIMIDA`; mezcla vendedores activos, habilitados y contactos configurados en `HabilidacionesParaNoComprimirRed`; sube hasta 7 patrocinadores activos | `GetSiguientePaso`, `IniciarPaso`, `GetHabilitaciones`, `GetObetenerContactoVentasMes`, `GetRedCotactoAll`, `GuardarRedComprimida`, `FinalizarPaso`, `CancelarPaso` | `administracioncontrato`, `administracioncontacto`, `administracionhabilitacioncomision`, `red_comprimida`, `tmp_residual_contacto` | Red comprimida generada y resumen |
 | `GetClientesCuotas` | `GET /api/Redes/armar/red/cuotas` | Headers `Usuario`, `LCicloId` | Valida paso `RED_COMPLETA`; arma jerarquía de 7 niveles para todos los contactos y la deja en tabla temporal | `GetSiguientePaso`, `IniciarPaso`, `GetRedCotactoAll`, `GuardarRedContactoTemporal`, `FinalizarPaso`, `CancelarPaso` | `administracioncontacto`, `tmp_residual_contacto`, `tmp_residual_red` | Cantidad de clientes procesados |
 
 ### Método: GetDatos
 
 - PuntoFinal: `GET /api/Redes/armar/red/comprimida/mes`
-- Descripción: genera la red comprimida del ciclo tomando vendedores con ventas del mes y asesores habilitados.
+- Descripción: genera la red comprimida del ciclo tomando vendedores con ventas del mes, asesores habilitados y los `lContactoId` definidos en el arreglo `HabilidacionesParaNoComprimirRed` de `appsettings.json`.
 - Parámetros:
   - Headers `Usuario`, `LCicloId`, `Inicio`, `Fin`
 - Validaciones principales:

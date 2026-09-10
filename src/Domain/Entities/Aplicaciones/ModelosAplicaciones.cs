@@ -5,6 +5,15 @@ public class SolicitudEjecucionAplicaciones
     public int LCicloId { get; set; }
 }
 
+public class AplicacionComisionadoDetalle
+{
+    public string Codigo { get; set; } = string.Empty;
+    public string Carnet { get; set; } = string.Empty;
+    public string Nombre { get; set; } = string.Empty;
+    public decimal TotalAplicar { get; set; }
+    public string Observacion { get; set; } = string.Empty;
+}
+
 public class RespuestaVistaPreviaAplicaciones
 {
     public int LCicloId { get; set; }
@@ -47,7 +56,11 @@ public class OperacionAplicacion
     public int? EmpresaId { get; set; }
     public int? VentaId { get; set; }
     public string ProductoId { get; set; } = string.Empty;
+    // Monto es siempre el saldo consumido de la comisión, expresado en USD.
     public decimal Monto { get; set; }
+    public decimal MontoEjecutado { get; set; }
+    public string MonedaPago { get; set; } = "USD";
+    public decimal? TipoCambio { get; set; }
     public string Observacion { get; set; } = string.Empty;
     public int? ReciboId { get; set; }
     public int? FacturaId { get; set; }

@@ -6,7 +6,7 @@ public class PagarComisionxls
  
 
     public async Task<(bool success, string base64)> GetPagarComisionXls(
-    List<RptPagarComision> listado, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa)
+    List<RptPagarComision> listado, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa, List<RedistribucionPagoComision> redistribucionesPorRetencion)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
@@ -31,46 +31,35 @@ public class PagarComisionxls
             {
                 g.Key.LContactoId,
                 g.Key.EmpresaId,
-                Prorrateo = g.Sum(x => x.Prorrateo)
+                Prorrateo = g.Sum(x => x.Prorrateo),
+                Retencion = g.Sum(x => x.Retencion)
             })
             .ToList();
-
-        var retencionPorContacto = prorrateo
-            .GroupBy(x => x.LContactoId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Sum(x => x.Retencion)
-            );
 
         var prorrateoLookup = new Dictionary<(int LContactoId, int EmpresaId), decimal>();
 
         foreach (var contacto in grupos.GroupBy(x => x.LContactoId))
         {
             var lContactoId = contacto.Key;
-            var retencionTotal = retencionPorContacto.GetValueOrDefault(lContactoId);
-
-            var empresa21 = contacto.FirstOrDefault(x => x.EmpresaId == 21);
-            var empresa2  = contacto.FirstOrDefault(x => x.EmpresaId == 2);
-
             foreach (var item in contacto)
             {
                 prorrateoLookup[(item.LContactoId, item.EmpresaId)] = item.Prorrateo;
             }
 
-            if (retencionTotal > 0 && empresa21 != null)
+            foreach (var regla in redistribucionesPorRetencion)
             {
-                var montoEmpresa21 = empresa21.Prorrateo;
-
-                prorrateoLookup[(lContactoId, 21)] = 0m;
-
-                if (empresa2 != null)
+                if (regla.EmpresaOrigenId <= 0 || regla.EmpresaAsumeId <= 0)
+                    continue;
+                var empresaOrigen = contacto.FirstOrDefault(item => item.EmpresaId == regla.EmpresaOrigenId);
+                var retencionOrigen = contacto
+                    .Where(item => item.EmpresaId == regla.EmpresaOrigenId)
+                    .Sum(item => item.Retencion);
+                if (retencionOrigen > 0 && empresaOrigen != null)
                 {
-                    prorrateoLookup[(lContactoId, 2)] =
-                        prorrateoLookup[(lContactoId, 2)] + montoEmpresa21;
-                }
-                else
-                {
-                    prorrateoLookup[(lContactoId, 2)] = montoEmpresa21;
+                    var montoOrigen = prorrateoLookup.GetValueOrDefault((lContactoId, regla.EmpresaOrigenId));
+                    prorrateoLookup[(lContactoId, regla.EmpresaOrigenId)] = 0m;
+                    prorrateoLookup[(lContactoId, regla.EmpresaAsumeId)] =
+                        prorrateoLookup.GetValueOrDefault((lContactoId, regla.EmpresaAsumeId)) + montoOrigen;
                 }
             }
         }
@@ -81,7 +70,8 @@ public class PagarComisionxls
         foreach (var item in listado)
         {
             EscribirFilaDetalle(worksheet, currentRow, item);
-            int rowAux = 8;
+            worksheet.Cell(currentRow, 8).Value = item.ComisionDespuesRetencion;
+            int rowAux = 9;
             decimal montoTotal = 0;
             foreach (var itemH in headerEmpresa)
             {
@@ -96,6 +86,8 @@ public class PagarComisionxls
                 }
                 rowAux +=1;
             }
+            worksheet.Cell(currentRow, rowAux).Value = item.TotalDescuento;
+            rowAux += 1;
             worksheet.Cell(currentRow, rowAux).Value = montoTotal;
             currentRow++;
         }
@@ -120,7 +112,11 @@ public class PagarComisionxls
         ws.Column(6).Width = 35;
         ws.Column(7).Width = 14;
 
-        int rowAux = 8;
+        ws.Column(8).Width = 16;
+        ws.Column(8).Style.NumberFormat.Format = "#,##0.00";
+        ws.Column(8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+        int rowAux = 9;
         foreach (var item in headerEmpresa)
         {
             ws.Column(rowAux).Width = 16;
@@ -131,17 +127,22 @@ public class PagarComisionxls
         ws.Column(rowAux).Width = 16;
         ws.Column(rowAux).Style.NumberFormat.Format = "#,##0.00";
         ws.Column(rowAux).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        rowAux += 1;
+        ws.Column(rowAux).Width = 16;
+        ws.Column(rowAux).Style.NumberFormat.Format = "#,##0.00";
+        ws.Column(rowAux).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
         
     }
     private static void CrearEncabezados(IXLWorksheet ws, int row, List<EmpresaHeaderPagarComision> headerEmpresa)
     {
-        int rowAux = 8;
+        int rowAux = 9;
         ws.Cell(row, 2).Value = "TIPO CTA";
         ws.Cell(row, 3).Value = "COD. BANCO";
         ws.Cell(row, 4).Value = "CTA. BANCO";
         ws.Cell(row, 5).Value = "CIUDAD";
         ws.Cell(row, 6).Value = "ASESOR";
         ws.Cell(row, 7).Value = "CI";
+        ws.Cell(row, 8).Value = "COMISIÓN INICIAL";
         foreach (var item in headerEmpresa)
         {
             string nombre = item.SEmpresa;
@@ -152,6 +153,8 @@ public class PagarComisionxls
             rowAux += 1;
         }
 
+        ws.Cell(row, rowAux).Value = "TOTAL DESCUENTO";
+        rowAux += 1;
         ws.Cell(row, rowAux).Value = "TOTAL A PAGAR";
 
         var range = ws.Range(row, 2, row, rowAux);
@@ -179,22 +182,25 @@ public class PagarComisionxls
             item.Descuento -
             item.Retencion;*/
     }
-    private static void EscribirTotalizador(IXLWorksheet ws, int row, List<RptPagarComision> listado, List<EmpresaHeaderPagarComision> headerEmpresa, Dictionary<(int LContactoId, int EmpresaId), decimal> prorrateoLookup)
+    private static void EscribirTotalizador(
+        IXLWorksheet ws,
+        int row,
+        List<RptPagarComision> listado,
+        List<EmpresaHeaderPagarComision> headerEmpresa,
+        Dictionary<(int LContactoId, int EmpresaId), decimal> prorrateoLookup)
     {
-        decimal total =
-            listado.Sum(x => x.Personal)
-            + listado.Sum(x => x.BonoPar)
-            + listado.Sum(x => x.Grupo)
-            + listado.Sum(x => x.Residual)
-            - listado.Sum(x => x.Descuento)
-            - listado.Sum(x => x.Retencion);
+        decimal totalComisionDespuesRetencion = listado.Sum(x => x.ComisionDespuesRetencion);
 
         ws.Cell(row, 2).Value = "TOTAL";
         ws.Range(row, 2, row, 7).Merge();
         ws.Cell(row, 2).Style.Font.Bold = true;
         ws.Cell(row, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-        int rowAux = 8;
+        ws.Cell(row, 8).Value = totalComisionDespuesRetencion;
+        ws.Cell(row, 8).Style.Font.Bold = true;
+        ws.Cell(row, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+        int rowAux = 9;
         decimal totalGeneral = 0;
 
         
@@ -218,11 +224,16 @@ public class PagarComisionxls
             rowAux +=1;
         }
 
+        ws.Cell(row, rowAux).Value = listado.Sum(item => item.TotalDescuento);
+        ws.Cell(row, rowAux).Style.Font.Bold = true;
+        ws.Cell(row, rowAux).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        rowAux += 1;
+
         ws.Cell(row, rowAux).Value = totalGeneral;
         ws.Cell(row, rowAux).Style.Font.Bold = true;
         ws.Cell(row, rowAux).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-        var range = ws.Range(row, 2, row, (8 + headerEmpresa.Count));
+        var range = ws.Range(row, 2, row, (10 + headerEmpresa.Count));
         range.Style.Fill.BackgroundColor = XLColor.LightGray;
         range.Style.Border.TopBorder = XLBorderStyleValues.Thin;
         range.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
@@ -231,7 +242,7 @@ public class PagarComisionxls
     }
     private static void AplicarBordes(IXLWorksheet ws, int headerRow, int totalRow, List<EmpresaHeaderPagarComision> headerEmpresa)
     {
-        var detailRange = ws.Range(headerRow, 2, totalRow - 1, (8 + headerEmpresa.Count));
+        var detailRange = ws.Range(headerRow, 2, totalRow - 1, (10 + headerEmpresa.Count));
         detailRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
         detailRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }

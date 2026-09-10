@@ -13,7 +13,8 @@ public class MiCronJob : IJob
     private readonly IProcesoComisionesRepository _procesoComisionesRepository;
     private readonly IAdministracionComplejoRepository _administracionComplejoRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
-    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionComplejoRepository administracionComplejoRepository, IControlProcesoRepository controlProcesoRepository)
+    private readonly IAdministracionCicloRepository _administracionCicloRepository;
+    public MiCronJob(ILogger<MiCronJob> logger, IVentasCnxRepository ventasCnxRepository, IAdministracionContactoRepository administracionContactoRepository, IAdministracionContratoRepository administracionContratoRepository, IProcesoComisionesRepository procesoComisionesRepository, IAdministracionComplejoRepository administracionComplejoRepository, IControlProcesoRepository controlProcesoRepository, IAdministracionCicloRepository administracionCicloRepository)
     {
         _logger = logger;
         _ventasCnxRepository = ventasCnxRepository;
@@ -22,6 +23,7 @@ public class MiCronJob : IJob
         _procesoComisionesRepository = procesoComisionesRepository;
         _administracionComplejoRepository = administracionComplejoRepository;
         _controlProcesoRepository = controlProcesoRepository;
+        _administracionCicloRepository = administracionCicloRepository;
     }
     private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante, string Usuario)
     {
@@ -274,9 +276,11 @@ public class MiCronJob : IJob
         return true;
     }
 
-    //string tipo = "JOB", string inicio = "", string fin ="", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0
+    //string tipo = "JOB", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0
     public async Task<bool> ProcesoPrincipal(string LogTransaccionId, RequestProcesoPrincipal Request,  List<ItemVentaCnx>? Lista = null){
         bool pasoIniciado = false;
+        string inicio = string.Empty;
+        string fin = string.Empty;
 
         var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx(LogTransaccionId);
         List<HomologacionComplejoGrdCnx> ListaComplejo = responseHomologacion.Data;
@@ -287,10 +291,10 @@ public class MiCronJob : IJob
             if (responseProceso.Data == null)
                 return true;
             
-            Request.Inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
-            Request.Fin  = responseProceso.Data.Fin.ToString("yyyyMMdd");
+            inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
+            fin  = responseProceso.Data.Fin.ToString("yyyyMMdd");
 
-            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, Request.Inicio, Request.Fin);
+            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin);
             Lista = vtaCnx.Data.ToList();
 
             var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(
@@ -308,6 +312,22 @@ public class MiCronJob : IJob
         }
         else
         {
+            var responseCiclo = await _administracionCicloRepository.GetCiclo(LogTransaccionId, Request.LCicloId);
+            if (!responseCiclo.Success || responseCiclo.Data.LCicloId <= 0)
+            {
+                _logger.LogWarning("ProcesoPrincipal cancelado porque no se encontro el ciclo. LCicloId: {LCicloId}", Request.LCicloId);
+                return false;
+            }
+
+            inicio = responseCiclo.Data.DtFechaInicio ?? string.Empty;
+            fin = responseCiclo.Data.DtFechaFin ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
+            {
+                _logger.LogWarning("ProcesoPrincipal cancelado porque el ciclo no tiene fechas configuradas. LCicloId: {LCicloId}", Request.LCicloId);
+                return false;
+            }
+
             pasoIniciado = true;
         }
 
@@ -315,7 +335,7 @@ public class MiCronJob : IJob
 
         try
         {
-            procesado = await ProcesarVentas(LogTransaccionId, Request.Usuario, Lista, ListaComplejo, Request.Inicio, Request.Fin, Request.Rezagada, Request.LCicloId);
+            procesado = await ProcesarVentas(LogTransaccionId, Request.Usuario, Lista, ListaComplejo, inicio, fin, Request.Rezagada, Request.LCicloId);
 
             if (!procesado)
             {

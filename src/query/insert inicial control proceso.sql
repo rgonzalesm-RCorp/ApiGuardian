@@ -27,31 +27,33 @@ VALUES ('COMISIONES', 'Proceso de cálculo de comisiones');
 INSERT INTO conf_pasos (proceso_id, nombre, orden, es_obligatorio)
 SELECT p.id, 'OBTENER VENTAS', 1, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'ADICIONAR VENTAS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'CASOS OBSERVADOS', 2, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'VENTAS ESPECIALES', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'ADICIONAR VENTAS', 3, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION DIRECTA', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'VENTAS ESPECIALES', 4, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'REGISTRO_HABILITACIONES', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION DIRECTA', 5, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'RED COMPRIMIDA', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'REGISTRO_HABILITACIONES', 6, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'RED COMPLETA', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'RED COMPRIMIDA', 7, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION GRUPO', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'RED COMPLETA', 8, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CARTERA', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION GRUPO', 9, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER CUOTAS', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CARTERA', 10, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'OBTENER EXCEDENTE', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER CUOTAS', 11, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION RESIDUAL', 12, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'OBTENER EXCEDENTE', 12, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'COMISION VENTA RESIDUAL', 13, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+SELECT p.id, 'COMISION RESIDUAL', 13, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
 UNION ALL
-SELECT p.id, 'BONO PAR', 14, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
+SELECT p.id, 'COMISION VENTA RESIDUAL', 14, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1
+UNION ALL
+SELECT p.id, 'BONO PAR', 15, 1 FROM conf_procesos p WHERE p.nombre = 'COMISIONES' AND p.estado = 1;
 
 -- ============================================
 -- 3. DEPENDENCIAS DINÁMICAS (por nombre)
@@ -60,7 +62,13 @@ INSERT INTO conf_paso_dependencias (paso_id, paso_requerido_id)
 SELECT p2.id, p1.id
 FROM conf_pasos p1
 JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
-WHERE p1.nombre = 'OBTENER VENTAS' AND p2.nombre = 'ADICIONAR VENTAS'
+WHERE p1.nombre = 'OBTENER VENTAS' AND p2.nombre = 'CASOS OBSERVADOS'
+
+UNION ALL
+SELECT p2.id, p1.id
+FROM conf_pasos p1
+JOIN conf_pasos p2 ON p2.proceso_id = p1.proceso_id
+WHERE p1.nombre = 'CASOS OBSERVADOS' AND p2.nombre = 'ADICIONAR VENTAS'
 
 UNION ALL
 SELECT p2.id, p1.id

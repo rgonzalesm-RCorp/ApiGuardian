@@ -2,155 +2,34 @@ using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using Reportes.Estilos;
 
-namespace ApiGuardian.Infrastructure.Services.Pdf
+namespace ApiGuardian.Infrastructure.Services.Pdf;
+
+public class ReporteAscensoRango(List<ItemAscensoRango> data) : IDocument
 {
-    public class ReporteAscensoRango : IDocument
+    private readonly List<ItemAscensoRango> _data = data;
+    public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
+
+    public void Compose(IDocumentContainer container) => container.Page(page =>
     {
-        private readonly List<ItemAscensoRango> _data;
- 
-
-        public ReporteAscensoRango(List<ItemAscensoRango> data)
+        page.Size(PageSizes.A3.Landscape()); page.Margin(12);
+        page.Header().Text($"LISTADO DE NUEVOS ASCENSOS - MONTE SION {_data[0].Mes?.ToUpper()}").Bold().FontSize(10).FontColor(Colors.Red.Medium).AlignCenter();
+        page.Content().PaddingTop(8).Table(tabla =>
         {
-            _data = data;
-        }
-        public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
-
-        public void Compose(IDocumentContainer container)
-        {
-            container.Page(page =>
+            tabla.ColumnsDefinition(c => { c.ConstantColumn(18); c.RelativeColumn(1); c.RelativeColumn(3.5f); c.RelativeColumn(1); c.RelativeColumn(1.2f); c.RelativeColumn(1.4f); c.RelativeColumn(1); c.RelativeColumn(1.8f); c.RelativeColumn(2.6f); c.RelativeColumn(3.5f); });
+            var encabezados = new[] { "#", "MES", "FREELANCE", "CEDULA DE IDENTIDAD", "CELULAR", "CIUDAD DE RESIDENCIA", "PAIS", "NIVEL ALCANZADO", "ADICIONAL", "RANGOS TOTALES ASCENDIDOS" };
+            tabla.Header(header => { for (var i = 0; i < encabezados.Length; i++) header.Cell().Element(c => Encabezado(c, i == 7)).Text(encabezados[i]).FontSize(5).AlignCenter(); });
+            foreach (var item in _data)
             {
-                page.Size(PageSizes.A4.Landscape()); 
-                page.Margin(20);
+                Celda(tabla, item.Nro.ToString(), true); Celda(tabla, item.Mes, true); Celda(tabla, item.Nombre); Celda(tabla, item.CI); Celda(tabla, item.Telefono); Celda(tabla, item.Ciudad); Celda(tabla, item.Pais, true); Celda(tabla, item.NivelAlcanzado, true); Celda(tabla, item.Adicional, true); Celda(tabla, item.RangosTotalesAscendidos, true);
+            }
+        });
+    });
 
-                //page.Header().Element(ComposeHeader);
-                page.Header().Row(row =>
-                {
-                    // Encabezado principal (izquierda)
-                    row.RelativeItem().Element(ComposeHeader);
-
-                    // Paginador (derecha)
-                    row.ConstantItem(120).AlignRight().Text(text =>
-                    {
-                        text.Span("Página ").FontSize(7);
-                        text.CurrentPageNumber().FontSize(7);
-                        text.Span(" / ").FontSize(7);
-                        text.TotalPages().FontSize(7);
-                    });
-                });
-                page.Content().Element(ComposeContent);
-            });
-        }
-
-        // HEADER
-        private void ComposeHeader(IContainer container)
-        {
-            container.Row(row =>
-            {
-                row.RelativeItem().Column(column =>
-                {
-                    
-                    column.Item().Text("REPORTE ASCENSO DE RANGO")
-                        .FontSize(9).Bold().FontColor(Colors.Blue.Medium)
-                        .AlignCenter();
-                    column.Item().Text("");
-                    column.Item().Text(_data[0].Mes.ToUpper()).AlignCenter().FontSize(7);
-                });
-            });
-        }
-
-        // CONTENT
-        private void ComposeContent(IContainer container)
-        {
-            container.PaddingVertical(10).Column(column =>
-            {
-                column.Spacing(15);
-
-                column.Item().Element(ComposeDetalleFacturacion);
-            });
-        }
-
-        // SECCIÓN: DETALLE APLICACIONES
-        private void ComposeDetalleFacturacion(IContainer container)
-        {
-            container.Column(column =>
-            {
-
-                column.Item().Element(c =>
-                {
-                    c.Table(table =>
-                    {
-                        table.ColumnsDefinition(columns =>
-                        {
-                            columns.RelativeColumn(0.5f);
-                            columns.RelativeColumn(1.5f);
-                            columns.RelativeColumn(4F);
-                            columns.RelativeColumn(1.5F);
-                            columns.RelativeColumn(1.5f);
-                            columns.RelativeColumn(1.5f);
-                            columns.RelativeColumn(1.5f);
-                            columns.RelativeColumn(1f);
-                            columns.RelativeColumn(2f);
-                            columns.RelativeColumn(1f);
-                            columns.RelativeColumn(2f);
-                            columns.RelativeColumn(1f);
-                            columns.RelativeColumn(1f);
-                        });
-
-                        // Encabezado
-                        table.Header(header =>
-                        {
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("#").FontSize(5).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MES").FontSize(5).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("ASESOR").FontSize(5).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("CI").FontSize(5).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TELEFONO").FontSize(5).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("CIUDAD").FontSize(5).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("PAIS").FontSize(5).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("PTOS. DEL CICLO").FontSize(5).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("NIVEL ALCANZADO").FontSize(5).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("INCENTIVO $").FontSize(5).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("INCENTIVO ESPECIE").FontSize(5).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("VALOR ESPECIE").FontSize(5).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("ALCANZO VME").FontSize(5).AlignCenter();
-                        });
-
-                        // Filas
-                        foreach (var v in _data)
-                        {
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Nro.ToString()).FontSize(5).AlignCenter();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Mes.ToUpper()).FontSize(5).AlignCenter();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Nombre).FontSize(5).AlignLeft();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.CI).FontSize(5).AlignLeft();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Telefono).FontSize(5).AlignLeft();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Ciudad).FontSize(5).AlignLeft();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Pais).FontSize(5).AlignLeft();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.PuntosAlcanzado.ToString("N2")).FontSize(5).AlignRight();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.NivelAlcanzado).FontSize(4).AlignCenter();
-
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.IncentivoDolares.ToString("N2")).FontSize(5).AlignRight();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.Incentivo).FontSize(4).AlignLeft();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text(v.ValorEspecie.ToString("N2")).FontSize(5).AlignRight();
-                            table.Cell().Element(EstiloReporte.BodyCellStyle).Text("").FontSize(5).AlignCenter();
-                        }
-                        table.Footer(footer =>
-                        {
-                            decimal totalIncentivoDolares = _data?.Sum(x => x.IncentivoDolares) ?? 0;
-                            decimal totalValorEspecie = _data?.Sum(x => x.ValorEspecie) ?? 0;
-
-                            // ===== TOTAL GENERAL
-                            table.Cell().ColumnSpan(9).Element(EstiloReporte.HeaderCellStyle).Text("TOTAL:").FontSize(5).AlignRight().Bold();
-                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalIncentivoDolares.ToString("N2")).FontSize(5).AlignRight().Bold();
-                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(5).AlignRight().Bold();
-                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text(totalValorEspecie.ToString("N2")).FontSize(5).AlignRight().Bold();
-                            table.Cell().Element(EstiloReporte.HeaderCellStyle).Text("").FontSize(5).AlignRight().Bold();
-                             
-                        });
-                        
-                    });
-                });
-            });
-        }
+    private static IContainer Encabezado(IContainer c, bool amarillo) => c.Background(amarillo ? Colors.Yellow.Medium : Colors.Green.Medium).Border(.5f).BorderColor(Colors.Black).Padding(2).DefaultTextStyle(x => x.FontColor(amarillo ? Colors.Black : Colors.White).Bold());
+    private static void Celda(TableDescriptor tabla, string? valor, bool centro = false)
+    {
+        var cell = tabla.Cell().Border(.5f).BorderColor(Colors.Black).Padding(2);
+        if (centro) cell.AlignCenter().Text(valor ?? string.Empty).FontSize(5); else cell.Text(valor ?? string.Empty).FontSize(5);
     }
 }

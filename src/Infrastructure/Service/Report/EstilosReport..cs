@@ -23,5 +23,14 @@ namespace Reportes.Estilos
                 .PaddingHorizontal(3)
                 .BorderColor(Colors.Grey.Lighten3);
         }
+
+        public static IContainer PagarComisionBodyCellStyle(IContainer container)
+        {
+            return container
+                .DefaultTextStyle(x => x.FontSize(5))
+                .PaddingVertical(1)
+                .PaddingHorizontal(3)
+                .BorderColor(Colors.Grey.Lighten3);
+        }
     }
 }
