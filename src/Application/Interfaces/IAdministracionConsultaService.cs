@@ -59,6 +59,7 @@ public interface IAdministracionDescuentoCicloTipoService
 public interface IAdministracionDescuentoComisionService
 {
     Task<(bool Success, string Mensaje, object Data)> ObtenerAsync(int contactoId, int cicloId, int semanaId, string id);
+    Task<(bool Success, string Mensaje, object Data)> ObtenerProrrateosAsync(int contactoId, int cicloId, string id);
     Task<(bool Success, string Mensaje)> EliminarAsync(int descuentoDetalleId, int contactoId, int cicloId, string? usuario, string id);
     Task<(bool Success, string Mensaje)> InsertarAsync(DataDescuento data, string id);
 }
