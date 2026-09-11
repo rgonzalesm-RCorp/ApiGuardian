@@ -71,4 +71,10 @@ public sealed class AdministracionDescuentoComisionService : IAdministracionDesc
             return (false, ex.Message);
         }
     }
+
+    public async Task<(bool Success, string Mensaje, object Data)> ObtenerProrrateosAsync(int contactoId, int cicloId, string id)
+    {
+        var r = await _repository.GetProrrateosDisponibles(id, cicloId, contactoId);
+        return (r.Success, r.Mensaje, r.Data);
+    }
 }

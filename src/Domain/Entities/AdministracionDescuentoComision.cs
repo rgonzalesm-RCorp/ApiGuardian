@@ -45,5 +45,20 @@ public class DataDescuento
     public decimal Monto { get; set; }
     public string? Descripcion { get; set; }
     public string? Usuario { get; set; }
+    public List<DescuentoProrrateo> Prorrateos { get; set; } = new();
 
+}
+
+public class DescuentoProrrateo
+{
+    public int LProrrateoId { get; set; }
+    public decimal Monto { get; set; }
+}
+
+public class ProrrateoDisponibleDescuento
+{
+    public int LProrrateoId { get; set; }
+    public int LEmpresaId { get; set; }
+    public string? SEmpresa { get; set; }
+    public decimal MontoDisponible { get; set; }
 }

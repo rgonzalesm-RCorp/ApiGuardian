@@ -22,6 +22,15 @@ public class AdministracionDescuentoComisionController : ControllerBase
         return Ok(new { status = r.Success, mensaje = r.Mensaje, data = r.Data });
     }
 
+    [HttpGet("prorrateos")]
+    public async Task<IActionResult> GetProrrateosDisponibles(
+        [FromHeader(Name = "lContactoId")] int lContactoId,
+        [FromHeader(Name = "lCicloId")] int lCicloId)
+    {
+        var r = await _service.ObtenerProrrateosAsync(lContactoId, lCicloId, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
+        return Ok(new { status = r.Success, mensaje = r.Mensaje, data = r.Data });
+    }
+
     [HttpDelete("delete")]
     public async Task<IActionResult> EliminarDescuento(
         [FromHeader(Name = "lDescuentoDetalleId")] int lDescuentoDetalleId,

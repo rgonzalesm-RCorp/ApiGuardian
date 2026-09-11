@@ -161,6 +161,41 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
             return (Enumerable.Empty<ListaAdministracionDescuentoCiclo>(), false, $"Error al obtener detalles de descuento: {ex.Message}");
         }
     }
+
+    public async Task<(IEnumerable<ProrrateoDisponibleDescuento> Data, bool Success, string Mensaje)> GetProrrateosDisponibles(string LogTransaccionId, int LCicloId, int LContactoId)
+    {
+        const string query = @"
+            SELECT
+                ACPR.lprorrateo_id AS LProrrateoId,
+                CASE
+                    WHEN ACPR.lempresa_id_temp = 20 THEN 21
+                    WHEN ACPR.lempresa_id_temp = 13 THEN 14
+                    ELSE ACPR.lempresa_id_temp
+                END AS LEmpresaId,
+                UPPER(AE.snombre) AS SEmpresa,
+                ACPR.dmonto AS MontoDisponible
+            FROM administracioncomisionprorrateo ACPR
+            LEFT JOIN administracionempresa AE ON AE.lempresa_id = CASE
+                WHEN ACPR.lempresa_id_temp = 20 THEN 21
+                WHEN ACPR.lempresa_id_temp = 13 THEN 14
+                ELSE ACPR.lempresa_id_temp
+            END
+            WHERE ACPR.lciclo_id = @LCicloId
+              AND ACPR.lcontacto_id = @LContactoId
+              AND ACPR.dmonto > 0
+            ORDER BY AE.snombre, ACPR.lprorrateo_id;";
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var data = await connection.QueryAsync<ProrrateoDisponibleDescuento>(query, new { LCicloId, LContactoId });
+            return (data, true, data.Any() ? "Prorrateos disponibles obtenidos correctamente." : "El asesor no tiene prorrateos disponibles.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nameof(GetProrrateosDisponibles), "Error al obtener prorrateos.", ex);
+            return (Enumerable.Empty<ProrrateoDisponibleDescuento>(), false, ex.Message);
+        }
+    }
     public async Task<(bool Success, string Mensaje)> EliminarDescuento(string LogTransaccionId, int LDescuentoDetalleId, int LContactoId, int LCicloId, string? Usuario)
     {
         string nombreMetodo = "EliminarDescuento()";
@@ -196,9 +231,51 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
         try
         {
             using var connection = _context.CreateConnection();
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
 
-            var rows = await connection.ExecuteAsync(queryDelete, new { LDescuentoDetalleId });
-            var rowsUpdate = await connection.ExecuteAsync(queryUpdate, new { LContactoId, LCicloId });
+            const string queryAsignaciones = @"
+                SELECT lprorrateo_id AS LProrrateoId, dmonto AS Monto
+                FROM administraciondescuentocicloprorrateo
+                WHERE ldescuentociclodetalle_id = @LDescuentoDetalleId
+                FOR UPDATE;";
+            var asignaciones = (await connection.QueryAsync<DescuentoProrrateo>(
+                queryAsignaciones,
+                new { LDescuentoDetalleId },
+                transaction
+            )).ToList();
+
+            const string queryRevertirProrrateo = @"
+                UPDATE administracioncomisionprorrateo
+                SET dmonto = dmonto + @Monto
+                WHERE lprorrateo_id = @LProrrateoId
+                  AND lciclo_id = @LCicloId
+                  AND lcontacto_id = @LContactoId;";
+            foreach (var asignacion in asignaciones)
+            {
+                var actualizados = await connection.ExecuteAsync(queryRevertirProrrateo, new
+                {
+                    asignacion.LProrrateoId,
+                    asignacion.Monto,
+                    LCicloId,
+                    LContactoId
+                }, transaction);
+                if (actualizados != 1)
+                {
+                    transaction.Rollback();
+                    return (false, "No se pudo restaurar uno de los prorrateos del descuento.");
+                }
+            }
+
+            const string queryEliminarAsignaciones = @"
+                DELETE FROM administraciondescuentocicloprorrateo
+                WHERE ldescuentociclodetalle_id = @LDescuentoDetalleId;";
+            await connection.ExecuteAsync(queryEliminarAsignaciones, new { LDescuentoDetalleId }, transaction);
+
+            var rows = await connection.ExecuteAsync(queryDelete, new { LDescuentoDetalleId }, transaction);
+            var rowsUpdate = await connection.ExecuteAsync(queryUpdate, new { LContactoId, LCicloId }, transaction);
+
+            transaction.Commit();
 
             bool success = rows > 0;
             string mensaje = success ? "Descuento eliminado correctamente." : "No se realizó la eliminación.";
@@ -239,7 +316,7 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 NOW(),
                 @Usuario,
                 NOW(),
-                IFNULL(MAX_ID, 0) + 1,
+                @LDescuentoCicloDetalleId,
                 @LDescuentoCicloId,
                 @LTipoDescuentoId,
                 @LComplejoId,
@@ -248,10 +325,6 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 UPPER(@Uv),
                 @Monto,
                 UPPER(@Descripcion)
-            FROM (
-                SELECT MAX(ldescuentociclodetalle_id) AS MAX_ID
-                FROM administraciondescuentociclodetalle
-            ) AS sub;
         ";
 
         const string queryUpdate = @"
@@ -279,6 +352,15 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
 
         try
         {
+            var distribuciones = DataDescuento.Prorrateos
+                .Where(x => x.LProrrateoId > 0 && x.Monto > 0)
+                .GroupBy(x => x.LProrrateoId)
+                .Select(x => new DescuentoProrrateo { LProrrateoId = x.Key, Monto = x.Sum(y => y.Monto) })
+                .ToList();
+
+            if (distribuciones.Any() && Math.Abs(distribuciones.Sum(x => x.Monto) - DataDescuento.Monto) > 0.01m)
+                return (false, "La distribución por empresa debe sumar exactamente el monto del descuento.");
+
             using var connection = _context.CreateConnection();
 
             // Si no existe ciclo de descuento, lo creamos primero
@@ -288,9 +370,48 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 DataDescuento.LDescuentoCicloId = responseInsert.Success ? responseInsert.LDescuentoCicloId : 0;
             }
 
+            if (DataDescuento.LDescuentoCicloId <= 0)
+                return (false, "No se pudo obtener el identificador del descuento.");
+
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+
+            const string queryUltimoDetalle = @"
+                SELECT ldescuentociclodetalle_id
+                FROM administraciondescuentociclodetalle
+                ORDER BY ldescuentociclodetalle_id DESC
+                LIMIT 1
+                FOR UPDATE;";
+            var ultimoDetalleId = await connection.QueryFirstOrDefaultAsync<int?>(queryUltimoDetalle, transaction: transaction);
+            var descuentoDetalleId = (ultimoDetalleId ?? 0) + 1;
+
+            foreach (var distribucion in distribuciones)
+            {
+                const string querySaldo = @"
+                    SELECT dmonto
+                    FROM administracioncomisionprorrateo
+                    WHERE lprorrateo_id = @LProrrateoId
+                      AND lciclo_id = @LCicloId
+                      AND lcontacto_id = @LContactoId
+                    FOR UPDATE;";
+
+                var saldo = await connection.QuerySingleOrDefaultAsync<decimal?>(
+                    querySaldo,
+                    new { distribucion.LProrrateoId, DataDescuento.LCicloId, DataDescuento.LContactoId },
+                    transaction
+                );
+
+                if (!saldo.HasValue || saldo.Value < distribucion.Monto)
+                {
+                    transaction.Rollback();
+                    return (false, "Uno de los prorrateos seleccionados ya no tiene saldo suficiente. Actualice la pantalla e intente nuevamente.");
+                }
+            }
+
             var rows = await connection.ExecuteAsync(queryInsert, new
             {
                 DataDescuento.Usuario,
+                LDescuentoCicloDetalleId = descuentoDetalleId,
                 DataDescuento.LDescuentoCicloId,
                 DataDescuento.LTipoDescuentoId,
                 DataDescuento.LComplejoId,
@@ -299,13 +420,80 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 DataDescuento.Uv,
                 DataDescuento.Monto,
                 DataDescuento.Descripcion
-            });
+            }, transaction);
 
             var rowsUpdate = await connection.ExecuteAsync(queryUpdate, new
             {
                 DataDescuento.LContactoId,
                 DataDescuento.LCicloId
-            });
+            }, transaction);
+
+            const string queryActualizarProrrateo = @"
+                UPDATE administracioncomisionprorrateo
+                SET dmonto = dmonto - @Monto
+                WHERE lprorrateo_id = @LProrrateoId
+                  AND lciclo_id = @LCicloId
+                  AND lcontacto_id = @LContactoId
+                  AND dmonto >= @Monto;";
+
+            foreach (var distribucion in distribuciones)
+            {
+                var actualizados = await connection.ExecuteAsync(queryActualizarProrrateo, new
+                {
+                    distribucion.LProrrateoId,
+                    distribucion.Monto,
+                    DataDescuento.LCicloId,
+                    DataDescuento.LContactoId
+                }, transaction);
+
+                if (actualizados != 1)
+                {
+                    transaction.Rollback();
+                    return (false, "No se pudo actualizar uno de los prorrateos seleccionados.");
+                }
+            }
+
+            if (distribuciones.Any())
+            {
+                const string querySiguienteAsignacion = @"
+                    SELECT ldescuentocicloprorrateo_id
+                    FROM administraciondescuentocicloprorrateo
+                    ORDER BY ldescuentocicloprorrateo_id DESC
+                    LIMIT 1
+                    FOR UPDATE;";
+                const string queryInsertarAsignacion = @"
+                    INSERT INTO administraciondescuentocicloprorrateo (
+                        ldescuentocicloprorrateo_id,
+                        ldescuentociclodetalle_id,
+                        lprorrateo_id,
+                        dmonto,
+                        susuarioadd,
+                        dtfechaadd
+                    ) VALUES (
+                        @LDescuentoCicloProrrateoId,
+                        @LDescuentoCicloDetalleId,
+                        @LProrrateoId,
+                        @Monto,
+                        @Usuario,
+                        NOW()
+                    );";
+
+                var ultimaAsignacionId = await connection.QueryFirstOrDefaultAsync<int?>(querySiguienteAsignacion, transaction: transaction) ?? 0;
+                foreach (var distribucion in distribuciones)
+                {
+                    ultimaAsignacionId++;
+                    await connection.ExecuteAsync(queryInsertarAsignacion, new
+                    {
+                        LDescuentoCicloProrrateoId = ultimaAsignacionId,
+                        LDescuentoCicloDetalleId = descuentoDetalleId,
+                        distribucion.LProrrateoId,
+                        distribucion.Monto,
+                        DataDescuento.Usuario
+                    }, transaction);
+                }
+            }
+
+            transaction.Commit();
 
             bool success = rows > 0;
             string mensaje = success ? "Descuento aplicado correctamente." : "No se insertó ningún registro.";
