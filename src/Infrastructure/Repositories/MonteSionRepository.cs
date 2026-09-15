@@ -296,15 +296,21 @@ public sealed class MonteSionRepository : IMonteSionRepository
             WHERE vendedor.cbaja = 0;";
         const string produccionQuery = @"
             SELECT
-                grupo.lcontacto_id AS EmprendedorId,
-                grupo.lasesor_id AS VendedorId,
-                grupo.lgeneracion AS Nivel,
-                COALESCE(contrato.dprecio, 0) AS Produccion,
+                red.lasesor_id AS EmprendedorId,
+                red.lcontacto_id AS VendedorId,
+                red.Nivel,
+                CASE
+                    WHEN contrato.ltipocontrato_id IN (1, 2) THEN COALESCE(contrato.dprecio, 0)
+                    ELSE 0
+                END AS Produccion,
                 contrato.snroventa AS NumeroVenta
-            FROM administracionventagrupo grupo
-            INNER JOIN administracioncontrato contrato ON contrato.lcontrato_id = grupo.lcontrato_id
-            WHERE grupo.lciclo_id = @CicloId
-              AND grupo.lgeneracion BETWEEN 1 AND 7;";
+            FROM red_comprimida red
+            INNER JOIN administracioncontrato contrato ON contrato.lasesor_id = red.lcontacto_id
+            INNER JOIN administracionciclo ciclo ON ciclo.lciclo_id = red.lciclo_id
+            WHERE red.lciclo_id = @CicloId
+              AND red.Nivel BETWEEN 1 AND 7
+              AND contrato.dtfecha >= DATE(ciclo.dtfechainicio)
+              AND contrato.dtfecha < DATE_ADD(DATE(ciclo.dtfechafin), INTERVAL 1 DAY);";
         const string historialRangosQuery = @"
             SELECT DISTINCT
                 historial.lcontacto_id AS EmprendedorId,
