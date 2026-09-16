@@ -153,12 +153,14 @@ public class ReportesRepository : IReportesRepository
         WHERE lciclo_id = @lCicloId
     ";
     private const string QUERY_BONO_CARRERA = @"
-        SELECT 
-            AN.snombre NivelCiclo,
-            ABC.dbonoporlote CantidadVentas
-        FROM administracionbonocarrera ABC
-        INNER JOIN administracionnivel AN ON AN.lnivel_id = ABC.lnivel_id
-        WHERE ABC.lcontacto_id = @lContactoId AND ABC.lciclo_id = @lCicloId
+        SELECT
+            nivel.snombre AS NivelCiclo,
+            COALESCE(reporte.puntosacumulados, 0) AS CantidadVentas,
+            COALESCE(reporte.Monto, 0) AS Monto
+        FROM reportesmontesion reporte
+        INNER JOIN administracionnivel nivel ON nivel.lnivel_id = reporte.nivel_ciclo
+        WHERE reporte.lciclo_id = @lCicloId
+          AND reporte.lcontacto_id = @lContactoId
     ";
     #endregion
     #region "SCRIPT_REPORTE_APLICACIONES"

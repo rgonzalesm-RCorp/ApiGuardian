@@ -144,7 +144,7 @@ public interface IAdministracionCicloService
 
 public interface IAdministracionContratoService
 {
-    Task<(bool Success, string Mensaje, object Data)> ObtenerAsync(int page, int pageSize, string? search, DateTime? fechaInicio, DateTime? fechaFin, string id);
+    Task<(bool Success, string Mensaje, object Data)> ObtenerAsync(int page, int pageSize, string? search, int tipoBusqueda, DateTime? fechaInicio, DateTime? fechaFin, string id);
     Task<(bool Success, string Mensaje)> InsertarAsync(AdministracionContrato data, string id);
     Task<(bool Success, string Mensaje)> ActualizarAsync(AdministracionContrato data, string id);
     Task<(bool Success, string Mensaje)> EliminarAsync(int contratoId, string id);

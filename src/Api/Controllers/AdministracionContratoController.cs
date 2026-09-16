@@ -13,9 +13,9 @@ public class AdministracionContratoController : ControllerBase
     public AdministracionContratoController(IAdministracionContratoService service) => _service = service;
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromHeader(Name = "page")] int page, [FromHeader(Name = "pageSize")] int pageSize, [FromHeader(Name = "search")] string? search, [FromHeader(Name = "fechaInicio")] DateTime? fechaInicio, [FromHeader(Name = "fechaFin")] DateTime? fechaFin)
+    public async Task<IActionResult> GetAll([FromHeader(Name = "page")] int page, [FromHeader(Name = "pageSize")] int pageSize, [FromHeader(Name = "search")] string? search, [FromHeader(Name = "tipoBusqueda")] int tipoBusqueda, [FromHeader(Name = "fechaInicio")] DateTime? fechaInicio, [FromHeader(Name = "fechaFin")] DateTime? fechaFin)
     {
-        var r = await _service.ObtenerAsync(page, pageSize, search, fechaInicio, fechaFin, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
+        var r = await _service.ObtenerAsync(page, pageSize, search, tipoBusqueda, fechaInicio, fechaFin, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
         return Ok(new { status = r.Success, mensaje = r.Mensaje, data = r.Data });
     }
 

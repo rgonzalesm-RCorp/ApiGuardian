@@ -47,6 +47,7 @@ namespace ApiGuardian.Models
     {
         public string? NivelCiclo { get; set; }
         public decimal CantidadVentas { get; set; }
+        public decimal Monto { get; set; }
     }
     public class ReporteComisionesDto
     {

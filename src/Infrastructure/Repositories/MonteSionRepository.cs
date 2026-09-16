@@ -191,7 +191,7 @@ public sealed class MonteSionRepository : IMonteSionRepository
                      lcontacto_id, nivel_consolidado_mes, lpuntosmesrango, nivel_ciclo, puntosacumulados, subieron_nivel,
                      niveles_escalados, Produccion, Monto, Nivel_VME, puntos_VME, Observacion)
                     VALUES (@Usuario, NOW(), @Usuario, NOW(), @ReporteId, @CicloId, @IdNro, @NroAscensos,
-                            @ContactoId, @NivelActual, 0, @NivelAlcanzado, 0, @SubioNivel,
+                            @ContactoId, @NivelActual, 0, @NivelAlcanzado, @PuntosAcumulados, @SubioNivel,
                             @NivelesEscalados, @Produccion, @Monto, NULL, NULL, @Observacion);
                     """;
                 await connection.ExecuteAsync(reporteSql, new
@@ -199,7 +199,8 @@ public sealed class MonteSionRepository : IMonteSionRepository
                     Usuario = usuario, ReporteId = ++proximoReporteId, CicloId = cicloId, IdNro = ++proximoIdNro,
                     NroAscensos = subioNivel ? ++proximoAscenso : 0, ContactoId = resultado.EmprendedorId,
                     NivelActual = nivelActual, NivelAlcanzado = nivelAlcanzado, SubioNivel = subioNivel ? 1 : 0,
-                    NivelesEscalados = nivelesEscalados, Produccion = resultado.ProduccionTotalRed, Monto = monto,
+                    NivelesEscalados = nivelesEscalados, Produccion = resultado.ProduccionTotalRed,
+                    PuntosAcumulados = resultado.ProduccionValidaTotal, Monto = monto,
                     Observacion = resultado.Beneficio?.Motivo.Length > 100 ? resultado.Beneficio.Motivo[..100] : resultado.Beneficio?.Motivo
                 }, transaction);
 
