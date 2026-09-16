@@ -16,6 +16,7 @@ public sealed class AdministracionContratoService : IAdministracionContratoServi
         int page,
         int pageSize,
         string? search,
+        int tipoBusqueda,
         DateTime? fechaInicio,
         DateTime? fechaFin,
         string id
@@ -28,6 +29,7 @@ public sealed class AdministracionContratoService : IAdministracionContratoServi
 
         var inicio = fechaInicio.Value.Date;
         var fin = fechaFin.Value.Date;
+        var tipoBusquedaNormalizado = tipoBusqueda == 2 ? 2 : 1;
         try
         {
             var contratos = await _repository.GetAllAdministracionContrato(
@@ -35,6 +37,7 @@ public sealed class AdministracionContratoService : IAdministracionContratoServi
                 page,
                 pageSize,
                 search,
+                tipoBusquedaNormalizado,
                 inicio,
                 fin
             );
@@ -57,6 +60,7 @@ public sealed class AdministracionContratoService : IAdministracionContratoServi
             var reporte = await _repository.GetReporteAdministracionContrato(
                 id,
                 search,
+                tipoBusquedaNormalizado,
                 inicio,
                 fin
             );

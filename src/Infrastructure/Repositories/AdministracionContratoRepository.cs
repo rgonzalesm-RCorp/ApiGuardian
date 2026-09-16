@@ -17,7 +17,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
         _log = log;
     }
 
-    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContrato(string LogTransaccionId, int page, int pageSize, string? search, DateTime fechaInicio, DateTime fechaFin)
+    public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAllAdministracionContrato(string LogTransaccionId, int page, int pageSize, string? search, int tipoBusqueda, DateTime fechaInicio, DateTime fechaFin)
     {
         string nombreMetodo = "GetAllAdministracionContrato()";
 
@@ -52,7 +52,9 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
             WHERE C.dtfecha >= @FechaInicio
               AND C.dtfecha < @FechaFinExclusiva
-              AND (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search)
+              AND (@Search IS NULL
+                   OR (@TipoBusqueda = 1 AND P.snombrecompleto LIKE @Search)
+                   OR (@TipoBusqueda = 2 AND A.snombrecompleto LIKE @Search))
             ORDER BY C.lcontrato_id DESC
             LIMIT @PageSize OFFSET @Page;
         ";
@@ -67,7 +69,9 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
             WHERE C.dtfecha >= @FechaInicio
               AND C.dtfecha < @FechaFinExclusiva
-              AND (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search);
+              AND (@Search IS NULL
+                   OR (@TipoBusqueda = 1 AND P.snombrecompleto LIKE @Search)
+                   OR (@TipoBusqueda = 2 AND A.snombrecompleto LIKE @Search));
         ";
 
         _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [scriptData: {queryData}]");
@@ -80,6 +84,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             var parameters = new
             {
                 Search = string.IsNullOrEmpty(search) ? null : $"%{search}%",
+                TipoBusqueda = tipoBusqueda,
                 FechaInicio = fechaInicio.Date,
                 FechaFinExclusiva = fechaFin.Date.AddDays(1),
                 PageSize = pageSize,
@@ -107,6 +112,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
     public async Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje)> GetReporteAdministracionContrato(
         string LogTransaccionId,
         string? search,
+        int tipoBusqueda,
         DateTime fechaInicio,
         DateTime fechaFin
     )
@@ -143,7 +149,9 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             INNER JOIN administracionestadocontrato AEC ON AEC.lestadocontrato_id = C.lestado
             WHERE C.dtfecha >= @FechaInicio
               AND C.dtfecha < @FechaFinExclusiva
-              AND (@Search IS NULL OR P.snombrecompleto LIKE @Search OR C.snroventa LIKE @Search)
+              AND (@Search IS NULL
+                   OR (@TipoBusqueda = 1 AND P.snombrecompleto LIKE @Search)
+                   OR (@TipoBusqueda = 2 AND A.snombrecompleto LIKE @Search))
             ORDER BY C.dtfecha DESC, C.lcontrato_id DESC;
         ";
 
@@ -156,6 +164,7 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
                     new
                     {
                         Search = string.IsNullOrEmpty(search) ? null : $"%{search}%",
+                        TipoBusqueda = tipoBusqueda,
                         FechaInicio = fechaInicio.Date,
                         FechaFinExclusiva = fechaFin.Date.AddDays(1)
                     }
