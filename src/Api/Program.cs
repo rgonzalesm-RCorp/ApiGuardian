@@ -99,6 +99,7 @@ builder.Services.AddScoped<IBrConfiguracionRepository, BrConfiguracionRepository
 builder.Services.AddScoped<IAdministracionBonoResidualRepository, AdministracionBonoResidualRepository>();
 builder.Services.AddScoped<IRetencionEmpresaRepository, RetencionEmpresaRepository>();
 builder.Services.AddScoped<IRedesRepository, RedesRepository>();
+builder.Services.AddScoped<IRedSerRepository, RedSerRepository>();
 builder.Services.AddScoped<IMonteSionRepository, MonteSionRepository>();
 builder.Services.AddScoped<IBonoParRepository, BonoParRepository>();
 builder.Services.AddScoped<ICuotasVentaResidualRepository, CuotasVentaResidualRepository>();
@@ -128,6 +129,7 @@ builder.Services.AddScoped<IAdministracionTipoContratoService, AdministracionTip
 builder.Services.AddScoped<ICuotasVentaResidualService, CuotasVentaResidualService>();
 builder.Services.AddScoped<IRetencionEmpresaService, RetencionEmpresaService>();
 builder.Services.AddScoped<IRedesService, RedesService>();
+builder.Services.AddScoped<IRedSerService, RedSerService>();
 builder.Services.AddScoped<IMonteSionService, MonteSionService>();
 builder.Services.AddScoped<IReportesService, ReportesService>();
 builder.Services.AddScoped<ICasosObservadosService, CasosObservadosService>();

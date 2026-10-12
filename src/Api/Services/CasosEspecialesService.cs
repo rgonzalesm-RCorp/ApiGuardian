@@ -77,7 +77,7 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
                 )
                 {
                     decimal inicial = (item.DPrecio - item.SCuotaInicial) * 3 / 100;
-                    item.SCuotaInicial = inicial + inicial * 49.25M / 100; // se aunmente un 49.25% por el tema de la retencion de impuestos
+                    item.SCuotaInicial = Math.Round(inicial + inicial * 49.25M / 100, 2); // se aunmente un 49.25% por el tema de la retencion de impuestos
                 }
             }
             var xls = await new CasosEspecialesXls().GetCasosEspecialesXls(

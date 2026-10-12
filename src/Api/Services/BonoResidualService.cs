@@ -156,6 +156,7 @@ public sealed class BonoResidualService : IBonoResidualService
 
         listado = listado.Where(x => x.ActivoMes && x.EstaAlDia).ToList();
         AplicarComisionResidualCeroConfigurada(listado);
+
         return new BonoResidualCalculoResult
         {
             Success = true,

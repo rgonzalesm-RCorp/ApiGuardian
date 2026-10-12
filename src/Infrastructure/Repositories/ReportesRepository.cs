@@ -371,7 +371,140 @@ public class ReportesRepository : IReportesRepository
                                                 ";
     #endregion
     #region  "SCRIPT_PRORRATEO"
-    private const string QUERY_PRORRATEO = @"select * from (
+    private const string QUERY_PRORRATEO = @"SELECT
+    ACT.lcodigobanco AS LCodigoBanco,
+    ACT.lcuentabanco AS LCuentaBanco,
+    ACT.snombrecompleto AS SNombreCompleto,
+    ACT.scedulaidentidad AS SCedulaIdentidad,
+    CE.snombre AS SEmpresa,
+    TC.Importe,
+    IFNULL(R.Retencion, 0) AS Retencion,
+    TC.Importe - IFNULL(R.Retencion, 0) AS Liquido,
+    IFNULL(TC.Descuento, 0) AS Descuento,
+    IFNULL(P.dmonto, 0) AS Prorrateo,
+    CE.lempresa_id AS EmpresaId,
+    P.lprorrateo_id AS LProrrateoId,
+    ACT.lcontacto_id AS LContactoId,
+    ACI.snombre AS Ciclo
+FROM
+(
+    SELECT
+        X.lcontacto_id,
+        X.empresa_id,
+        SUM(X.ComisionPersonal) AS ComisionPersonal,
+        SUM(X.ComisionGrupo) AS ComisionGrupo,
+        SUM(X.ComisionResidual) AS ComisionResidual,
+        SUM(X.ComisionBonoPar) AS ComisionBonoPar,
+        SUM(X.Descuento) AS Descuento,
+        SUM(X.ComisionPersonal + X.ComisionGrupo + X.ComisionResidual + X.ComisionBonoPar) AS Importe
+    FROM
+    (
+        SELECT
+            AVP.lcontacto_id,
+            EC.empresa_id,
+            SUM(AVP.dcomision) AS ComisionPersonal,
+            0 AS ComisionGrupo,
+            0 AS ComisionResidual,
+            0 AS ComisionBonoPar,
+            0 AS Descuento
+        FROM administracionventapersonal AVP
+        INNER JOIN administracioncontrato AC ON AC.lcontrato_id = AVP.lcontrato_id
+        INNER JOIN empresa_complejo EC ON EC.complejo_id = AC.lcomplejo_id
+        WHERE AVP.lciclo_id = @LCicloId AND AVP.lcontacto_id > 3
+        GROUP BY AVP.lcontacto_id, EC.empresa_id
+        UNION ALL
+        SELECT
+            AVG.lcontacto_id,
+            EC.empresa_id,
+            0 AS ComisionPersonal,
+            SUM(AVG.dcomision) AS ComisionGrupo,
+            0 AS ComisionResidual,
+            0 AS ComisionBonoPar,
+            0
+        FROM administracionventagrupo AVG
+        INNER JOIN administracioncontrato AC ON AC.lcontrato_id = AVG.lcontrato_id
+        INNER JOIN empresa_complejo EC ON EC.complejo_id = AC.lcomplejo_id
+        WHERE AVG.lciclo_id = @LCicloId AND AVG.lcontacto_id > 3
+        GROUP BY AVG.lcontacto_id, EC.empresa_id
+        UNION ALL
+        SELECT
+            ABR.lcontacto_id,
+            EC.empresa_id,
+            0 AS ComisionPersonal,
+            0 AS ComisionGrupo,
+            SUM(ABR.dmonto) AS ComisionResidual,
+            0 AS ComisionBonoPar,
+            0
+        FROM administracionredempresacomplejo ABR
+        INNER JOIN empresa_complejo EC ON EC.complejo_id = ABR.lcomplejo_id
+        WHERE ABR.lciclo_id = @LCicloId AND ABR.lcontacto_id > 3
+        GROUP BY ABR.lcontacto_id, EC.empresa_id
+        UNION ALL
+        SELECT
+            BP.l_contacto_ganador_id AS lcontacto_id,
+            EC.empresa_id,
+            0 AS ComisionPersonal,
+            0 AS ComisionGrupo,
+            0 AS ComisionResidual,
+            SUM(IFNULL(BP.bono / NULLIF(BP.cantidad_venta, 0), 0)) AS ComisionBonoPar,
+            0
+        FROM bonopar BP
+        INNER JOIN bonopardetalle BPD ON BPD.bonopar_id = BP.id
+        INNER JOIN administracioncontrato AC ON AC.lcontrato_id = BPD.l_contrato_id
+        INNER JOIN empresa_complejo EC ON EC.complejo_id = AC.lcomplejo_id
+        WHERE BP.lciclo_id = @LCicloId AND BP.l_contacto_ganador_id > 3
+        GROUP BY BP.l_contacto_ganador_id, EC.empresa_id
+
+        union all
+        SELECT AD.lcontacto_id, EC.empresa_id, 0, 0, 0, 0, SUM(ADE.dmonto) AS Descuento
+        FROM administraciondescuentociclo AD
+        INNER JOIN administraciondescuentociclodetalle ADE ON ADE.ldescuentociclo_id = AD.ldescuentociclo_id
+        INNER JOIN empresa_complejo EC ON EC.complejo_id = ADE.lcomplejo_id
+        WHERE AD.lciclo_id = @LCicloId AND AD.lcontacto_id > 3
+        GROUP BY AD.lcontacto_id, EC.empresa_id
+    ) X 
+    GROUP BY X.lcontacto_id, X.empresa_id
+    HAVING SUM( X.ComisionPersonal + X.ComisionGrupo + X.ComisionResidual + X.ComisionBonoPar + X.Descuento ) > 0
+
+) TC
+
+INNER JOIN administracioncontacto ACT ON ACT.lcontacto_id = TC.lcontacto_id
+INNER JOIN administracionempresa CE ON CE.lempresa_id = TC.empresa_id
+INNER JOIN administracionciclo ACI ON ACI.lciclo_id = @LCicloId
+LEFT JOIN
+(
+    SELECT
+        RE.lcontacto_id,
+        RE.idempresa AS empresa_id,
+        SUM(RE.montoretencion) AS Retencion
+    FROM tbl_retencionempresa RE
+    WHERE RE.lciclo_id = @LCicloId AND RE.lcontacto_id > 3 AND RE.lcontacto_id <> 6474
+    GROUP BY RE.lcontacto_id, RE.idempresa
+) R ON R.lcontacto_id = TC.lcontacto_id AND R.empresa_id = TC.empresa_id
+
+LEFT JOIN
+(
+    SELECT
+        ACPR.lcontacto_id,
+        CASE
+            WHEN ACPR.lempresa_id_temp = 20 THEN 21
+            WHEN ACPR.lempresa_id_temp = 13 THEN 14
+            ELSE ACPR.lempresa_id_temp
+        END AS empresa_id,
+        MAX(ACPR.lprorrateo_id) AS lprorrateo_id,
+        SUM(ACPR.dmonto) AS dmonto
+    FROM administracioncomisionprorrateo ACPR
+    WHERE ACPR.lciclo_id = @LCicloId
+    GROUP BY ACPR.lcontacto_id,
+        CASE
+            WHEN ACPR.lempresa_id_temp = 20 THEN 21
+            WHEN ACPR.lempresa_id_temp = 13 THEN 14
+            ELSE ACPR.lempresa_id_temp
+        END
+
+) P ON P.lcontacto_id = TC.lcontacto_id AND P.empresa_id = TC.empresa_id
+ORDER BY ACT.snombrecompleto, CE.snombre;";
+    /*private const string QUERY_PRORRATEO = @"select * from (
                                                 select 
                                                     ACT.lcodigobanco LCodigoBanco
                                                     , ACT.lcuentabanco LCuentaBanco
@@ -453,6 +586,8 @@ public class ReportesRepository : IReportesRepository
                                                 )Retencion on Retencion.empresa_id = CE.lempresa_id and Retencion.lcontacto_id = ACPR.lcontacto_id
                                                 where ACPR.lciclo_id = @LCicloId
                                                 ) dat where  dat.Prorrateo > 0 ";
+    
+    */
     #endregion
     #region "SCRIPT_COMISION_SERVICIO"
     const string QUERY_COMISION_SERVICIO = @"SELECT 
@@ -828,7 +963,7 @@ public class ReportesRepository : IReportesRepository
         _sqlContext = sqlContext;
         _log = log;
     }
-    public async Task<( ReporteComisionesDto Data ,  bool Success, string Mensaje)> GetReporteComision(string LogTransaccionId, int lCicloId, int lContactoId)
+    public async Task<(ReporteComisionesDto Data, bool Success, string Mensaje)> GetReporteComision(string LogTransaccionId, int lCicloId, int lContactoId)
     {
         string NombreMetodo = "GetReporteComision()";
 
@@ -852,18 +987,18 @@ public class ReportesRepository : IReportesRepository
             DataResponse.BonoCarrera = await connection.QueryAsync<BonoCarrera>(QUERY_BONO_CARRERA, new { lCicloId, lContactoId });
 
 
-             
-            return (DataResponse , true, "Okey");
+
+            return (DataResponse, true, "Okey");
         }
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (new ReporteComisionesDto() , false, $"Error al obtener el reporte de comisiones: {ex.Message}");
+            return (new ReporteComisionesDto(), false, $"Error al obtener el reporte de comisiones: {ex.Message}");
         }
     }
-    public async Task<(RptAplicaciones Data , bool Success, string Mensaje)> GetReporteAplicacines(string LogTransaccionId, int lCicloId, int lContactoId)
+    public async Task<(RptAplicaciones Data, bool Success, string Mensaje)> GetReporteAplicacines(string LogTransaccionId, int lCicloId, int lContactoId)
     {
-         const string NombreMetodo = "GetReporteAplicacines()";
+        const string NombreMetodo = "GetReporteAplicacines()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script aplicaciones: {QUERY_APLICACIONES}]");
         RptAplicaciones DataResponse = new RptAplicaciones();
         try
@@ -880,11 +1015,11 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (new RptAplicaciones(), false,  $"Error al obtener aplicaciones del ciclo: {ex.Message}");
+            return (new RptAplicaciones(), false, $"Error al obtener aplicaciones del ciclo: {ex.Message}");
         }
 
     }
-    public async Task<(IEnumerable<RptDescuentoEmpresa> Data , bool Success, string Mensaje)> GetReporteDecuentoEmpresa(string LogTransaccionId, int lCicloId, int Empresaid)
+    public async Task<(IEnumerable<RptDescuentoEmpresa> Data, bool Success, string Mensaje)> GetReporteDecuentoEmpresa(string LogTransaccionId, int lCicloId, int Empresaid)
     {
         const string NombreMetodo = "GetReporteDecuentoEmpresa()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script descuento empresa: {QUERY_DESCUENTO_EMPRESA}]");
@@ -902,11 +1037,11 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptDescuentoEmpresa>(), false,  $"Error al obtener descuento por empresa del ciclo: {ex.Message}");
+            return (Enumerable.Empty<RptDescuentoEmpresa>(), false, $"Error al obtener descuento por empresa del ciclo: {ex.Message}");
         }
-        
+
     }
-    public async  Task<(IEnumerable<RptFacturacion> Data , bool Success, string Mensaje)> GetReporteFacturacion(string LogTransaccionId, int LCicloId, int LContactoId)
+    public async Task<(IEnumerable<RptFacturacion> Data, bool Success, string Mensaje)> GetReporteFacturacion(string LogTransaccionId, int LCicloId, int LContactoId)
     {
         const string NombreMetodo = "GetReporteDecuentoEmpresa()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script facturacion: {QUERY_FACTURACION}]");
@@ -924,10 +1059,10 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptFacturacion>(), false,  $"Error al obtener la facturacion: {ex.Message}");
+            return (Enumerable.Empty<RptFacturacion>(), false, $"Error al obtener la facturacion: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<RptProrrateo> Data , bool Success, string Mensaje)> GetReporteProrrateo(string LogTransaccionId, int LCicloId)
+    public async Task<(IEnumerable<RptProrrateo> Data, bool Success, string Mensaje)> GetReporteProrrateo(string LogTransaccionId, int LCicloId)
     {
         const string NombreMetodo = "GetReporteProrrateo()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script prorrateo: {QUERY_PRORRATEO}]");
@@ -945,10 +1080,10 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptProrrateo>(), false,  $"Error al obtener la prorrateo: {ex.Message}");
+            return (Enumerable.Empty<RptProrrateo>(), false, $"Error al obtener la prorrateo: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<RptComisionServicio> Data , bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId)
+    public async Task<(IEnumerable<RptComisionServicio> Data, bool Success, string Mensaje)> GetReporteComisionServicio(string LogTransaccionId, int LCicloId, int EmpresaId)
     {
         const string NombreMetodo = "GetReporteComisionServicio()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Inicio de reporte Comisión/Servicio desde tbl_retencionempresa.");
@@ -966,10 +1101,10 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptComisionServicio>(), false,  $"Error al obtener la comision servicio: {ex.Message}");
+            return (Enumerable.Empty<RptComisionServicio>(), false, $"Error al obtener la comision servicio: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<RptPagarComision> Data , bool Success, string Mensaje)> GetReportePagarComision(string LogTransaccionId, int LCicloId)
+    public async Task<(IEnumerable<RptPagarComision> Data, bool Success, string Mensaje)> GetReportePagarComision(string LogTransaccionId, int LCicloId)
     {
         const string NombreMetodo = "GetReportePagarComision()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script pagar comision: {QUERY_PAGAR_COMISION}]");
@@ -987,7 +1122,7 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<RptPagarComision>(), false,  $"Error al obtener la pagar de comision: {ex.Message}");
+            return (Enumerable.Empty<RptPagarComision>(), false, $"Error al obtener la pagar de comision: {ex.Message}");
         }
     }
 
@@ -1018,7 +1153,7 @@ public class ReportesRepository : IReportesRepository
             return (Enumerable.Empty<DescuentoAplicacionesProrrateo>(), false, ex.Message);
         }
     }
-    public async Task<(IEnumerable<ItemPlanCarrera> Data , bool Success, string Mensaje)> GetReportePlanCarrera(string LogTransaccionId, int LCicloId)
+    public async Task<(IEnumerable<ItemPlanCarrera> Data, bool Success, string Mensaje)> GetReportePlanCarrera(string LogTransaccionId, int LCicloId)
     {
         const string NombreMetodo = "GetReportePlanCarrera()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script plan carrera: {QUERY_PLAN_CARRERA}]");
@@ -1036,10 +1171,10 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<ItemPlanCarrera>(), false,  $"Error al obtener de el listado del plan de carrera: {ex.Message}");
+            return (Enumerable.Empty<ItemPlanCarrera>(), false, $"Error al obtener de el listado del plan de carrera: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<ItemAscensoRango> Data , bool Success, string Mensaje)> GetReporteAscensoRango(string LogTransaccionId, int LCicloId)
+    public async Task<(IEnumerable<ItemAscensoRango> Data, bool Success, string Mensaje)> GetReporteAscensoRango(string LogTransaccionId, int LCicloId)
     {
         const string NombreMetodo = "GetReporteAscensoRango()";
         _log.Info(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, $"Inicio de metodo [script ascenso rango: {QUERY_ASCENSO_RANGO}]");
@@ -1060,7 +1195,7 @@ public class ReportesRepository : IReportesRepository
         catch (Exception ex)
         {
             _log.Error(LogTransaccionId, NOMBREARCHIVO, NombreMetodo, "Fin de metodo", ex);
-            return (Enumerable.Empty<ItemAscensoRango>(), false,  $"Error al obtener de el listado de ascenso de rango: {ex.Message}");
+            return (Enumerable.Empty<ItemAscensoRango>(), false, $"Error al obtener de el listado de ascenso de rango: {ex.Message}");
         }
     }
 }

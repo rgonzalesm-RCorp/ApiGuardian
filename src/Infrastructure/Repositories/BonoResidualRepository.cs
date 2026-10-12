@@ -84,7 +84,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         {
             using var connection = _contextSql.CreateConnection();
 
-            var ListaCartera = await connection.QueryAsync<TCartera>(query, new{ page, pageSize});
+            var ListaCartera = await connection.QueryAsync<TCartera>(query, new { page, pageSize });
             counter = await connection.ExecuteScalarAsync<int>(queryCount);
 
             bool success = true;
@@ -191,7 +191,7 @@ public class BonoResidualRepository : IBonoResidualRepository
             return (Enumerable.Empty<CarteraCalculoBonoResidual>(), false, $"Error al obtener los tipos de descuento: {ex.Message}", 0);
         }
     }
-    public async Task<(bool Success, string Mensaje)> GuardarCartera(string LogTransaccionId, string Usuario,List<TCartera> ListadoCartera)
+    public async Task<(bool Success, string Mensaje)> GuardarCartera(string LogTransaccionId, string Usuario, List<TCartera> ListadoCartera)
     {
         string nombreMetodo = "GuardarCartera()";
 
@@ -327,7 +327,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         }
     }
 
-    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuota(string LogTransaccionId,string Usuario,  string inicio, string fin)
+    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuota(string LogTransaccionId, string Usuario, string inicio, string fin)
     {
         string nombreMetodo = "GetCuota()";
         var query = ScriptCnx.QueryObetnerCuotas(_configuration);
@@ -338,7 +338,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         {
             using var connection = _contextSql.CreateConnection();
 
-            var ListaCuota = (await connection.QueryAsync<TCuota>(query, new{ inicio, fin})).ToList();
+            var ListaCuota = (await connection.QueryAsync<TCuota>(query, new { inicio, fin })).ToList();
 
             foreach (var cuota in ListaCuota)
             {
@@ -354,7 +354,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         }
         catch (Exception ex)
         {
-            return(Enumerable.Empty<TCuota>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
+            return (Enumerable.Empty<TCuota>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
     public async Task<(bool Success, string Mensaje)> GuardarCuota(string LogTransaccionId, string Usuario, List<TCuota> ListaCuota, bool excedente = false)
@@ -545,9 +545,9 @@ public class BonoResidualRepository : IBonoResidualRepository
             return (false, $"Error: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<Excedente> ListaCuota, bool Success, string Mensaje)> GetExcedente(string LogTransaccionId,string Usuario, string inicio, string fin)
+    public async Task<(IEnumerable<Excedente> ListaCuota, bool Success, string Mensaje)> GetExcedente(string LogTransaccionId, string Usuario, string inicio, string fin)
     {
-        
+
         string nombreMetodo = "GetExcedente()";
         var query = ScriptCnx.QueryVentaCnx(_configuration);
 
@@ -557,7 +557,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         {
             using var connection = _contextSql.CreateConnection();
 
-            var ListaCuota = await connection.QueryAsync<Excedente>(query, new{ inicio, fin});
+            var ListaCuota = await connection.QueryAsync<Excedente>(query, new { inicio, fin });
 
             bool success = true;
             string mensaje = success ? "Excedentes obtenidos correctamente." : "No se encontraron lista de excedentes.";
@@ -569,10 +569,10 @@ public class BonoResidualRepository : IBonoResidualRepository
         }
         catch (Exception ex)
         {
-            return(Enumerable.Empty<Excedente>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
+            return (Enumerable.Empty<Excedente>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
-    public async Task<(IEnumerable<BrCuotaRed> ListaCuotaRed, IEnumerable<BrContacto> ListaContacto, IEnumerable<BrContactoActivos> ListaContactosActivos, bool Success, string Mensaje)> GetDataCalculoBonoResidual(string LogTransaccionId,string Usuario, int LCicloId)
+    public async Task<(IEnumerable<BrCuotaRed> ListaCuotaRed, IEnumerable<BrContacto> ListaContacto, IEnumerable<BrContactoActivos> ListaContactosActivos, bool Success, string Mensaje)> GetDataCalculoBonoResidual(string LogTransaccionId, string Usuario, int LCicloId)
     {
         string nombreMetodo = "GetDataCalculoBonoResidual()";
         string queryCuota = @"select 
@@ -618,7 +618,7 @@ public class BonoResidualRepository : IBonoResidualRepository
 
             var ListaCuota = await connection.QueryAsync<BrCuotaRed>(queryCuota);
             var ListaContacto = await connection.QueryAsync<BrContacto>(queryContacto);
-            var ListaContactoActivos = await connection.QueryAsync<BrContactoActivos>(queryContactosActivos, new {LCicloId});
+            var ListaContactoActivos = await connection.QueryAsync<BrContactoActivos>(queryContactosActivos, new { LCicloId });
 
             bool success = true;
             string mensaje = success ? "Datos obtenidos correctamente." : "No se encontraron los datos.";
@@ -630,7 +630,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         }
         catch (Exception ex)
         {
-            return(Enumerable.Empty<BrCuotaRed>(), Enumerable.Empty<BrContacto>(), Enumerable.Empty<BrContactoActivos>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
+            return (Enumerable.Empty<BrCuotaRed>(), Enumerable.Empty<BrContacto>(), Enumerable.Empty<BrContactoActivos>(), false, $"Error al obtener los tipos de descuento: {ex.Message}");
         }
     }
 

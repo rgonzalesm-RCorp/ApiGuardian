@@ -50,6 +50,7 @@ public sealed class RetencionEmpresaService : IRetencionEmpresaService
             return (false, resultado.Mensaje, "");
         }
 
+
         var guardado = await _repository.InsertarAsync(
             logId,
             "SistemaRetencionEmpresa",
