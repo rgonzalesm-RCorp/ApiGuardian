@@ -33,6 +33,8 @@ public sealed class MonteSionContactoRed
     public string? Codigo { get; set; }
     public string EmprendedorNombre { get; set; } = string.Empty;
     public DateTime? FechaRegistro { get; set; }
+    public int NivelActualId { get; set; }
+    public string RangoActual { get; set; } = "Asesor Comercial";
 }
 
 public sealed class MonteSionRangoHistorico
@@ -111,13 +113,6 @@ public sealed class MonteSionResultadoRango
     public List<MonteSionEvaluacionRango> Evaluaciones { get; set; } = [];
 }
 
-public sealed class MonteSionRangoActual
-{
-    public int EmprendedorId { get; set; }
-    public int NivelActualId { get; set; }
-    public string RangoActual { get; set; } = "Asesor Comercial";
-}
-
 public sealed class MonteSionNivel
 {
     public int NivelId { get; set; }
@@ -135,4 +130,11 @@ public sealed class MonteSionGuardadoResultado
     public int RegistrosPlan { get; set; }
     public int RegistrosReporte { get; set; }
     public int Ascensos { get; set; }
+}
+
+public sealed class MonteSionMigracionResultado
+{
+    public int Planes { get; set; }
+    public int Reportes { get; set; }
+    public int NuevosRangos { get; set; }
 }

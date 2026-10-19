@@ -7,6 +7,9 @@ public sealed class CambioDolarService
 {
     private readonly HashSet<int> _idsComplejosProyectos;
     private readonly decimal _tipoCambio;
+    private readonly DateTime _fechaCorte;
+    private readonly decimal _tipoCambioHistorico;
+    private readonly decimal _tipoCambioOficial;
 
     public CambioDolarService(IConfiguration configuration)
     {
@@ -16,11 +19,21 @@ public sealed class CambioDolarService
 
         _idsComplejosProyectos = configuracion.IdsComplejosProyectos.ToHashSet();
         _tipoCambio = configuracion.TipoCambio;
+        _fechaCorte = configuracion.FechaCorte.Date;
+        _tipoCambioHistorico = configuracion.TipoCambioHistorico;
+        _tipoCambioOficial = configuracion.TipoCambioOficial;
 
         if (_idsComplejosProyectos.Count > 0 && _tipoCambio <= 0)
         {
             throw new InvalidOperationException(
                 "La configuración cambioDolar.tipoCambio debe ser mayor a cero cuando existen complejos o proyectos configurados."
+            );
+        }
+
+        if (_tipoCambioHistorico <= 0 || _tipoCambioOficial <= 0)
+        {
+            throw new InvalidOperationException(
+                "La configuración cambioDolar.tipoCambioHistorico y cambioDolar.tipoCambioOficial debe ser mayor a cero."
             );
         }
     }
@@ -58,22 +71,35 @@ public sealed class CambioDolarService
             ? cuota.Idproyecto
             : cuota.LComplejoId;
 
-        cuota.Bono = Convertir(cuota.Bono, idComplejoProyecto);
-        cuota.Amortizacion = Convertir(cuota.Amortizacion, idComplejoProyecto);
-        cuota.Capital = Convertir(cuota.Capital, idComplejoProyecto);
-        cuota.Interes = Convertir(cuota.Interes, idComplejoProyecto);
-        cuota.Seguro = Convertir(cuota.Seguro, idComplejoProyecto);
-        cuota.Expensa = Convertir(cuota.Expensa, idComplejoProyecto);
-        cuota.Multa = Convertir(cuota.Multa, idComplejoProyecto);
-        cuota.Acuenta = Convertir(cuota.Acuenta, idComplejoProyecto);
-        cuota.Totalpago = Convertir(cuota.Totalpago, idComplejoProyecto);
-        cuota.Montodeuda = Convertir(cuota.Montodeuda, idComplejoProyecto);
-        cuota.Pagosacuenta = Convertir(cuota.Pagosacuenta, idComplejoProyecto);
+        cuota.Bono = ConvertirCuota(cuota.Bono, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Amortizacion = ConvertirCuota(cuota.Amortizacion, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Capital = ConvertirCuota(cuota.Capital, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Interes = ConvertirCuota(cuota.Interes, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Seguro = ConvertirCuota(cuota.Seguro, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Expensa = ConvertirCuota(cuota.Expensa, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Multa = ConvertirCuota(cuota.Multa, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Acuenta = ConvertirCuota(cuota.Acuenta, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Totalpago = ConvertirCuota(cuota.Totalpago, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Montodeuda = ConvertirCuota(cuota.Montodeuda, idComplejoProyecto, cuota.Fecha_Venta);
+        cuota.Pagosacuenta = ConvertirCuota(cuota.Pagosacuenta, idComplejoProyecto, cuota.Fecha_Venta);
     }
 
     public void Convertir(VentaResidual venta)
     {
-        venta.ImporteTotal = Convertir(venta.ImporteTotal, venta.IdAlmacen);
+        venta.ImporteTotal = ConvertirCuota(venta.ImporteTotal, venta.IdAlmacen, venta.Fecha);
+    }
+
+    private decimal ConvertirCuota(decimal monto, int idComplejoProyecto, DateTime fechaVenta)
+    {
+        // Los proyectos configurados se registran en BOB y siempre se expresan en USD al TC oficial.
+        if (_idsComplejosProyectos.Contains(idComplejoProyecto))
+            return monto / _tipoCambioOficial;
+
+        // Los proyectos no configurados se tratan como USD. Solo los importes anteriores
+        // al corte se reexpresan: USD histórico -> BOB histórico -> USD oficial.
+        return fechaVenta.Date < _fechaCorte
+            ? monto * _tipoCambioHistorico / _tipoCambioOficial
+            : monto;
     }
 
     public void Convertir(UpgradeSolicitudDto solicitud)
@@ -94,5 +120,8 @@ public sealed class CambioDolarService
     {
         public List<int> IdsComplejosProyectos { get; set; } = new();
         public decimal TipoCambio { get; set; } = 1m;
+        public DateTime FechaCorte { get; set; } = new(2026, 6, 30);
+        public decimal TipoCambioHistorico { get; set; } = 6.97m;
+        public decimal TipoCambioOficial { get; set; } = 7m;
     }
 }

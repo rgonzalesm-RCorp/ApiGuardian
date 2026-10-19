@@ -7,7 +7,7 @@ namespace CleanDapperApi.Api.Services;
 
 public sealed class MonteSionService : IMonteSionService
 {
-    private const string RangoSinCalificacion = "Independent Affiliate";
+    private const string RangoSinCalificacion = "Sin calificación";
     private readonly IMonteSionRepository _repository;
     private readonly MonteSionOpciones _opciones;
 
@@ -29,10 +29,6 @@ public sealed class MonteSionService : IMonteSionService
 
         if (!datos.Success)
             return (false, datos.Mensaje, Enumerable.Empty<MonteSionResultadoRango>());
-
-        var rangosActualesResultado = await _repository.ObtenerRangosActualesAsync(Guid.NewGuid().ToString("N"), cicloId);
-        if (!rangosActualesResultado.Success)
-            return (false, rangosActualesResultado.Mensaje, Enumerable.Empty<MonteSionResultadoRango>());
 
         var nivelesResultado = await _repository.ObtenerNivelesAsync(Guid.NewGuid().ToString("N"));
         if (!nivelesResultado.Success)
@@ -69,20 +65,16 @@ public sealed class MonteSionService : IMonteSionService
         if (rangos.Count == 0)
             return (false, "No existen niveles configurados en administracionnivel.", Enumerable.Empty<MonteSionResultadoRango>());
         var rangoEmprendedor = rangos.FirstOrDefault(rango => NormalizarRango(rango.Nombre) == "EMPRENDEDOR");
+        if (rangoEmprendedor is null)
+            return (false, "No existe el rango Emprendedor en administracionnivel.", Enumerable.Empty<MonteSionResultadoRango>());
+
         var emprendedoresPrimeraVenta = datos.EmprendedoresPrimeraVenta.ToHashSet();
-        if (emprendedoresPrimeraVenta.Count > 0 && rangoEmprendedor is null)
-            return (false, "Existen asesores con primera venta, pero no existe el rango Emprendedor en administracionnivel.", Enumerable.Empty<MonteSionResultadoRango>());
-
-        var rangosActualesPorEmprendedor = rangosActualesResultado.Data
-            .GroupBy(rango => rango.EmprendedorId)
-            .ToDictionary(grupo => grupo.Key, grupo => grupo.First());
-
+        var vendedoresAntesDeMayo2026 = datos.VendedoresAntesDeMayo2026.ToHashSet();
         var resultados = datos.Evaluables
             .GroupBy(emprendedor => emprendedor.EmprendedorId)
             .Select(grupo => grupo.First())
             .Select(emprendedor =>
             {
-                rangosActualesPorEmprendedor.TryGetValue(emprendedor.EmprendedorId, out var rangoActual);
                 var resultado = CalcularRango(
                     emprendedor,
                     cicloId,
@@ -90,15 +82,18 @@ public sealed class MonteSionService : IMonteSionService
                     padrePorAsesor,
                     ventasPorEmprendedor,
                     rangos,
-                    rangoActual?.NivelActualId ?? 0,
-                    rangoActual?.RangoActual ?? "Asesor Comercial",
+                    emprendedor.NivelActualId,
+                    emprendedor.RangoActual,
                     emprendedoresPrimeraVenta.Contains(emprendedor.EmprendedorId),
+                    vendedoresAntesDeMayo2026.Contains(emprendedor.EmprendedorId),
                     rangoEmprendedor
                 );
 
                 return resultado;
             })
-            .Where(resultado => resultado.ProduccionTotalRed > 0m || emprendedoresPrimeraVenta.Contains(resultado.EmprendedorId))
+            // Datos.Evaluables ya contiene únicamente asesores con venta personal en el ciclo.
+            // Solo se muestran y guardan emprendedores que alcanzaron un rango.
+            .Where(resultado => resultado.Califica)
             .ToList();
 
         return (true, "Rangos MonteSion calculados correctamente.", resultados);
@@ -142,42 +137,71 @@ public sealed class MonteSionService : IMonteSionService
         List<MonteSionRangoConfiguracion> rangos,
         int nivelActualId,
         string rangoActual,
-        bool esPrimeraVentaHistorica,
-        MonteSionRangoConfiguracion? rangoEmprendedor)
+        bool primeraVentaDesdeMayo2026,
+        bool tieneVentaAntesDeMayo2026,
+        MonteSionRangoConfiguracion rangoEmprendedor)
     {
         var equipos = ObtenerEquipos(emprendedor.EmprendedorId, contactosPorId, padrePorAsesor, ventasPorEmprendedor);
         var produccionTotal = equipos.Sum(equipo => equipo.ProduccionReal);
-        if (esPrimeraVentaHistorica && rangoEmprendedor is not null)
+
+        // Desde mayo de 2026, la primera venta ingresa al vendedor como Emprendedor.
+        // Los vendedores con una venta anterior a mayo de 2026 no califican a Emprendedor y empiezan desde Leader.
+        if (nivelActualId < rangoEmprendedor.NivelId)
         {
-            var evaluacionEmprendedor = EvaluarRango(rangoEmprendedor, equipos);
-            evaluacionEmprendedor.Califica = true;
-            return new MonteSionResultadoRango
+            if (primeraVentaDesdeMayo2026)
             {
-                EmprendedorId = emprendedor.EmprendedorId,
-                Codigo = emprendedor.Codigo,
-                EmprendedorNombre = emprendedor.EmprendedorNombre,
-                FechaRegistro = emprendedor.FechaRegistro,
-                CicloId = cicloId,
-                ProduccionTotalRed = produccionTotal,
-                ProduccionValidaTotal = evaluacionEmprendedor.ProduccionValidaTotal,
-                NivelActualId = nivelActualId,
-                RangoActual = rangoActual,
-                NivelAlcanzadoId = rangoEmprendedor.NivelId,
-                RangoPotencial = rangoEmprendedor.Nombre,
-                RangoFinal = rangoEmprendedor.Nombre,
-                Califica = true,
-                Beneficio = CalcularBeneficio(rangoEmprendedor, nivelActualId, rangoEmprendedor.NivelId, rangoActual),
-                RangoEvaluado = evaluacionEmprendedor,
-                Evaluaciones = [evaluacionEmprendedor],
-            };
+                var evaluacionEmprendedor = EvaluarRango(rangoEmprendedor, equipos);
+                evaluacionEmprendedor.Califica = true;
+                return new MonteSionResultadoRango
+                {
+                    EmprendedorId = emprendedor.EmprendedorId,
+                    Codigo = emprendedor.Codigo,
+                    EmprendedorNombre = emprendedor.EmprendedorNombre,
+                    FechaRegistro = emprendedor.FechaRegistro,
+                    CicloId = cicloId,
+                    ProduccionTotalRed = produccionTotal,
+                    ProduccionValidaTotal = evaluacionEmprendedor.ProduccionValidaTotal,
+                    NivelActualId = nivelActualId,
+                    RangoActual = rangoActual,
+                    NivelAlcanzadoId = rangoEmprendedor.NivelId,
+                    RangoPotencial = rangoEmprendedor.Nombre,
+                    RangoFinal = rangoEmprendedor.Nombre,
+                    Califica = true,
+                    Beneficio = CalcularBeneficio(rangoEmprendedor, nivelActualId, rangoEmprendedor.NivelId, rangoActual),
+                    RangoEvaluado = evaluacionEmprendedor,
+                    Evaluaciones = [evaluacionEmprendedor],
+                };
+            }
+
+            if (!tieneVentaAntesDeMayo2026)
+            {
+                return new MonteSionResultadoRango
+                {
+                    EmprendedorId = emprendedor.EmprendedorId,
+                    Codigo = emprendedor.Codigo,
+                    EmprendedorNombre = emprendedor.EmprendedorNombre,
+                    FechaRegistro = emprendedor.FechaRegistro,
+                    CicloId = cicloId,
+                    ProduccionTotalRed = produccionTotal,
+                    NivelActualId = nivelActualId,
+                    RangoActual = rangoActual,
+                    RangoPotencial = RangoSinCalificacion,
+                    RangoFinal = RangoSinCalificacion,
+                    Califica = false,
+                };
+            }
         }
+
+        var rangosEvaluables = nivelActualId < rangoEmprendedor.NivelId
+            ? rangos.Where(rango => rango.NivelId > rangoEmprendedor.NivelId).ToList()
+            : rangos;
         var evaluaciones = new List<MonteSionEvaluacionRango>();
-        var final = EvaluarRangosRecursivamente(rangos, 0, equipos, evaluaciones);
-        var potencial = rangos.FirstOrDefault(rango => EstaDentroDelRango(produccionTotal, rango));
+        var final = EvaluarRangosRecursivamente(rangosEvaluables, 0, equipos, evaluaciones);
+        var potencial = rangosEvaluables.FirstOrDefault(rango => EstaDentroDelRango(produccionTotal, rango));
         var rangoEvaluado = final ?? evaluaciones.LastOrDefault();
         var rangoFinalConfiguracion = final is null
             ? null
-            : rangos.First(rango => string.Equals(rango.Nombre, final.Rango, StringComparison.OrdinalIgnoreCase));
+            : rangosEvaluables.First(rango => string.Equals(rango.Nombre, final.Rango, StringComparison.OrdinalIgnoreCase));
         var nivelAlcanzadoId = rangoFinalConfiguracion is null
             ? 0
             : rangoFinalConfiguracion.NivelId;

@@ -292,21 +292,15 @@ public sealed class BonoResidualService : IBonoResidualService
             var habilitados = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(
                 habilitaciones.Data
             );
-            var normales = contratos
-                .Data.Where(x =>
-                    !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(x.LTipoContratoId)
-                )
-                .Select(x => x.LAsesorId)
-                .ToHashSet();
+            var ganadoresConVenta = contratos.Data.Select(x => x.LAsesorId).ToHashSet();
             var listado = bonos
                 .Data.Where(x =>
-                    !bloqueados.Contains(x.LContctoGanadorId)
-                    && (
-                        normales.Contains(x.LContctoGanadorId)
-                        || habilitados.Contains(x.LContctoGanadorId)
-                    )
+                    ganadoresConVenta.Contains(x.LContctoGanadorId)
+                    && (!bloqueados.Contains(x.LContctoGanadorId)
+                        || habilitados.Contains(x.LContctoGanadorId))
                 )
                 .ToList();
+
             var xls = await new BonoParXls().GetBonoParXls(listado);
             var siguiente = await _controlProcesoRepository.GetSiguientePaso(
                 logTransaccionId,
@@ -669,24 +663,24 @@ public sealed class BonoResidualService : IBonoResidualService
                 ProcesosDiccionario.COMISIONES,
                 cicloId
             );
-            if (siguiente.Data.nombre != paso)
-                return new BonoResidualGuardadoResult
-                {
-                    Mensaje =
-                        "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
-                };
-            var inicioPaso = await _controlProcesoRepository.IniciarPaso(
-                logTransaccionId,
-                usuario,
-                ProcesosDiccionario.COMISIONES,
-                cicloId,
-                paso
-            );
-            if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
-                return new BonoResidualGuardadoResult
-                {
-                    Mensaje = inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje,
-                };
+            /* if (siguiente.Data.nombre != paso)
+                 return new BonoResidualGuardadoResult
+                 {
+                     Mensaje =
+                         "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                 };
+             var inicioPaso = await _controlProcesoRepository.IniciarPaso(
+                 logTransaccionId,
+                 usuario,
+                 ProcesosDiccionario.COMISIONES,
+                 cicloId,
+                 paso
+             );
+             if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
+                 return new BonoResidualGuardadoResult
+                 {
+                     Mensaje = inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje,
+                 };*/
             pasoIniciado = true;
 
             var cuotas = await _bonoResidualRepository.GetCuota(
@@ -1233,21 +1227,11 @@ public sealed class BonoResidualService : IBonoResidualService
             var habilitados = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(
                 habilitaciones.Data
             );
-            var contratosNormales = contratos
-                .Data.Where(item =>
-                    !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(
-                        item.LTipoContratoId
-                    )
-                )
-                .Select(item => item.LAsesorId)
-                .ToHashSet();
+            var ganadoresConVenta = contratos.Data.Select(item => item.LAsesorId).ToHashSet();
             var listado = bonoPar
                 .Data.Where(item =>
                     !bloqueados.Contains(item.LContctoGanadorId)
-                    && (
-                        contratosNormales.Contains(item.LContctoGanadorId)
-                        || habilitados.Contains(item.LContctoGanadorId)
-                    )
+                    && ganadoresConVenta.Contains(item.LContctoGanadorId)
                 )
                 .ToList();
 

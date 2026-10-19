@@ -787,6 +787,7 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
                     Porcentaje = x.PorcentajeInicial,
                     Comision = directa,
                     CuotAccPen = cuotas,
+                    CuotPagadas = 0,
                     Inicial10 = inicial10,
                     MontPagar = nueva - directa,
                     MensPagar = (nueva - directa) / cuotas,

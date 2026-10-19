@@ -2,6 +2,8 @@ using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.DTO;
 using ApiGuardian.Infrastructure.Persistence;
 using Dapper;
+using Microsoft.Extensions.Configuration;
+using MySql.Data.MySqlClient;
 using System.Globalization;
 using System.Text;
 
@@ -12,40 +14,91 @@ public sealed class MonteSionRepository : IMonteSionRepository
     private const string NombreArchivo = "MonteSionRepository.cs";
     private readonly DapperContext _context;
     private readonly ILogService _log;
+    private readonly IConfiguration _configuration;
 
-    public MonteSionRepository(DapperContext context, ILogService log)
+    public MonteSionRepository(DapperContext context, ILogService log, IConfiguration configuration)
     {
         _context = context;
         _log = log;
+        _configuration = configuration;
     }
 
-    public async Task<(IEnumerable<MonteSionRangoActual> Data, bool Success, string Mensaje)> ObtenerRangosActualesAsync(string logTransaccionId, int cicloId)
+    public async Task<(bool Success, string Mensaje, MonteSionMigracionResultado Data)> MigrarTablasAsync(string logTransaccionId)
     {
-        const string sql = """
-            SELECT
-                plan.lcontacto_id AS EmprendedorId,
-                COALESCE(plan.Nivel, 0) AS NivelActualId,
-                COALESCE(nivel.snombre, 'Asesor Comercial') AS RangoActual
-            FROM t_plan_montesion plan
-            LEFT JOIN administracionnivel nivel ON nivel.lnivel_id = plan.Nivel
-            INNER JOIN (
-                SELECT lcontacto_id, MAX(id_plan_montesion) AS IdPlanMonteSion
-                FROM t_plan_montesion
-                GROUP BY lcontacto_id
-            ) ultimo ON ultimo.IdPlanMonteSion = plan.id_plan_montesion;
-            """;
+        const string metodo = nameof(MigrarTablasAsync);
+        var resultado = new MonteSionMigracionResultado();
+        var origen = _configuration.GetConnectionString("DefaultConnectiond");
+        var destino = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(origen) || string.IsNullOrWhiteSpace(destino))
+            return (false, "No están configuradas las conexiones MySQL de origen o destino para la migración Monte Sion.", resultado);
+
+        var tablas = new[] { "t_plan_montesion", "reportesmontesion", "t_nuevos_rangos_montesion_2025" };
 
         try
         {
-            using var connection = _context.CreateConnection();
-            var data = await connection.QueryAsync<MonteSionRangoActual>(sql, new { CicloId = cicloId });
-            return (data, true, "Rangos actuales obtenidos correctamente.");
+            await using var conexionOrigen = new MySqlConnection(origen);
+            await using var conexionDestino = new MySqlConnection(destino);
+            await conexionOrigen.OpenAsync();
+            await conexionDestino.OpenAsync();
+            await using var transaccion = await conexionDestino.BeginTransactionAsync();
+
+            // Se limpian únicamente las tablas de destino (10.2.10.40).
+            foreach (var tabla in tablas.Reverse())
+            {
+                await using var limpiar = new MySqlCommand($"DELETE FROM `{tabla}`;", conexionDestino, transaccion);
+                await limpiar.ExecuteNonQueryAsync();
+            }
+
+            foreach (var tabla in tablas)
+            {
+                var filas = await CopiarTablaAsync(tabla, conexionOrigen, conexionDestino, transaccion);
+                switch (tabla)
+                {
+                    case "t_plan_montesion": resultado.Planes = filas; break;
+                    case "reportesmontesion": resultado.Reportes = filas; break;
+                    case "t_nuevos_rangos_montesion_2025": resultado.NuevosRangos = filas; break;
+                }
+            }
+
+            await transaccion.CommitAsync();
+            _log.Info(logTransaccionId, NombreArchivo, metodo,
+                $"Migración Monte Sion finalizada. Planes: {resultado.Planes}, reportes: {resultado.Reportes}, nuevos rangos: {resultado.NuevosRangos}.");
+            return (true, "Migración Monte Sion finalizada correctamente.", resultado);
         }
         catch (Exception ex)
         {
-            _log.Error(logTransaccionId, NombreArchivo, nameof(ObtenerRangosActualesAsync), "Error al obtener rangos actuales Monte Sion.", ex);
-            return (Enumerable.Empty<MonteSionRangoActual>(), false, $"Error al obtener rangos actuales: {ex.Message}");
+            _log.Error(logTransaccionId, NombreArchivo, metodo, "Error al migrar las tablas Monte Sion.", ex);
+            return (false, $"Error al migrar las tablas Monte Sion: {ex.Message}", resultado);
         }
+    }
+
+    private static async Task<int> CopiarTablaAsync(
+        string tabla,
+        MySqlConnection conexionOrigen,
+        MySqlConnection conexionDestino,
+        MySqlTransaction transaccion)
+    {
+        await using var consultaOrigen = new MySqlCommand($"SELECT * FROM `{tabla}` where lciclo_id in (146, 147);", conexionOrigen);
+        await using var lector = await consultaOrigen.ExecuteReaderAsync();
+        var columnas = Enumerable.Range(0, lector.FieldCount).Select(lector.GetName).ToArray();
+        var columnasSql = string.Join(", ", columnas.Select(columna => $"`{columna.Replace("`", "``")}`"));
+        var parametrosSql = string.Join(", ", Enumerable.Range(0, columnas.Length).Select(indice => $"@p{indice}"));
+        await using var insertar = new MySqlCommand($"INSERT INTO `{tabla}` ({columnasSql}) VALUES ({parametrosSql});", conexionDestino, transaccion);
+
+        for (var indice = 0; indice < columnas.Length; indice++)
+            insertar.Parameters.Add(new MySqlParameter($"@p{indice}", DBNull.Value));
+
+        var filas = 0;
+        while (await lector.ReadAsync())
+        {
+            for (var indice = 0; indice < columnas.Length; indice++)
+                insertar.Parameters[indice].Value = await lector.IsDBNullAsync(indice) ? DBNull.Value : lector.GetValue(indice);
+
+            await insertar.ExecuteNonQueryAsync();
+            filas++;
+        }
+
+        return filas;
     }
 
     public async Task<(IEnumerable<MonteSionNivel> Data, bool Success, string Mensaje)> ObtenerNivelesAsync(string logTransaccionId)
@@ -179,10 +232,20 @@ public sealed class MonteSionRepository : IMonteSionRepository
                     """;
                 await connection.ExecuteAsync(planSql, new
                 {
-                    Usuario = usuario, Id = ++proximoPlanId, contacto.Codigo, NivelActual = nivelActual,
-                    ContactoId = resultado.EmprendedorId, contacto.Nombre, Vendido = ventaPersonal?.Vendido ?? 0m,
-                    CantVP = ventaPersonal?.Cantidad ?? 0, VentaGrupo = resultado.ProduccionTotalRed, CantVG = cantidadGrupo,
-                    NivelAlcanzado = nivelAlcanzado, Monto = decimal.ToInt32(decimal.Truncate(monto)), PorcentajeLiderazgo = porcentajeLiderazgo, CicloId = cicloId
+                    Usuario = usuario,
+                    Id = ++proximoPlanId,
+                    contacto.Codigo,
+                    NivelActual = nivelActual,
+                    ContactoId = resultado.EmprendedorId,
+                    contacto.Nombre,
+                    Vendido = ventaPersonal?.Vendido ?? 0m,
+                    CantVP = ventaPersonal?.Cantidad ?? 0,
+                    VentaGrupo = resultado.ProduccionTotalRed,
+                    CantVG = cantidadGrupo,
+                    NivelAlcanzado = nivelAlcanzado,
+                    Monto = decimal.ToInt32(decimal.Truncate(monto)),
+                    PorcentajeLiderazgo = porcentajeLiderazgo,
+                    CicloId = cicloId
                 }, transaction);
 
                 const string reporteSql = """
@@ -196,13 +259,39 @@ public sealed class MonteSionRepository : IMonteSionRepository
                     """;
                 await connection.ExecuteAsync(reporteSql, new
                 {
-                    Usuario = usuario, ReporteId = ++proximoReporteId, CicloId = cicloId, IdNro = ++proximoIdNro,
-                    NroAscensos = subioNivel ? ++proximoAscenso : 0, ContactoId = resultado.EmprendedorId,
-                    NivelActual = nivelActual, NivelAlcanzado = nivelAlcanzado, SubioNivel = subioNivel ? 1 : 0,
-                    NivelesEscalados = nivelesEscalados, Produccion = resultado.ProduccionTotalRed,
-                    PuntosAcumulados = resultado.ProduccionValidaTotal, Monto = monto,
+                    Usuario = usuario,
+                    ReporteId = ++proximoReporteId,
+                    CicloId = cicloId,
+                    IdNro = ++proximoIdNro,
+                    NroAscensos = subioNivel ? ++proximoAscenso : 0,
+                    ContactoId = resultado.EmprendedorId,
+                    NivelActual = nivelActual,
+                    NivelAlcanzado = nivelAlcanzado,
+                    SubioNivel = subioNivel ? 1 : 0,
+                    NivelesEscalados = nivelesEscalados,
+                    Produccion = resultado.ProduccionTotalRed,
+                    PuntosAcumulados = resultado.ProduccionValidaTotal,
+                    Monto = monto,
                     Observacion = resultado.Beneficio?.Motivo.Length > 100 ? resultado.Beneficio.Motivo[..100] : resultado.Beneficio?.Motivo
                 }, transaction);
+
+                if (subioNivel)
+                {
+                    const string actualizarRangoContactoSql = """
+                        UPDATE administracioncontacto
+                        SET lnivel_id = @NivelAlcanzado,
+                            susuariomod = @Usuario,
+                            dtfechamod = NOW()
+                        WHERE lcontacto_id = @ContactoId
+                          AND COALESCE(lnivel_id, 0) < @NivelAlcanzado;
+                        """;
+                    await connection.ExecuteAsync(actualizarRangoContactoSql, new
+                    {
+                        Usuario = usuario,
+                        ContactoId = resultado.EmprendedorId,
+                        NivelAlcanzado = nivelAlcanzado,
+                    }, transaction);
+                }
 
                 if (!subioNivel) continue;
 
@@ -217,10 +306,22 @@ public sealed class MonteSionRepository : IMonteSionRepository
                     """;
                 await connection.ExecuteAsync(ascensoSql, new
                 {
-                    Id = ++proximoNuevoRangoId, ContactoId = resultado.EmprendedorId, Mes = mes, contacto.Nombre, contacto.Ci,
-                    contacto.Celular, contacto.Fijo, contacto.PaisId, contacto.Ciudad, contacto.Pais, NivelActual = nivelActual,
-                    RangoActual = rangoActual, NivelAlcanzado = nivelAlcanzado, RangoAlcanzado = rangoAlcanzado,
-                    NivelesEscalados = nivelesEscalados, CicloId = cicloId
+                    Id = ++proximoNuevoRangoId,
+                    ContactoId = resultado.EmprendedorId,
+                    Mes = mes,
+                    contacto.Nombre,
+                    contacto.Ci,
+                    contacto.Celular,
+                    contacto.Fijo,
+                    contacto.PaisId,
+                    contacto.Ciudad,
+                    contacto.Pais,
+                    NivelActual = nivelActual,
+                    RangoActual = rangoActual,
+                    NivelAlcanzado = nivelAlcanzado,
+                    RangoAlcanzado = rangoAlcanzado,
+                    NivelesEscalados = nivelesEscalados,
+                    CicloId = cicloId
                 }, transaction);
             }
 
@@ -273,22 +374,27 @@ public sealed class MonteSionRepository : IMonteSionRepository
     }
     private sealed class VentaPersonalMonteSion { public int ContactoId { get; init; } public decimal Vendido { get; init; } public int Cantidad { get; init; } }
 
-    public async Task<(IEnumerable<MonteSionContactoRed> Contactos, IEnumerable<MonteSionContactoRed> Evaluables, IEnumerable<MonteSionProduccionContacto> Producciones, IEnumerable<MonteSionRangoHistorico> HistorialRangos, IEnumerable<int> EmprendedoresPrimeraVenta, bool Success, string Mensaje)>
+    public async Task<(IEnumerable<MonteSionContactoRed> Contactos, IEnumerable<MonteSionContactoRed> Evaluables, IEnumerable<MonteSionProduccionContacto> Producciones, IEnumerable<MonteSionRangoHistorico> HistorialRangos, IEnumerable<int> EmprendedoresPrimeraVenta, IEnumerable<int> VendedoresAntesDeMayo2026, bool Success, string Mensaje)>
         ObtenerDatosCicloAsync(string logTransaccionId, int cicloId)
     {
         const string metodo = "ObtenerDatosCicloAsync";
         const string contactosQuery = @"
-            SELECT lcontacto_id AS EmprendedorId, scodigo AS Codigo, snombrecompleto AS EmprendedorNombre,
-                   dtfecharegistro AS FechaRegistro
+            SELECT contacto.lcontacto_id AS EmprendedorId, contacto.scodigo AS Codigo, contacto.snombrecompleto AS EmprendedorNombre,
+                   contacto.dtfecharegistro AS FechaRegistro, COALESCE(contacto.lnivel_id, 0) AS NivelActualId,
+                   COALESCE(nivel.snombre, 'Asesor Comercial') AS RangoActual
             FROM administracioncontacto contacto
+            LEFT JOIN administracionnivel nivel ON nivel.lnivel_id = contacto.lnivel_id
             WHERE contacto.cbaja = 0;";
         const string evaluablesQuery = @"
             SELECT
                 vendedor.lcontacto_id AS EmprendedorId,
                 vendedor.scodigo AS Codigo,
                 vendedor.snombrecompleto AS EmprendedorNombre,
-                vendedor.dtfecharegistro AS FechaRegistro
+                vendedor.dtfecharegistro AS FechaRegistro,
+                COALESCE(vendedor.lnivel_id, 0) AS NivelActualId,
+                COALESCE(nivel.snombre, 'Asesor Comercial') AS RangoActual
             FROM administracioncontacto vendedor
+            LEFT JOIN administracionnivel nivel ON nivel.lnivel_id = vendedor.lnivel_id
             INNER JOIN (
                 SELECT lcontacto_id AS VendedorId
                 FROM administracionventapersonal
@@ -323,15 +429,18 @@ public sealed class MonteSionRepository : IMonteSionRepository
             SELECT venta.lcontacto_id
             FROM administracionventapersonal venta
             INNER JOIN administracioncontrato contrato ON contrato.lcontrato_id = venta.lcontrato_id
-            WHERE venta.lciclo_id = @CicloId
-              AND contrato.lasesor_id = venta.lcontacto_id
+            WHERE contrato.lasesor_id = venta.lcontacto_id
               AND contrato.lasesor_id > 0
             GROUP BY venta.lcontacto_id
-            HAVING (
-                SELECT COUNT(*)
-                FROM administracioncontrato historial
-                WHERE historial.lasesor_id = venta.lcontacto_id
-            ) = 1;
+            HAVING MIN(contrato.dtfecha) >= '2026-05-01';
+            """;
+        const string ventasAntesDeMayo2026Query = """
+            SELECT DISTINCT venta.lcontacto_id
+            FROM administracionventapersonal venta
+            INNER JOIN administracioncontrato contrato ON contrato.lcontrato_id = venta.lcontrato_id
+            WHERE contrato.lasesor_id = venta.lcontacto_id
+              AND contrato.lasesor_id > 0
+              AND contrato.dtfecha < '2026-05-01';
             """;
 
         try
@@ -342,15 +451,16 @@ public sealed class MonteSionRepository : IMonteSionRepository
             var producciones = (await connection.QueryAsync<MonteSionProduccionContacto>(produccionQuery, new { CicloId = cicloId })).ToList();
             var historialRangos = (await connection.QueryAsync<MonteSionRangoHistorico>(historialRangosQuery, new { CicloId = cicloId })).ToList();
             var emprendedoresPrimeraVenta = (await connection.QueryAsync<int>(primeraVentaQuery, new { CicloId = cicloId })).ToList();
+            var vendedoresAntesDeMayo2026 = (await connection.QueryAsync<int>(ventasAntesDeMayo2026Query)).ToList();
             _log.Info(logTransaccionId, NombreArchivo, metodo,
                 $"Datos MonteSion obtenidos. Ciclo: {cicloId}, emprendedores evaluables: {evaluables.Count}.");
 
-            return (contactos, evaluables, producciones, historialRangos, emprendedoresPrimeraVenta, true, "Producción de red obtenida correctamente.");
+            return (contactos, evaluables, producciones, historialRangos, emprendedoresPrimeraVenta, vendedoresAntesDeMayo2026, true, "Producción de red obtenida correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(logTransaccionId, NombreArchivo, metodo, "Error al obtener producción de red.", ex);
-            return (Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionProduccionContacto>(), Enumerable.Empty<MonteSionRangoHistorico>(), Enumerable.Empty<int>(), false,
+            return (Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionProduccionContacto>(), Enumerable.Empty<MonteSionRangoHistorico>(), Enumerable.Empty<int>(), Enumerable.Empty<int>(), false,
                 $"Error al obtener producción de red: {ex.Message}");
         }
     }
