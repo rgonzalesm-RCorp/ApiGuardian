@@ -53,6 +53,28 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
             int totalDetallesInsertados = 0;
             var detallesPendientes = new List<(int BonoResidualId, AdministracionBonoResidualDetalle Detalle)>();
 
+            // Catálogo empresa_complejo leído una sola vez; reemplaza las subconsultas por fila del INSERT de detalle.
+            var complejos = (await connection.QueryAsync<EmpresaComplejoCatalogo>(
+                "SELECT * FROM empresa_complejo;",
+                transaction: transaction
+            )).ToList();
+
+            var gruposComplejos = complejos
+                .Where(c => c.id_almacen_conexion.HasValue)
+                .GroupBy(c => c.id_almacen_conexion!.Value)
+                .ToList();
+
+            var mapaComplejos = gruposComplejos.ToDictionary(g => g.Key, g => g.First());
+
+            int clavesDuplicadas = gruposComplejos.Count(g => g.Count() > 1);
+            if (clavesDuplicadas > 0)
+                _log.Info(
+                    LogTransaccionId,
+                    NOMBREARCHIVO,
+                    nombreMetodo,
+                    $"empresa_complejo tiene {clavesDuplicadas} id_almacen_conexion duplicados; se usa el primer registro leído."
+                );
+
             for (int i = 0; i < data.Count; i += batchSize)
             {
                 var batch = data
@@ -168,9 +190,21 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                 totalInsertados += rows;
             }
 
-            for (int i = 0; i < detallesPendientes.Count; i += batchSize)
+            var detallesResueltos = detallesPendientes
+                .Select(x =>
+                {
+                    var (empresaId, complejoId) = ResolverEmpresaComplejo(
+                        x.Detalle.LempresaId,
+                        x.Detalle.LcomplejoId,
+                        mapaComplejos
+                    );
+                    return (x.BonoResidualId, LEmpresaId: empresaId, LComplejoId: complejoId, x.Detalle);
+                })
+                .ToList();
+
+            for (int i = 0; i < detallesResueltos.Count; i += batchSize)
             {
-                var batchDetalle = detallesPendientes
+                var batchDetalle = detallesResueltos
                     .Skip(i)
                     .Take(batchSize)
                     .ToList();
@@ -188,7 +222,8 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                         monto,
                         porcentaje_comision,
                         comision,
-                        lciclo_id
+                        lciclo_id,
+                        fechapago
                     )
                     VALUES
                 ");
@@ -197,47 +232,35 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
 
                 for (int j = 0; j < batchDetalle.Count; j++)
                 {
-                    var (bonoResidualId, detalle) = batchDetalle[j];
+                    var (bonoResidualId, lEmpresaId, lComplejoId, detalle) = batchDetalle[j];
 
                     sqlDetalle.Append($@"
                     (
                         @LBonoResidualDetalleId{j},
-                        CASE
-                            WHEN @LEmpresaId{j} > 0 THEN @LEmpresaId{j}
-                            ELSE COALESCE(
-                                (SELECT empresa_id
-                                 FROM empresa_complejo
-                                 WHERE id_almacen_conexion = @LComplejoId{j}
-                                 LIMIT 1), 0)
-                        END,
-                        CASE
-                            WHEN @LComplejoId{j} > 0 THEN COALESCE(
-                                (SELECT complejo_id
-                                 FROM empresa_complejo
-                                 WHERE id_almacen_conexion = @LComplejoId{j}
-                                 LIMIT 1), @LComplejoId{j})
-                            ELSE 0
-                        END,
+                        @LEmpresaId{j},
+                        @LComplejoId{j},
                         @Nivel{j},
                         @Producto{j},
                         @Monto{j},
                         @PorcentajeComision{j},
                         @Comision{j},
-                        @LCicloId{j}
+                        @LCicloId{j},
+                        @FechaPago{j}
                     )");
 
                     if (j < batchDetalle.Count - 1)
                         sqlDetalle.Append(",");
 
                     parametersDetalle.Add($"LBonoResidualDetalleId{j}", bonoResidualId);
-                    parametersDetalle.Add($"LEmpresaId{j}", detalle.LempresaId);
-                    parametersDetalle.Add($"LComplejoId{j}", detalle.LcomplejoId);
+                    parametersDetalle.Add($"LEmpresaId{j}", lEmpresaId);
+                    parametersDetalle.Add($"LComplejoId{j}", lComplejoId);
                     parametersDetalle.Add($"Nivel{j}", detalle.Nivel);
                     parametersDetalle.Add($"Producto{j}", detalle.Producto);
                     parametersDetalle.Add($"Monto{j}", detalle.Monto);
                     parametersDetalle.Add($"PorcentajeComision{j}", detalle.PorcentajeComision);
                     parametersDetalle.Add($"Comision{j}", detalle.Comision);
                     parametersDetalle.Add($"LCicloId{j}", LCicloId);
+                    parametersDetalle.Add($"FechaPago{j}", detalle.FechaPago);
                 }
 
                 sqlDetalle.Append(";");
@@ -291,7 +314,30 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
             connection?.Dispose();
         }
     }
-        
+
+    public sealed class EmpresaComplejoCatalogo
+    {
+        public int? id_almacen_conexion { get; set; }
+        public int? empresa_id { get; set; }
+        public int? complejo_id { get; set; }
+    }
+
+    // Reglas equivalentes a las subconsultas CASE que existían en el INSERT de detalle.
+    private static (int LEmpresaId, int LComplejoId) ResolverEmpresaComplejo(
+        int lEmpresaId,
+        int lComplejoId,
+        IReadOnlyDictionary<int, EmpresaComplejoCatalogo> mapa
+    )
+    {
+        EmpresaComplejoCatalogo? complejo = null;
+        mapa.TryGetValue(lComplejoId, out complejo);
+
+        int empresa = lEmpresaId > 0 ? lEmpresaId : (complejo?.empresa_id ?? 0);
+        int complejoResuelto = lComplejoId > 0 ? (complejo?.complejo_id ?? lComplejoId) : 0;
+
+        return (empresa, complejoResuelto);
+    }
+
     public async Task<(bool Success, string Mensaje)> SaveAdministracionBonoCompleto(string LogTransaccionId, string Usuario, List<ItemBonoCompleto> data)
     {
         string nombreMetodo = "SaveAdministracionBonoCompleto()";
@@ -515,7 +561,7 @@ public class AdministracionBonoResidualRepository : IAdministracionBonoResidualR
                     if (j < batch.Count - 1)
                         sql.Append(",");
 
-                    parameters.Add($"Usuario{j}", Usuario);
+                    parameters.Add($"Usuario{j}", item.Usuario);
                     parameters.Add($"LRedEmpresaComplejoId{j}", nextId);
                     parameters.Add($"LCicloId{j}", item.LCicloId);
                     parameters.Add($"LContactoId{j}", item.LContactoId);

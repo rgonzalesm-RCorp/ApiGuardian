@@ -187,6 +187,7 @@ public interface IReportesService
 public interface ICasosObservadosService
 {
     Task<(bool Success, string Mensaje, object Data)> ObtenerAsync(string usuario, int cicloId, DateTime? inicio, DateTime? fin);
+    Task<(bool Success, string Mensaje, object Data)> ExportarXlsAsync(string usuario, int cicloId, DateTime? inicio, DateTime? fin);
     Task<(bool Success, string Mensaje, object Data)> ProcesarAsync(string usuario, int cicloId);
 }
 

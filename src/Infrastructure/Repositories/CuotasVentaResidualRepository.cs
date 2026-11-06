@@ -604,6 +604,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
                 foreach (var item in Listado)
                 {
                     item.IdProductoPagar = correlativo++;
+                    item.CuotPagadas ??= 0;
                     item.Terminado ??= 0;
                     item.CiclosHabilitados ??= string.Empty;
                 }

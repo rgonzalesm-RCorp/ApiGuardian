@@ -147,6 +147,7 @@ public sealed class BonoResidualService : IBonoResidualService
                         Complejo = item.Proyecto,
                         Empresa = item.Empresa,
                         ProductoId = item.ProductoId,
+                        FechaPago = item.FechaPago,
                         EstaAlDia =
                             string.IsNullOrWhiteSpace(documento) || !vencidos.Contains(documento),
                     }
@@ -156,6 +157,7 @@ public sealed class BonoResidualService : IBonoResidualService
 
         listado = listado.Where(x => x.ActivoMes && x.EstaAlDia).ToList();
         AplicarComisionResidualCeroConfigurada(listado);
+
         return new BonoResidualCalculoResult
         {
             Success = true,
@@ -291,21 +293,15 @@ public sealed class BonoResidualService : IBonoResidualService
             var habilitados = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(
                 habilitaciones.Data
             );
-            var normales = contratos
-                .Data.Where(x =>
-                    !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(x.LTipoContratoId)
-                )
-                .Select(x => x.LAsesorId)
-                .ToHashSet();
+            var ganadoresConVenta = contratos.Data.Select(x => x.LAsesorId).ToHashSet();
             var listado = bonos
                 .Data.Where(x =>
-                    !bloqueados.Contains(x.LContctoGanadorId)
-                    && (
-                        normales.Contains(x.LContctoGanadorId)
-                        || habilitados.Contains(x.LContctoGanadorId)
-                    )
+                    ganadoresConVenta.Contains(x.LContctoGanadorId)
+                    && (!bloqueados.Contains(x.LContctoGanadorId)
+                        || habilitados.Contains(x.LContctoGanadorId))
                 )
                 .ToList();
+
             var xls = await new BonoParXls().GetBonoParXls(listado);
             var siguiente = await _controlProcesoRepository.GetSiguientePaso(
                 logTransaccionId,
@@ -913,13 +909,13 @@ public sealed class BonoResidualService : IBonoResidualService
                 ProcesosDiccionario.COMISIONES,
                 cicloId
             );
-            if (paso != siguientePaso.Data.nombre)
+            /*if (paso != siguientePaso.Data.nombre)
                 return new BonoResidualGuardadoResult
                 {
                     Mensaje =
                         "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
                 };
-
+*/
             var inicioPaso = await _controlProcesoRepository.IniciarPaso(
                 logTransaccionId,
                 usuario,
@@ -927,11 +923,11 @@ public sealed class BonoResidualService : IBonoResidualService
                 cicloId,
                 paso
             );
-            if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
+            /*if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
                 return new BonoResidualGuardadoResult
                 {
                     Mensaje = inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje,
-                };
+                };*/
             pasoIniciado = true;
 
             if (!calculo.Success)
@@ -1004,7 +1000,7 @@ public sealed class BonoResidualService : IBonoResidualService
                 .ToList();
 
             var redEmpresaComplejo = residual
-                .GroupBy(x => new { x.LContactoId, x.LComplejoId })
+                .GroupBy(x => new { x.LContactoId, x.LComplejoId, x.Complejo, x.Empresa })
                 .Select(g => new ItemRedEmpresaComplejo
                 {
                     LRedEmpresaComplejoId = 0,
@@ -1012,9 +1008,10 @@ public sealed class BonoResidualService : IBonoResidualService
                     LContactoId = g.Key.LContactoId,
                     LComplejoId = g.Key.LComplejoId,
                     DMonto = g.Sum(x => x.BonoResidual),
+                    Usuario = g.Key.Complejo + " - " + g.Key.Empresa + " - " + g.Key.LComplejoId.ToString(),
                 })
                 .ToList();
-
+            var redEmpresaComplejoCero = redEmpresaComplejo.Where(x => x.LComplejoId == 0).ToList();
             var listado = redEmpresaComplejo
                 .GroupBy(x => x.LContactoId)
                 .Select(g => new ItemAdministracionBonoResidual
@@ -1034,6 +1031,7 @@ public sealed class BonoResidualService : IBonoResidualService
                             LcomplejoId = h.LComplejoId,
                             Nivel = h.Nivel,
                             Producto = h.ProductoId,
+                            FechaPago = h.FechaPago,
                             Monto = h.Bono,
                             PorcentajeComision = h.PorcentajeComision,
                             Comision = h.BonoResidual,
@@ -1232,21 +1230,11 @@ public sealed class BonoResidualService : IBonoResidualService
             var habilitados = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(
                 habilitaciones.Data
             );
-            var contratosNormales = contratos
-                .Data.Where(item =>
-                    !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(
-                        item.LTipoContratoId
-                    )
-                )
-                .Select(item => item.LAsesorId)
-                .ToHashSet();
+            var ganadoresConVenta = contratos.Data.Select(item => item.LAsesorId).ToHashSet();
             var listado = bonoPar
                 .Data.Where(item =>
                     !bloqueados.Contains(item.LContctoGanadorId)
-                    && (
-                        contratosNormales.Contains(item.LContctoGanadorId)
-                        || habilitados.Contains(item.LContctoGanadorId)
-                    )
+                    && ganadoresConVenta.Contains(item.LContctoGanadorId)
                 )
                 .ToList();
 

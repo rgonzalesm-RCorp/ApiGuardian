@@ -21,6 +21,13 @@ public sealed class RetencionEmpresaController : ControllerBase
         return Ok(new { status = resultado.Success, mensaje = resultado.Mensaje, data = resultado.Data });
     }
 
+    [HttpGet("excel")]
+    public async Task<IActionResult> Excel([FromHeader(Name = "LCicloId")] int cicloId)
+    {
+        var resultado = await _service.ExportarXlsAsync(cicloId);
+        return Ok(new { status = resultado.Success, mensaje = resultado.Mensaje, data = resultado.Data });
+    }
+
     [HttpPost("guardar")]
     public async Task<IActionResult> Guardar([FromHeader(Name = "LCicloId")] int cicloId)
     {

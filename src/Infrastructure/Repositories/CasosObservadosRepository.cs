@@ -208,6 +208,13 @@ public class CasosObservadosRepository : ICasosObservadosRepository
                 ));
             }
 
+            var resultadoAutoCompras = await ConsultarAutoCompras(LogTransaccionId, Usuario, LCicloId, fechaInicio, fechaFin);
+            if (!resultadoAutoCompras.Success)
+            {
+                return (Enumerable.Empty<ItemCasoObservado>(), new CasosObservadosResumen(), false, resultadoAutoCompras.Mensaje);
+            }
+            casos.AddRange(resultadoAutoCompras.Data.Select(CrearCasoAutoCompra));
+
             casos = casos
                 .OrderByDescending(item => item.FechaVenta.HasValue)
                 .ThenByDescending(item => item.FechaVenta)
@@ -230,7 +237,8 @@ public class CasosObservadosRepository : ICasosObservadosRepository
                 VendedoresDadosBaja = casos.Count(item => item.TipoCaso == "VENDEDOR_DADO_BAJA"),
                 ClientesDadosBaja = casos.Count(item => item.TipoCaso == "CLIENTE_DADO_BAJA"),
                 VendedoresSinVentasUnAnio = casos.Count(item => item.TipoCaso == "VENDEDOR_SIN_VENTAS_UN_ANIO"),
-                ClientesSinComprasUnAnio = casos.Count(item => item.TipoCaso == "CLIENTE_SIN_COMPRAS_UN_ANIO")
+                ClientesSinComprasUnAnio = casos.Count(item => item.TipoCaso == "CLIENTE_SIN_COMPRAS_UN_ANIO"),
+                AutoCompras = casos.Count(item => item.TipoCaso == "AUTO_COMPRA")
             };
 
             const string mensaje = "Casos observados obtenidos correctamente.";
@@ -251,7 +259,91 @@ public class CasosObservadosRepository : ICasosObservadosRepository
         }
     }
 
-    private static bool EsBaja(string? valor) => string.Equals(valor?.Trim(), "1", StringComparison.OrdinalIgnoreCase);
+    private async Task<(IEnumerable<ItemAutoCompra> Data, bool Success, string Mensaje)> ConsultarAutoCompras(
+        string LogTransaccionId,
+        string Usuario,
+        int LCicloId,
+        DateTime fechaInicio,
+        DateTime fechaFin
+    )
+    {
+        const string nombreMetodo = "GetAutoCompras()";
+        const string queryAutoCompras = @"
+            SELECT
+                ctr.lcontrato_id AS LContratoId,
+                ctr.snroventa AS NroVenta,
+                ctr.dtfecha AS FechaVenta,
+                ctr.lcontacto_id AS CompradorId,
+                cto.scedulaidentidad AS CompradorDocId,
+                cto.snombrecompleto AS Comprador,
+                ctr.lasesor_id AS VendedorId,
+                ven.scedulaidentidad AS VendedorDocId,
+                ven.snombrecompleto AS Vendedor
+            FROM administracioncontrato ctr
+            INNER JOIN administracioncontacto cto ON cto.lcontacto_id = ctr.lcontacto_id
+            LEFT JOIN administracioncontacto ven ON ven.lcontacto_id = ctr.lasesor_id
+            WHERE ctr.lasesor_id = ctr.lcontacto_id
+              AND ctr.dtfecha >= @FechaInicio
+              AND ctr.dtfecha < @FechaFinExclusiva
+            ORDER BY ctr.dtfecha, ctr.snroventa;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+            $"Inicio de metodo [Usuario:{Usuario}, LCicloId:{LCicloId}, FechaInicio:{fechaInicio:yyyy-MM-dd}, FechaFin:{fechaFin:yyyy-MM-dd}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var autoCompras = (
+                await connection.QueryAsync<ItemAutoCompra>(
+                    queryAutoCompras,
+                    new
+                    {
+                        FechaInicio = fechaInicio.Date,
+                        FechaFinExclusiva = fechaFin.Date.AddDays(1)
+                    }
+                )
+            ).ToList();
+
+            const string mensaje = "Auto compras obtenidas correctamente.";
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo,
+                $"Fin de metodo [mensaje:{mensaje}, total:{autoCompras.Count}]");
+
+            return (autoCompras, true, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (
+                Enumerable.Empty<ItemAutoCompra>(),
+                false,
+                $"Error al consultar auto compras: {ex.Message}"
+            );
+        }
+    }
+
+    private static ItemCasoObservado CrearCasoAutoCompra(ItemAutoCompra origen)
+    {
+        return new ItemCasoObservado
+        {
+            TipoCaso = "AUTO_COMPRA",
+            LContratoId = origen.LContratoId,
+            NroVenta = origen.NroVenta,
+            FechaVenta = origen.FechaVenta,
+            ClienteId = origen.CompradorId,
+            Cliente = origen.Comprador,
+            ClienteDocId = origen.CompradorDocId,
+            VendedorId = origen.VendedorId,
+            Vendedor = origen.Vendedor,
+            VendedorDocId = origen.VendedorDocId,
+            ContratoAsesorId = origen.VendedorId,
+            Motivo = "Venta donde el comprador es también el vendedor",
+            Estado = "PENDIENTE"
+        };
+    }
+
+    private static bool EsBaja(string? valor) =>string.Equals(valor?.Trim(), "1", StringComparison.OrdinalIgnoreCase);
 
     private static ItemCasoObservado CrearCaso(
         ItemCasoObservado origen,
