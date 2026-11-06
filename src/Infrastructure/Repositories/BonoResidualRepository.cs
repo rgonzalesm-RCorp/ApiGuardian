@@ -589,6 +589,7 @@ public class BonoResidualRepository : IBonoResidualRepository
                                 , r.lpatrocinador5g LPatrocinado5 , r.lpatrocinador6g LPatrocinado6
                                 , r.lpatrocinador7g LPatrocinado7
                                 , ct.empresa Empresa
+                                , ct.FECHA_PAGO FechaPago
                             from T_ACCIONESCUOTASGRL ct 
                             inner JOIN tmp_residual_contacto c on ct.docidcli = c.scedulaidentidad
                             inner join tmp_residual_red r on r.lcontacto_id = c.lcontacto_id ";

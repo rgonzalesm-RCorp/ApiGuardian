@@ -30,6 +30,7 @@ public class AdministracionBonoResidualDetalle
     public decimal Monto { get; set; }
     public decimal PorcentajeComision { get; set; }
     public decimal Comision { get; set; }
+    public DateTime? FechaPago { get; set; }
 }
 
 public class ItemBonoCompleto

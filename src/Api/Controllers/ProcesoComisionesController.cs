@@ -26,7 +26,11 @@ public class ProcesoComisionesController : ControllerBase
     [HttpGet("venta/grupo")]
     public async Task<IActionResult> GetVentaGrupo([FromHeader(Name = "lCicloId")] int cicloId, [FromHeader(Name = "Usuario")] string usuario) => Respuesta(await _service.ObtenerVentaGrupoAsync(usuario, cicloId));
     [HttpPost("save/vta/grupo")]
-    public async Task<IActionResult> SaveVtaGrupo(RequestGuardarVentaGrupo request) { var r = await _service.GuardarVentaGrupoAsync(request); return Ok(new { status = r.Success, mensaje = r.Mensaje, data = "" }); }
+    public async Task<IActionResult> SaveVtaGrupo(RequestGuardarVentaGrupo request)
+    {
+        var r = await _service.GuardarVentaGrupoAsync(request);
+        return Ok(new { status = r.Success, mensaje = r.Mensaje, data = "" });
+    }
 
     private IActionResult Respuesta((bool Success, string Mensaje, object Data) r) => Ok(new { status = r.Success, mensaje = r.Mensaje, data = r.Data });
 }

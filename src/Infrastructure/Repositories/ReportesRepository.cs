@@ -244,8 +244,8 @@ public class ReportesRepository : IReportesRepository
     #region "SCRIPT_FACTURACION"
     private const string QUERY_FACTURACION = @"SELECT
                                                     dat.*,
-                                                    ROUND((dat.TotalComisionVtaGrupoResidual * 6.96), 2) AS TotalComisionVtaGrupoResidualBs,
-                                                    ROUND((dat.TotalComisionVtaPersonal * 6.96), 2) AS TotalComisionVtaPersonalBs,
+                                                    ROUND((dat.TotalComisionVtaGrupoResidual * 7), 2) AS TotalComisionVtaGrupoResidualBs,
+                                                    ROUND((dat.TotalComisionVtaPersonal * 7), 2) AS TotalComisionVtaPersonalBs,
                                                     empresa.snombre AS RazonSocial,
                                                     empresa.snit AS Nit,
                                                     UPPER(ciclo.snombre) AS NombreCiclo,

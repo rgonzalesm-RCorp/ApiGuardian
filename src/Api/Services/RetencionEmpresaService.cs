@@ -26,14 +26,35 @@ public sealed class RetencionEmpresaService : IRetencionEmpresaService
         return (resultado.Success, resultado.Mensaje, resultado.Data);
     }
 
+    public async Task<(bool Success, string Mensaje, object Data)> ExportarXlsAsync(int cicloId)
+    {
+        if (cicloId <= 0)
+            return (false, "El lciclo_id debe ser mayor a cero.", "");
+
+        // Mismos datos que muestra la tabla de "Ver retención".
+        var resultado = await ConstruirAsync(cicloId);
+        if (!resultado.Success)
+            return (false, resultado.Mensaje, "");
+
+        var xls = new RetencionEmpresaXls().GetRetencionEmpresaXls(resultado.Data);
+        if (!xls.success)
+            return (false, "No existen retenciones para el ciclo seleccionado.", "");
+
+        return (
+            true,
+            "Archivo generado correctamente.",
+            new { base64 = xls.base64, fileName = $"RETENCION EMPRESA - CICLO {cicloId}.xlsx" }
+        );
+    }
+
     public async Task<(bool Success, string Mensaje, object Data)> GuardarAsync(int cicloId)
     {
         if (cicloId <= 0)
             return (false, "El lciclo_id debe ser mayor a cero.", "");
 
         var logId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-        var siguiente = await _controlProcesoRepository.GetSiguientePaso(
-            logId, "SistemaRetencionEmpresa", ProcesosDiccionario.COMISIONES, cicloId);
+        /*var siguiente = await _controlProcesoRepository.GetSiguientePaso(
+             logId, "SistemaRetencionEmpresa", ProcesosDiccionario.COMISIONES, cicloId);
         if (!siguiente.Success || siguiente.Data.nombre != PasosDiccionario.RETENCION)
             return (false, "El paso Retención no está habilitado para este ciclo.", "");
 
@@ -41,22 +62,22 @@ public sealed class RetencionEmpresaService : IRetencionEmpresaService
             logId, "SistemaRetencionEmpresa", ProcesosDiccionario.COMISIONES, cicloId, PasosDiccionario.RETENCION);
         if (!inicio.Success || !(inicio.Data?.status ?? false))
             return (false, inicio.Data?.mensaje ?? inicio.Mensaje, "");
-
+    */
         var resultado = await ConstruirAsync(cicloId);
-        if (!resultado.Success)
+        /*if (!resultado.Success)
         {
             await _controlProcesoRepository.CancelarPaso(
                 logId, "SistemaRetencionEmpresa", ProcesosDiccionario.COMISIONES, cicloId, PasosDiccionario.RETENCION);
             return (false, resultado.Mensaje, "");
-        }
+        }*/
 
 
         var guardado = await _repository.InsertarAsync(
             logId,
             "SistemaRetencionEmpresa",
-            resultado.Data
+            resultado.Data //.Where(x => x.ContactoId != 113441).ToList() // resultado.Data
         );
-        if (!guardado.Success)
+        /*if (!guardado.Success)
         {
             await _controlProcesoRepository.CancelarPaso(
                 logId, "SistemaRetencionEmpresa", ProcesosDiccionario.COMISIONES, cicloId, PasosDiccionario.RETENCION);
@@ -67,7 +88,7 @@ public sealed class RetencionEmpresaService : IRetencionEmpresaService
             logId, "SistemaRetencionEmpresa", ProcesosDiccionario.COMISIONES, cicloId, PasosDiccionario.RETENCION);
         if (!fin.Success || !(fin.Data?.status ?? false))
             return (false, fin.Data?.mensaje ?? fin.Mensaje, "");
-
+*/
         return (
             guardado.Success,
             guardado.Mensaje,

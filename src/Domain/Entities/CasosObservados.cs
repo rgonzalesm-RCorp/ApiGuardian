@@ -28,6 +28,19 @@ public class ItemCasoObservado
     public string Estado { get; set; } = "PENDIENTE";
 }
 
+public class ItemAutoCompra
+{
+    public int? LContratoId { get; set; }
+    public string NroVenta { get; set; } = string.Empty;
+    public DateTime? FechaVenta { get; set; }
+    public int? CompradorId { get; set; }
+    public string CompradorDocId { get; set; } = string.Empty;
+    public string Comprador { get; set; } = string.Empty;
+    public int? VendedorId { get; set; }
+    public string VendedorDocId { get; set; } = string.Empty;
+    public string Vendedor { get; set; } = string.Empty;
+}
+
 public class CasosObservadosResumen
 {
     public int TotalCasos { get; set; }
@@ -38,4 +51,5 @@ public class CasosObservadosResumen
     public int ClientesDadosBaja { get; set; }
     public int VendedoresSinVentasUnAnio { get; set; }
     public int ClientesSinComprasUnAnio { get; set; }
+    public int AutoCompras { get; set; }
 }

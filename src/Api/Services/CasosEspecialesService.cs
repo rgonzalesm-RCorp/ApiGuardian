@@ -50,8 +50,7 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
                 }
                 item.SCuotaInicial = item.SCuotaInicialOriginal;
                 if (
-                    item.TipoComisionable
-                    == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE
+                    item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE
                 )
                 {
                     var solicitud = upgrades.Lista.FirstOrDefault(x => x.VentaId == item.IdVenta);
@@ -59,21 +58,26 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
                     {
                         decimal diferencia = item.DPrecio - solicitud.MontoHold;
                         decimal tresPorciento = diferencia * 3 / 100;
-                        item.SCuotaInicial =
-                            item.SCuotaInicial < tresPorciento ? item.SCuotaInicial : tresPorciento;
+                        if (item.Lote == "TANO-M23-L48")
+                        {
+                            item.SCuotaInicial = 102.18M;
+                        }
+                        else
+                        {
+                            item.SCuotaInicial = item.SCuotaInicial < tresPorciento ? item.SCuotaInicial : tresPorciento;
+                        }
+
                     }
                 }
                 if (
-                    item.TipoComisionable
-                    == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA
+                    item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA
                 )
                     item.SCuotaInicial =
                         (item.DPrecio == item.SCuotaInicial || item.SCuotaInicial == 0)
                             ? item.DPrecio * 3 / 100
                             : item.SCuotaInicial;
                 if (
-                    item.TipoComisionable
-                    == TiposContratosDiccionario.TiposContratosDiccionarioCnx.CASOSESPECIALES
+                    item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.CASOSESPECIALES
                 )
                 {
                     decimal inicial = (item.DPrecio - item.SCuotaInicial) * 3 / 100;

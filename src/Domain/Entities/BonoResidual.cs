@@ -224,6 +224,7 @@ public class BrCuotaRed
     public int Id { get; set; }
     public string Empresa { get; set; } = string.Empty;
     public string ProductoId { get; set; } = string.Empty;
+    public DateTime? FechaPago { get; set; }
     public int ProyectoId { get; set; }
     public string Proyecto { get; set; } = string.Empty;
     public int ReciboId { get; set; }
@@ -267,6 +268,7 @@ public class BrCalculoItem
     public int LComplejoId { get; set; }
     public int LEmpresaId { get; set; }
     public bool EstaAlDia { get; set; }
+    public DateTime? FechaPago { get; set; }
 }
 public class BrContactoActivos
 {

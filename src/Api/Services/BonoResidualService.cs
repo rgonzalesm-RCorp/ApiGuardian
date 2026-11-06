@@ -147,6 +147,7 @@ public sealed class BonoResidualService : IBonoResidualService
                         Complejo = item.Proyecto,
                         Empresa = item.Empresa,
                         ProductoId = item.ProductoId,
+                        FechaPago = item.FechaPago,
                         EstaAlDia =
                             string.IsNullOrWhiteSpace(documento) || !vencidos.Contains(documento),
                     }
@@ -663,24 +664,24 @@ public sealed class BonoResidualService : IBonoResidualService
                 ProcesosDiccionario.COMISIONES,
                 cicloId
             );
-            /* if (siguiente.Data.nombre != paso)
-                 return new BonoResidualGuardadoResult
-                 {
-                     Mensaje =
-                         "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
-                 };
-             var inicioPaso = await _controlProcesoRepository.IniciarPaso(
-                 logTransaccionId,
-                 usuario,
-                 ProcesosDiccionario.COMISIONES,
-                 cicloId,
-                 paso
-             );
-             if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
-                 return new BonoResidualGuardadoResult
-                 {
-                     Mensaje = inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje,
-                 };*/
+            if (siguiente.Data.nombre != paso)
+                return new BonoResidualGuardadoResult
+                {
+                    Mensaje =
+                        "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
+                };
+            var inicioPaso = await _controlProcesoRepository.IniciarPaso(
+                logTransaccionId,
+                usuario,
+                ProcesosDiccionario.COMISIONES,
+                cicloId,
+                paso
+            );
+            if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
+                return new BonoResidualGuardadoResult
+                {
+                    Mensaje = inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje,
+                };
             pasoIniciado = true;
 
             var cuotas = await _bonoResidualRepository.GetCuota(
@@ -908,13 +909,13 @@ public sealed class BonoResidualService : IBonoResidualService
                 ProcesosDiccionario.COMISIONES,
                 cicloId
             );
-            if (paso != siguientePaso.Data.nombre)
+            /*if (paso != siguientePaso.Data.nombre)
                 return new BonoResidualGuardadoResult
                 {
                     Mensaje =
                         "Esta paso ya se encuentra ejecutado para este ciclo, si quieres volver a a procesar debes reinicar el proceso para el ciclo",
                 };
-
+*/
             var inicioPaso = await _controlProcesoRepository.IniciarPaso(
                 logTransaccionId,
                 usuario,
@@ -922,11 +923,11 @@ public sealed class BonoResidualService : IBonoResidualService
                 cicloId,
                 paso
             );
-            if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
+            /*if (!inicioPaso.Success || !(inicioPaso.Data?.status ?? false))
                 return new BonoResidualGuardadoResult
                 {
                     Mensaje = inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje,
-                };
+                };*/
             pasoIniciado = true;
 
             if (!calculo.Success)
@@ -999,7 +1000,7 @@ public sealed class BonoResidualService : IBonoResidualService
                 .ToList();
 
             var redEmpresaComplejo = residual
-                .GroupBy(x => new { x.LContactoId, x.LComplejoId })
+                .GroupBy(x => new { x.LContactoId, x.LComplejoId, x.Complejo, x.Empresa })
                 .Select(g => new ItemRedEmpresaComplejo
                 {
                     LRedEmpresaComplejoId = 0,
@@ -1007,9 +1008,10 @@ public sealed class BonoResidualService : IBonoResidualService
                     LContactoId = g.Key.LContactoId,
                     LComplejoId = g.Key.LComplejoId,
                     DMonto = g.Sum(x => x.BonoResidual),
+                    Usuario = g.Key.Complejo + " - " + g.Key.Empresa + " - " + g.Key.LComplejoId.ToString(),
                 })
                 .ToList();
-
+            var redEmpresaComplejoCero = redEmpresaComplejo.Where(x => x.LComplejoId == 0).ToList();
             var listado = redEmpresaComplejo
                 .GroupBy(x => x.LContactoId)
                 .Select(g => new ItemAdministracionBonoResidual
@@ -1029,6 +1031,7 @@ public sealed class BonoResidualService : IBonoResidualService
                             LcomplejoId = h.LComplejoId,
                             Nivel = h.Nivel,
                             Producto = h.ProductoId,
+                            FechaPago = h.FechaPago,
                             Monto = h.Bono,
                             PorcentajeComision = h.PorcentajeComision,
                             Comision = h.BonoResidual,

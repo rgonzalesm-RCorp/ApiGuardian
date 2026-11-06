@@ -28,50 +28,50 @@ public class MiCronJob : IJob
     private async Task<AdministracionContacto> objPatrocinante(ItemVentaCnx vtaCnx, long lPatrocinante, string Usuario)
     {
         return new AdministracionContacto
-                    {
-                        Usuario = Usuario,
-                        NombreCompleto = vtaCnx.SNombreCompletoVendedor,
-                        CedulaIdentidad = vtaCnx.SCedulaIdentidadVendedor,
-                        TelefonoFijo = vtaCnx.TelefonoFijoVendedor,
-                        TelefonoMovil = vtaCnx.TelefonoMovilVendedor,
-                        CorreoElectronico = vtaCnx.CorreoVendedor,
-                        Ciudad = vtaCnx.SCiudad,
-                        PaisId = vtaCnx.IdPaisResidenciaVendedor,
-                        PatrocinanteId = lPatrocinante,
-                        NivelId = 0,
-                        Comentario = "",
-                        TelefonoOficina = vtaCnx.STelefonoOficinaVendedor,
-                        Direccion = vtaCnx.DireccionVendedor,
-                        Nit = 0,
-                        FechaRegistro = DateTime.Now,
-                        FechaNacimiento = vtaCnx.FechaNacimientoVendedor,
-                        LContactoId = 0,
-                    };
-        
+        {
+            Usuario = Usuario,
+            NombreCompleto = vtaCnx.SNombreCompletoVendedor,
+            CedulaIdentidad = vtaCnx.SCedulaIdentidadVendedor,
+            TelefonoFijo = vtaCnx.TelefonoFijoVendedor,
+            TelefonoMovil = vtaCnx.TelefonoMovilVendedor,
+            CorreoElectronico = vtaCnx.CorreoVendedor,
+            Ciudad = vtaCnx.SCiudad,
+            PaisId = vtaCnx.IdPaisResidenciaVendedor,
+            PatrocinanteId = lPatrocinante,
+            NivelId = 0,
+            Comentario = "",
+            TelefonoOficina = vtaCnx.STelefonoOficinaVendedor,
+            Direccion = vtaCnx.DireccionVendedor,
+            Nit = 0,
+            FechaRegistro = DateTime.Now,
+            FechaNacimiento = vtaCnx.FechaNacimientoVendedor,
+            LContactoId = 0,
+        };
+
     }
     private async Task<AdministracionContacto> objCliennte(ItemVentaCnx vtaCnx, long lPatrocinante, string Usuario)
     {
         return new AdministracionContacto
-                    {
-                        Usuario = Usuario,
-                        NombreCompleto = vtaCnx.SNombreCompleto,
-                        CedulaIdentidad = vtaCnx.SCedulaIdentidad,
-                        TelefonoFijo = vtaCnx.TelefonoFijo,
-                        TelefonoMovil = vtaCnx.TelefonoMovil,
-                        CorreoElectronico = vtaCnx.Correo,
-                        Ciudad = vtaCnx.SCiudad,
-                        PaisId = vtaCnx.IdPaisResidencia,
-                        PatrocinanteId = lPatrocinante,
-                        NivelId = 1,
-                        Comentario = "",
-                        TelefonoOficina = vtaCnx.STelefonoOficina,
-                        Direccion = vtaCnx.Direccion,
-                        Nit = 0,
-                        FechaRegistro = DateTime.Now,
-                        FechaNacimiento = vtaCnx.FechaNacimiento,
-                        LContactoId = 0,
-                    };
-        
+        {
+            Usuario = Usuario,
+            NombreCompleto = vtaCnx.SNombreCompleto,
+            CedulaIdentidad = vtaCnx.SCedulaIdentidad,
+            TelefonoFijo = vtaCnx.TelefonoFijo,
+            TelefonoMovil = vtaCnx.TelefonoMovil,
+            CorreoElectronico = vtaCnx.Correo,
+            Ciudad = vtaCnx.SCiudad,
+            PaisId = vtaCnx.IdPaisResidencia,
+            PatrocinanteId = lPatrocinante,
+            NivelId = 0,
+            Comentario = "",
+            TelefonoOficina = vtaCnx.STelefonoOficina,
+            Direccion = vtaCnx.Direccion,
+            Nit = 0,
+            FechaRegistro = DateTime.Now,
+            FechaNacimiento = vtaCnx.FechaNacimiento,
+            LContactoId = 0,
+        };
+
     }
     private async Task<long> EnsureContactoExisteAsync(string LogTransaccionId, string ci, ItemVentaCnx item, string Usuario)
     {
@@ -98,8 +98,8 @@ public class MiCronJob : IJob
         }
 
         // 3️⃣ Procesar padre (recursivo)
-        
-        if ( responseCnx.Data != null)
+
+        if (responseCnx.Data != null)
         {
             //AUTOCOMPRA
             if (responseCnx.Data.SCedulaIdentidad == responseCnx.Data.SCedulaIdentidadVendedor)
@@ -119,7 +119,8 @@ public class MiCronJob : IJob
             {
                 padreId = responseGrd.Data.LContactoId;
             }
-        }else
+        }
+        else
         {
             padreId = 1;
         }
@@ -134,7 +135,8 @@ public class MiCronJob : IJob
             var responseCliente = await _administracionContactoRepository.GetAdministracionContactoByDocId(LogTransaccionId, contacto.CedulaIdentidad ?? "");
 
             return responseCliente.Data.LContactoId;
-        }else
+        }
+        else
         {
             return responseGrd.Data.LContactoId;
         }
@@ -195,7 +197,7 @@ public class MiCronJob : IJob
             Console.WriteLine( JsonConvert.SerializeObject(t[counter], Formatting.Indented));
         }
         _logger.LogInformation("Quartz Job ejecutado: {time}", DateTime.Now);*/
-       
+
         var t = await Proceso();
         await Procesar();
     }
@@ -215,7 +217,7 @@ public class MiCronJob : IJob
         string inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
         string fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
 
-        var  vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin);
+        var vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin);
         int counter = 0;
 
         foreach (var item in vtaCnx.Data)
@@ -246,26 +248,26 @@ public class MiCronJob : IJob
                 LPropietarioId = (int)responseCliente.Data.LContactoId,
                 LCopmlejoId = homologacion.LComplejoId, //Obtener la equivalecia
                 Mzno = item.SManzano,
-                Lote = $"{item.SLote}" ,
+                Lote = $"{item.SLote}",
                 Uv = item.SUV,
                 PrecioInicial = item.PrecioInicial,
                 CuotaInicial = item.SCuotaInicial,
                 PrecioFinal = item.DPrecio,
                 LEstadoContratoId = 1,
                 LTipoContratoId = item.TipoVenta == 2 ? 1 : 2,
-                LCiudadId =  0,
+                LCiudadId = 0,
                 ContratoEspecial = 0,
                 LAsesorId = (int)vendedorId,
                 Usuario = ".Net",
-                PorcentajeCuotaInicial = item.PorcentajeCuotaInicial 
+                PorcentajeCuotaInicial = item.PorcentajeCuotaInicial
             };
             var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta("", $"{item.IdVenta}-{item.Lote}", "", "");
 
-            if(responseExistContrato.Data == null || responseExistContrato.Data.Count()<= 0)
+            if (responseExistContrato.Data == null || responseExistContrato.Data.Count() <= 0)
             {
-                var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);   
+                var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);
             }
-            counter = counter+ 1;
+            counter = counter + 1;
 
             //var respSaveContrato = await _administracionContratoRepository.InsertContrato("", data);
             Console.WriteLine(item.Lote);
@@ -277,7 +279,8 @@ public class MiCronJob : IJob
     }
 
     //string tipo = "JOB", bool rezagada = false, string paso = "", string usuario = "", int lCicloId = 0
-    public async Task<bool> ProcesoPrincipal(string LogTransaccionId, RequestProcesoPrincipal Request,  List<ItemVentaCnx>? Lista = null){
+    public async Task<bool> ProcesoPrincipal(string LogTransaccionId, RequestProcesoPrincipal Request, List<ItemVentaCnx>? Lista = null)
+    {
         bool pasoIniciado = false;
         string inicio = string.Empty;
         string fin = string.Empty;
@@ -285,14 +288,14 @@ public class MiCronJob : IJob
         var responseHomologacion = await _administracionComplejoRepository.GetHomologacionComplejoGrdCnx(LogTransaccionId);
         List<HomologacionComplejoGrdCnx> ListaComplejo = responseHomologacion.Data;
 
-        if(Request.Tipo == "JOB")
+        if (Request.Tipo == "JOB")
         {
             var responseProceso = await _procesoComisionesRepository.GetProceso(LogTransaccionId, "VENTAS");
             if (responseProceso.Data == null)
                 return true;
-            
+
             inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
-            fin  = responseProceso.Data.Fin.ToString("yyyyMMdd");
+            fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
 
             var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin);
             Lista = vtaCnx.Data.ToList();
@@ -397,26 +400,26 @@ public class MiCronJob : IJob
                 LPropietarioId = (int)responseCliente.Data.LContactoId,
                 LCopmlejoId = ListaComplejo.FirstOrDefault(x => x.LComplejoIdCX == item.LComplejoId).LComplejoId, //Obtener la equivalecia
                 Mzno = item.SManzano,
-                Lote = $"{item.SLote}" ,
+                Lote = $"{item.SLote}",
                 Uv = item.SUV,
                 PrecioInicial = item.PrecioInicial,
                 CuotaInicial = item.SCuotaInicial,
                 PrecioFinal = item.DPrecio,
                 LEstadoContratoId = 4,
-                LTipoContratoId = TiposContratosDiccionario.ObtenerGrd(item.TipoComisionable, item.TipoVenta == 1? true : false, item.TipoVenta == 2? true : false),//  item.TipoComisionable, // item.TipoVenta == 2 ? 1 : 2,
-                LCiudadId =  0,
+                LTipoContratoId = TiposContratosDiccionario.ObtenerGrd(item.TipoComisionable, item.TipoVenta == 1 ? true : false, item.TipoVenta == 2 ? true : false),//  item.TipoComisionable, // item.TipoVenta == 2 ? 1 : 2,
+                LCiudadId = 0,
                 ContratoEspecial = 0,
                 LAsesorId = (int)vendedorId,
                 Usuario = Usuario,
-                PorcentajeCuotaInicial = item.PorcentajeCuotaInicial 
+                PorcentajeCuotaInicial = item.PorcentajeCuotaInicial
             };
             var responseExistContrato = await _administracionContratoRepository.GetContratoXNroVenta(LogTransaccionId, $"{item.IdVenta}-{item.Lote}", inicio, fin);
 
-            if(responseExistContrato.Data == null || responseExistContrato.Data.Count()<= 0)
+            if (responseExistContrato.Data == null || responseExistContrato.Data.Count() <= 0)
             {
-                var respSaveContrato = await _administracionContratoRepository.InsertContrato(LogTransaccionId, data);   
+                var respSaveContrato = await _administracionContratoRepository.InsertContrato(LogTransaccionId, data);
             }
-            counter = counter+ 1;
+            counter = counter + 1;
             Console.WriteLine(item.Lote);
             if (rezagada)
             {

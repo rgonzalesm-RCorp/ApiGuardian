@@ -68,6 +68,47 @@ public sealed class CasosObservadosService : ICasosObservadosService
         }
     }
 
+    public async Task<(bool Success, string Mensaje, object Data)> ExportarXlsAsync(
+        string usuario,
+        int cicloId,
+        DateTime? inicio,
+        DateTime? fin
+    )
+    {
+        if (cicloId <= 0 || !inicio.HasValue || !fin.HasValue)
+            return (false, "El ciclo, la fecha de inicio y la fecha de fin son obligatorios.", "");
+        if (inicio.Value.Date > fin.Value.Date)
+            return (false, "La fecha de inicio no puede ser mayor que la fecha de fin.", "");
+        var id = Id();
+        try
+        {
+            var r = await _repository.GetCasosObservados(
+                id,
+                usuario,
+                cicloId,
+                inicio.Value.Date,
+                fin.Value.Date
+            );
+            if (!r.Success)
+                return (false, r.Mensaje, "");
+
+            var xls = new CasosObservadosXls().GetCasosObservadosXls(r.Data.ToList());
+            return (
+                xls.success,
+                xls.success ? "Archivo generado correctamente." : "No se pudo generar el archivo.",
+                new
+                {
+                    base64Xls = xls.base64,
+                    fileName = $"Casos observados ciclo {cicloId}.xlsx",
+                }
+            );
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message, "");
+        }
+    }
+
     public async Task<(bool Success, string Mensaje, object Data)> ProcesarAsync(
         string usuario,
         int cicloId
