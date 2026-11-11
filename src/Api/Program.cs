@@ -7,6 +7,9 @@ using ApiGuardian.Infrastructure.Persistence;
 using ApiGuardian.Infrastructure.Services;
 using CleanDapperApi.Api.Services;
 using Quartz;
+using ApiGuardian.Api.Jobs.Simulacion;
+using ApiGuardian.Api.Services.Simulacion;
+using ApiGuardian.Application.Interfaces.Simulacion;
 
 
 
@@ -58,6 +61,34 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IAplicacionesBackgroundQueue, AplicacionesBackgroundQueue>();
 builder.Services.AddHostedService<AplicacionesBackgroundService>();
 //builder.Services.AddHostedService<MiCronJob>();
+
+// Simulación: solo el job del proceso light.
+// No se registra MiCronJob en Quartz (R-15).
+builder.Services.Configure<ConfiguracionSimulacion>(builder.Configuration.GetSection("Simulacion"));
+builder.Services.AddScoped<ISimulacionService, SimulacionService>();
+builder.Services.AddScoped<ApiGuardian.Infrastructure.Repositories.Simulacion.SimulacionRepositorio>();
+builder.Services.AddQuartz(q =>
+{
+    q.AddJob<SimulacionJob>(opts => opts.WithIdentity("SimulacionJob").StoreDurably());
+    var zonaHorariaBolivia = TimeZoneInfo.FindSystemTimeZoneById("America/La_Paz");
+
+    // Del día 1 al 25: una corrida diaria a las 03:00, hora Bolivia.
+    q.AddTrigger(t => t
+        .ForJob("SimulacionJob")
+        .WithIdentity("SimulacionDiaria0300")
+        .WithCronSchedule("0 0 3 1-9 * ?", x => x.InTimeZone(zonaHorariaBolivia)));
+
+    // Del día 26 hasta fin de mes: una corrida cada tres horas, hora Bolivia.
+    q.AddTrigger(t => t
+        .ForJob("SimulacionJob")
+        .WithIdentity("SimulacionCadaTresHoras")
+        //.WithCronSchedule("0 0 0,1,2,3,4,5,6,7 10-31 * ?", x => x.InTimeZone(zonaHorariaBolivia)));
+        .WithCronSchedule("0 15 14 10-31 * ?", x => x.InTimeZone(zonaHorariaBolivia)));
+});
+builder.Services.AddQuartzHostedService(q =>
+{
+    q.WaitForJobsToComplete = true;
+});
 
 builder.Services.AddSingleton<DapperContext>();
 builder.Services.AddSingleton<DapperContextSqlServer>();

@@ -12,13 +12,15 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
         private readonly List<RptProrrateo> _prorrateo;
         private readonly List<EmpresaHeaderPagarComision> _headerEmpresa;
         private readonly List<RedistribucionPagoComision> _redistribucionesPorRetencion;
+        private readonly string _moneda;
 
-        public ReportePagarComision(List<RptPagarComision> data, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa, List<RedistribucionPagoComision> redistribucionesPorRetencion)
+        public ReportePagarComision(List<RptPagarComision> data, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa, List<RedistribucionPagoComision> redistribucionesPorRetencion, string moneda)
         {
             _data = data.ToList();
             _prorrateo = prorrateo;
             _headerEmpresa = headerEmpresa;
             _redistribucionesPorRetencion = redistribucionesPorRetencion;
+            _moneda = moneda;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -112,7 +114,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Ciudad").FontSize(5).AlignLeft();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Asesor").FontSize(5).AlignLeft();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Cedula Identidad").FontSize(5).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Comisión Inicial").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Comisión Inicial {_moneda}").FontSize(5).AlignRight();
                             foreach (var item in _headerEmpresa)
                             {
                                 string nombre = item.SEmpresa;
@@ -121,8 +123,8 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                                 nombre = nombre.Replace("INMOBILIARIA", "");
                                 header.Cell().Element(EstiloReporte.HeaderCellStyle).Text(nombre.Trim()).FontSize(5).AlignRight();
                             }
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total Descuento").FontSize(5).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total Pagar").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Total Descuento {_moneda}").FontSize(5).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Total Pagar {_moneda}").FontSize(5).AlignRight();
                         });
 
                         // Filas

@@ -9,10 +9,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
     public class ReporteAplicacionesDocumento : IDocument
     {
         private readonly RptAplicaciones _data;
+        private readonly string _moneda;
 
-        public ReporteAplicacionesDocumento(RptAplicaciones data)
+        public ReporteAplicacionesDocumento(RptAplicaciones data, string moneda)
         {
             _data = data;
+            _moneda = moneda;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -93,13 +95,13 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Codigo").FontSize(6).AlignCenter();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("CI").FontSize(6).AlignCenter();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Asesor").FontSize(6).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Vta. Directa").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Honorarios").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total Comisiones").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Vta. Directa {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Honorarios {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Total Comisiones {_moneda}").FontSize(6).AlignRight();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("%").FontSize(6).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Retencion").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Desc.").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Total Pagar").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Retencion {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Desc. {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Total Pagar {_moneda}").FontSize(6).AlignRight();
                         });
 
                         // Filas

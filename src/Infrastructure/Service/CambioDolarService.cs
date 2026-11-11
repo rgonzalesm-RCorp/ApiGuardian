@@ -35,6 +35,8 @@ public sealed class CambioDolarService
             ? Redondear(monto / _tipoCambioOficial)
             : monto;
     }
+
+    public decimal TipoCambioOficial => _tipoCambioOficial;
     public decimal SacarInicial(decimal monto, int idComplejoProyecto)
     {
         return _idsComplejosProyectos.Contains(idComplejoProyecto)

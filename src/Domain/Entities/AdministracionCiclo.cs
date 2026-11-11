@@ -10,6 +10,8 @@ public class AdministracionCicloABM
     public string? DtFechaPreCierre2 { get; set; }
     public string? CVerEnWeb { get; set; }
     public string? EstadoGestor { get; set; }
+    public bool Simulacion { get; set; }
+    public string Moneda { get; set; } = "BS";
 
     public string? Usuario { get; set; }
 }

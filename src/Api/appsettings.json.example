@@ -11,7 +11,19 @@
   },
   "AllowedHosts": "*",
   "HabilidacionesParaNoComprimirRed": [],
-  "cambioDolar": { "idsComplejosProyectos": [], "tipoCambio": 6.97 },
+  "cambioDolar": {
+    "idsComplejosProyectos": [],
+    "fechaCorte": "2026-06-30",
+    "tipoCambioHistorico": 6.97,
+    "tipoCambioOficial": 7.0
+  },
+  "Simulacion": {
+    "ZonaHoraria": "America/La_Paz",
+    "NombreTablaEjecucion": "comisiones_light_ejecucion",
+    "UsuarioCron": "cron",
+    "HorasMaximasEnCurso": 12,
+    "HabilitarEndpointManual": false
+  },
   "PagoComision": {
     "RedistribucionesPorRetencion": [
       { "EmpresaOrigenId": 0, "EmpresaAsumeId": 0 }

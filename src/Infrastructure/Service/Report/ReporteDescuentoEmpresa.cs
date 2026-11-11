@@ -9,10 +9,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
     public class ReporteDescuentoEmpresa : IDocument
     {
         private readonly List<RptDescuentoEmpresa> _data;
+        private readonly string _moneda;
 
-        public ReporteDescuentoEmpresa(List<RptDescuentoEmpresa> data)
+        public ReporteDescuentoEmpresa(List<RptDescuentoEmpresa> data, string moneda)
         {
             _data = data.ToList();
+            _moneda = moneda;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -117,7 +119,7 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("LT").FontSize(6).AlignCenter();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("UV").FontSize(6).AlignCenter();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("TIPO").FontSize(6).AlignCenter();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("MONTO").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"MONTO {_moneda}").FontSize(6).AlignRight();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("OBSERVACION").FontSize(6).AlignLeft();
                         });
 

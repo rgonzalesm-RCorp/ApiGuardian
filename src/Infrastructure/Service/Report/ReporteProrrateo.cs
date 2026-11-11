@@ -9,10 +9,12 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
     public class ReporteProrrateo : IDocument
     {
         private readonly List<RptProrrateo> _data;
+        private readonly string _moneda;
 
-        public ReporteProrrateo(List<RptProrrateo> data)
+        public ReporteProrrateo(List<RptProrrateo> data, string moneda)
         {
             _data = data.ToList();
+            _moneda = moneda;
         }
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -107,11 +109,11 @@ namespace ApiGuardian.Infrastructure.Services.Pdf
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Asesor").FontSize(6).AlignLeft();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Carnet").FontSize(6).AlignLeft();
                             header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Empresa").FontSize(6).AlignLeft();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Importe $").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Retencion $").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Liquido $").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Desc. $").FontSize(6).AlignRight();
-                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text("Prorrateo $").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Importe {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Retencion {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Liquido {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Desc. {_moneda}").FontSize(6).AlignRight();
+                            header.Cell().Element(EstiloReporte.HeaderCellStyle).Text($"Prorrateo {_moneda}").FontSize(6).AlignRight();
                         });
 
                         // Filas

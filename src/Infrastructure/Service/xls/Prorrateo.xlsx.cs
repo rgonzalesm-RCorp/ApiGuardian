@@ -3,7 +3,7 @@ using ClosedXML.Excel;
 public class ProrrateoXls
 {
     public async Task<(bool success, string base64)> GetProrrateoXls(
-        List<RptProrrateo> listado)
+        List<RptProrrateo> listado, string moneda)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
@@ -15,7 +15,7 @@ public class ProrrateoXls
         const int firstDataRow = headerRow + 1;
 
         ConfigurarColumnas(worksheet);
-        CrearEncabezados(worksheet, headerRow);
+        CrearEncabezados(worksheet, headerRow, moneda);
 
         int currentRow = firstDataRow;
 
@@ -57,7 +57,7 @@ public class ProrrateoXls
     // ===============================
     // HEADERS
     // ===============================
-    private static void CrearEncabezados(IXLWorksheet ws, int row)
+    private static void CrearEncabezados(IXLWorksheet ws, int row, string moneda)
     {
         string[] headers =
         {
@@ -66,11 +66,11 @@ public class ProrrateoXls
             "Asesor",
             "Carnet",
             "Empresa",
-            "Importe $",
-            "Retención $",
-            "Líquido $",
-            "Desc. $",
-            "Prorrateo $"
+            $"Importe {moneda}",
+            $"Retención {moneda}",
+            $"Líquido {moneda}",
+            $"Desc. {moneda}",
+            $"Prorrateo {moneda}"
         };
 
         for (int i = 0; i < headers.Length; i++)
