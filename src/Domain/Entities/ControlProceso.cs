@@ -171,6 +171,8 @@ public static class TiposContratosDiccionario
         public const int RECUPERACION = 7;
         public const int RECOMPRA = 8;
         public const int CASOSESPECIALES = 9;
+        public const int REVERSION = 10;
+
 
     }
     public static class TiposContratosDiccionarioCnx
@@ -183,6 +185,7 @@ public static class TiposContratosDiccionario
         public const int RECUPERACION = 5;
         public const int RECOMPRA = 6;
         public const int CASOSESPECIALES = 8;
+        public const int REVERSION = 9;
     }
 
     public class TipoComision
@@ -197,6 +200,7 @@ public static class TiposContratosDiccionario
          new TipoComision { Cnx = 6, Grd = 8 },
          new TipoComision { Cnx = 7, Grd = 6 },
          new TipoComision { Cnx = 8, Grd = 9 },
+         new TipoComision { Cnx = 9, Grd = 10 },
     };
 
     public static int ObtenerGrd(int cnx, bool esContado, bool esCredito)
@@ -204,10 +208,13 @@ public static class TiposContratosDiccionario
         if (esContado && cnx <= 1)
         {
             return 2;
-        }else if (esCredito && cnx <= 1)
+        }
+        else if (esCredito && cnx <= 1)
         {
             return 1;
-        }else{
+        }
+        else
+        {
 
             var contrato = Contratos.FirstOrDefault(c => c.Cnx == cnx);
             return contrato?.Grd ?? 0;

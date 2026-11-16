@@ -1,5 +1,7 @@
+using System.Globalization;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.DTO;
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Services;
 using Microsoft.Extensions.Options;
 
@@ -8,12 +10,25 @@ namespace CleanDapperApi.Api.Services;
 public sealed class MonteSionService : IMonteSionService
 {
     private const string RangoSinCalificacion = "Sin calificación";
+    private static readonly NumberFormatInfo FormatoMonto = new()
+    {
+        NumberGroupSeparator = ".",
+        NumberDecimalSeparator = ",",
+    };
     private readonly IMonteSionRepository _repository;
+    private readonly IAdministracionCicloRepository _cicloRepository;
+    private readonly IContactosSoloEspecialesService _soloEspecialesService;
     private readonly MonteSionOpciones _opciones;
 
-    public MonteSionService(IMonteSionRepository repository, IOptions<MonteSionOpciones> opciones)
+    public MonteSionService(
+        IMonteSionRepository repository,
+        IAdministracionCicloRepository cicloRepository,
+        IContactosSoloEspecialesService soloEspecialesService,
+        IOptions<MonteSionOpciones> opciones)
     {
+        _soloEspecialesService = soloEspecialesService;
         _repository = repository;
+        _cicloRepository = cicloRepository;
         _opciones = opciones.Value;
     }
 
@@ -25,28 +40,40 @@ public sealed class MonteSionService : IMonteSionService
         if (_opciones.ProfundidadMaxima <= 0)
             return (false, "La configuración de rangos MonteSion no es válida.", Enumerable.Empty<MonteSionResultadoRango>());
 
+        // La moneda del ciclo define qué plan de carrera (umbrales, VME, bonos e incentivos) se aplica.
+        var monedaCiclo = await _cicloRepository.ObtenerMonedaAsync(Guid.NewGuid().ToString("N"), cicloId);
+        if (!monedaCiclo.Success)
+            return (false, monedaCiclo.Mensaje, Enumerable.Empty<MonteSionResultadoRango>());
+        var moneda = monedaCiclo.Moneda;
+
         var datos = await _repository.ObtenerDatosCicloAsync(Guid.NewGuid().ToString("N"), cicloId);
 
         if (!datos.Success)
             return (false, datos.Mensaje, Enumerable.Empty<MonteSionResultadoRango>());
 
-        var nivelesResultado = await _repository.ObtenerNivelesAsync(Guid.NewGuid().ToString("N"));
+        // Regla "solo especiales": quien solo tiene ventas especiales en el ciclo queda fuera de la evaluación de rangos.
+        var soloEspeciales = await _soloEspecialesService.ObtenerAsync(Guid.NewGuid().ToString("N"), "MonteSion", cicloId);
+        if (!soloEspeciales.Success)
+            return (false, soloEspeciales.Mensaje, Enumerable.Empty<MonteSionResultadoRango>());
+
+        var nivelesResultado = await _repository.ObtenerNivelesAsync(Guid.NewGuid().ToString("N"), moneda);
         if (!nivelesResultado.Success)
             return (false, nivelesResultado.Mensaje, Enumerable.Empty<MonteSionResultadoRango>());
 
         var contactos = datos.Contactos.ToList();
         var contactosPorId = contactos.ToDictionary(contacto => contacto.EmprendedorId);
-        var padrePorAsesor = datos.Producciones
-            .Where(venta => venta.Nivel == 1 && venta.VendedorId > 0)
-            .GroupBy(venta => venta.VendedorId)
-            .ToDictionary(grupo => grupo.Key, grupo => grupo.First().EmprendedorId);
+        // Upline directo (nivel 1) de cada contacto en la red comprimida del ciclo. Se arma con TODA la red,
+        // no solo con las filas que tienen ventas: si un intermedio no vendió, la cadena hasta la línea
+        // directa del emprendedor no se debe cortar (si se corta, las ventas quedan como equipos sueltos
+        // y el corte VME no se aplica).
+        var padrePorAsesor = datos.RedNivel1
+            .Where(relacion => relacion.VendedorId > 0 && relacion.PatrocinadorId > 0)
+            .GroupBy(relacion => relacion.VendedorId)
+            .ToDictionary(grupo => grupo.Key, grupo => grupo.First().PatrocinadorId);
         var ventasPorEmprendedor = datos.Producciones
             .Where(venta => venta.Nivel >= 1 && venta.Nivel <= _opciones.ProfundidadMaxima)
             .GroupBy(venta => venta.EmprendedorId)
             .ToDictionary(grupo => grupo.Key, grupo => grupo.ToList());
-        var incentivosPorRango = _opciones.Rangos
-            .GroupBy(rango => NormalizarRango(rango.Nombre))
-            .ToDictionary(grupo => grupo.Key, grupo => grupo.First().Incentivo, StringComparer.OrdinalIgnoreCase);
         var rangos = nivelesResultado.Data
             .Where(nivel => nivel.NivelId > 0)
             .OrderByDescending(nivel => nivel.NivelId)
@@ -56,10 +83,12 @@ public sealed class MonteSionService : IMonteSionService
                 Nombre = nivel.Nombre,
                 ProduccionRequerida = nivel.ProduccionDesde,
                 ProduccionHasta = nivel.ProduccionHasta,
-                VmeMonto = nivel.VmeMonto,
-                BonoUsd = nivel.BonoUsd,
+                VmePorcentaje = nivel.VmePorcentaje,
+                ProduccionCorteVme = nivel.ProduccionCorteVme,
+                Bono = nivel.Bono,
+                Incentivo = nivel.Incentivo,
                 PorcentajeLiderazgo = nivel.PorcentajeLiderazgo,
-                Incentivo = incentivosPorRango.GetValueOrDefault(NormalizarRango(nivel.Nombre)),
+                Moneda = moneda.ToString(),
             })
             .ToList();
         if (rangos.Count == 0)
@@ -71,6 +100,7 @@ public sealed class MonteSionService : IMonteSionService
         var emprendedoresPrimeraVenta = datos.EmprendedoresPrimeraVenta.ToHashSet();
         var vendedoresAntesDeMayo2026 = datos.VendedoresAntesDeMayo2026.ToHashSet();
         var resultados = datos.Evaluables
+            .Where(emprendedor => !soloEspeciales.Contactos.Contains(emprendedor.EmprendedorId))
             .GroupBy(emprendedor => emprendedor.EmprendedorId)
             .Select(grupo => grupo.First())
             .Select(emprendedor =>
@@ -95,6 +125,8 @@ public sealed class MonteSionService : IMonteSionService
             // Solo se muestran y guardan emprendedores que alcanzaron un rango.
             .Where(resultado => resultado.Califica)
             .ToList();
+        foreach (var resultado in resultados)
+            resultado.Moneda = moneda.ToString();
 
         return (true, "Rangos MonteSion calculados correctamente.", resultados);
     }
@@ -104,7 +136,8 @@ public sealed class MonteSionService : IMonteSionService
         var calculo = await CalcularRangosAsync(cicloId);
         if (!calculo.Success) return (false, calculo.Mensaje, new { });
 
-        var archivo = await new MonteSionXls().GenerarAsync(calculo.Data);
+        var moneda = calculo.Data.FirstOrDefault()?.Moneda ?? string.Empty;
+        var archivo = await new MonteSionXls().GenerarAsync(calculo.Data, moneda);
         if (!archivo.Success) return (false, "No existen datos para exportar.", new { });
 
         return (true, "Archivo MonteSion generado correctamente.", new
@@ -237,49 +270,53 @@ public sealed class MonteSionService : IMonteSionService
     {
         var esAscenso = nivelAlcanzadoId > nivelActualId;
         var esRecalificacion = nivelAlcanzadoId == nivelActualId;
-        var tieneIncentivo = !string.IsNullOrWhiteSpace(rango.Incentivo);
+        var tieneIncentivo = rango.Incentivo > 0;
+        var incentivoTexto = tieneIncentivo ? TextoIncentivo(rango.Incentivo, rango.Moneda) : null;
+
+        var beneficio = new MonteSionBeneficioRango
+        {
+            Moneda = rango.Moneda,
+            BonoConfigurado = rango.Bono,
+            IncentivoConfiguradoMonto = rango.Incentivo,
+            IncentivoConfigurado = incentivoTexto,
+        };
 
         if (esAscenso && tieneIncentivo)
         {
-            return new MonteSionBeneficioRango
-            {
-                BonoConfiguradoUsd = rango.BonoUsd,
-                IncentivoConfigurado = rango.Incentivo,
-                PrimeraCalificacion = true,
-                EsRecalificacion = false,
-                BonoAPagarUsd = 0m,
-                IncentivoAEntregar = rango.Incentivo,
-                Motivo = $"Primera calificación a {rango.Nombre}. El incentivo reemplaza al bono del rango.",
-            };
+            beneficio.PrimeraCalificacion = true;
+            beneficio.EsRecalificacion = false;
+            beneficio.BonoAPagar = 0m;
+            beneficio.IncentivoAPagar = rango.Incentivo;
+            beneficio.IncentivoAEntregar = incentivoTexto;
+            beneficio.Motivo = $"Primera calificación a {rango.Nombre}. El incentivo reemplaza al bono del rango.";
+            return beneficio;
         }
+
+        beneficio.BonoAPagar = rango.Bono;
+        beneficio.IncentivoAPagar = 0m;
+        beneficio.IncentivoAEntregar = null;
 
         if (esAscenso || esRecalificacion)
         {
-            return new MonteSionBeneficioRango
-            {
-                BonoConfiguradoUsd = rango.BonoUsd,
-                IncentivoConfigurado = rango.Incentivo,
-                PrimeraCalificacion = esAscenso,
-                EsRecalificacion = esRecalificacion,
-                BonoAPagarUsd = rango.BonoUsd,
-                IncentivoAEntregar = null,
-                Motivo = esAscenso
-                    ? $"Ascenso a {rango.Nombre}. Corresponde el bono configurado."
-                    : $"Recalificación en {rango.Nombre}. Corresponde el bono configurado.",
-            };
+            beneficio.PrimeraCalificacion = esAscenso;
+            beneficio.EsRecalificacion = esRecalificacion;
+            beneficio.Motivo = esAscenso
+                ? $"Ascenso a {rango.Nombre}. Corresponde el bono configurado."
+                : $"Recalificación en {rango.Nombre}. Corresponde el bono configurado.";
+            return beneficio;
         }
 
-        return new MonteSionBeneficioRango
-        {
-            BonoConfiguradoUsd = rango.BonoUsd,
-            IncentivoConfigurado = rango.Incentivo,
-            PrimeraCalificacion = false,
-            EsRecalificacion = false,
-            BonoAPagarUsd = rango.BonoUsd,
-            IncentivoAEntregar = null,
-            Motivo = $"Bonificación mensual por calificar a {rango.Nombre}. No corresponde incentivo porque el rango actual ({rangoActual}) es superior.",
-        };
+        beneficio.PrimeraCalificacion = false;
+        beneficio.EsRecalificacion = false;
+        beneficio.Motivo = $"Bonificación mensual por calificar a {rango.Nombre}. No corresponde incentivo porque el rango actual ({rangoActual}) es superior.";
+        return beneficio;
     }
+
+    private static string TextoIncentivo(decimal monto, string moneda) =>
+        $"Pago único de {monto.ToString("#,##0.##", FormatoMonto)} {SimboloMoneda(moneda)}";
+
+    private static string SimboloMoneda(string moneda) =>
+        string.Equals(moneda, nameof(MonedaCiclo.BS), StringComparison.OrdinalIgnoreCase) ? "Bs" : "$us";
 
     private static MonteSionEvaluacionRango? EvaluarRangosRecursivamente(
         IReadOnlyList<MonteSionRangoConfiguracion> rangos,
@@ -362,9 +399,10 @@ public sealed class MonteSionService : IMonteSionService
         MonteSionRangoConfiguracion rango,
         IEnumerable<MonteSionEquipoProduccion> equipos)
     {
-        var limite = rango.VmeMonto is null || rango.VmeMonto <= 0
-            ? (decimal?)null
-            : rango.VmeMonto;
+        // Producción con corte de VME: tope de producción válida por equipo (0 = sin corte).
+        var limite = rango.ProduccionCorteVme > 0
+            ? rango.ProduccionCorteVme
+            : (decimal?)null;
 
         var detalleEquipos = equipos.Select(equipo =>
         {
@@ -390,7 +428,7 @@ public sealed class MonteSionService : IMonteSionService
             Rango = rango.Nombre,
             ProduccionRequerida = rango.ProduccionRequerida,
             ProduccionHasta = rango.ProduccionHasta,
-            VmeAplicado = rango.VmeMonto,
+            VmePorcentaje = rango.VmePorcentaje,
             PorcentajeLiderazgo = rango.PorcentajeLiderazgo,
             LimiteMaximoPorEquipo = limite,
             ProduccionValidaTotal = produccionValidaTotal,

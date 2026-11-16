@@ -1,6 +1,7 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Persistence;
+using ApiGuardian.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http;
 using System.Text.Json;
@@ -15,14 +16,18 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
     private readonly IConfiguration _configuracion;
     private readonly IHttpClientFactory _fabricaHttpClient;
     private readonly ConfiguracionAplicaciones _configuracionAplicaciones;
+    private readonly CambioDolarService _cambioDolar;
     private const string NombreArchivo = "AplicacionesRepositorio.cs";
+    private const string MonedaBolivianos = "BOB";
+    private const string MonedaDolares = "USD";
 
     public AplicacionesRepositorio(
         DapperContext guardianContext,
         DapperContextSqlServer sqlContext,
         ILogService registro,
         IConfiguration configuracion,
-        IHttpClientFactory fabricaHttpClient
+        IHttpClientFactory fabricaHttpClient,
+        CambioDolarService cambioDolar
     )
     {
         _guardianContext = guardianContext;
@@ -30,6 +35,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         _registro = registro;
         _configuracion = configuracion;
         _fabricaHttpClient = fabricaHttpClient;
+        _cambioDolar = cambioDolar;
         _configuracionAplicaciones = _configuracion.GetSection("Aplicaciones").Get<ConfiguracionAplicaciones>() ?? new ConfiguracionAplicaciones();
     }
 
@@ -70,6 +76,17 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         try
         {
             _registro.Info(logTransaccionId, NombreArchivo, metodo, $"Inicio reproceso completo de aplicaciones. ciclo:{lCicloId}");
+
+            var resultadoMoneda = await ObtenerMonedaCicloAsync(lCicloId);
+            if (!resultadoMoneda.Exito)
+            {
+                estado.ErrorGrave = true;
+                estado.ErrorGraveMensaje = resultadoMoneda.Mensaje;
+                return (ConstruirRespuestaEjecucion(estado), false, resultadoMoneda.Mensaje);
+            }
+
+            estado.MonedaCiclo = resultadoMoneda.Datos;
+            estado.Notas.Add(DescribirMonedaCiclo(estado.MonedaCiclo));
 
             var resultadoPendientes = await ObtenerComisionadosPendientesAsync(lCicloId);
             if (!resultadoPendientes.Exito || resultadoPendientes.Datos is null)
@@ -131,6 +148,16 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             {
                 return ConstruirEstadoFallido(estado, resultadoValidacion.Mensaje, resultadoValidacion.EsFatal);
             }
+
+            // La moneda se valida antes de limpiar datos: si es inválida, el proceso se detiene sin borrar nada.
+            var resultadoMoneda = await ObtenerMonedaCicloAsync(ciclo);
+            if (!resultadoMoneda.Exito)
+            {
+                return ConstruirEstadoFallido(estado, resultadoMoneda.Mensaje, true);
+            }
+
+            estado.MonedaCiclo = resultadoMoneda.Datos;
+            estado.Notas.Add(DescribirMonedaCiclo(estado.MonedaCiclo));
 
             var resultadoLimpiarDatosCiclo = await LimpiarDatosCicloAsync(ciclo, limpiarDatosBdQishur);
             if (!resultadoLimpiarDatosCiclo.Exito)
@@ -649,7 +676,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 saldoRestante = resultadoAplicacionReprogramados.Datos;
                 debeContinuar = resultadoMesActual.Datos.Count > 0;
 
-                if (!debeContinuar && saldoRestante > 0 && saldoRestante < _configuracionAplicaciones.MontoMinimoParaPagoACuenta)
+                if (!debeContinuar && saldoRestante > 0 && saldoRestante < MontoMinimoParaPagoACuenta(estado.MonedaCiclo))
                 {
                     var resultadoACuenta = await ConstruirCandidatosCuotaAsync(
                         productos,
@@ -757,7 +784,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     estado.PagosSesion,
                     comisionado.NumeroDocumento,
                     carta,
-                    ConvertirMontoCuotaAUsd(carta.EmpresaId, cuota.MontoPago)
+                    ConvertirCuotaAMonedaComision(cuota.MontoPago, estado.MonedaCiclo, MonedaCuota(carta.EmpresaId))
                 ))
                 {
                     break;
@@ -868,9 +895,11 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 break;
             }
 
+            // Porcentaje: TotalAplicar ya está en la moneda del ciclo.
+            // Monto fijo: está en USD; en ciclos BS se convierte con el TC oficial.
             var monto = descuento.EsPorcentaje
                 ? decimal.Round(comisionado.TotalAplicar * descuento.MontoOPorcentaje / 100m, 2, MidpointRounding.AwayFromZero)
-                : descuento.MontoOPorcentaje;
+                : ConvertirMontoFijoUsdAMonedaCiclo(descuento.MontoOPorcentaje, estado.MonedaCiclo);
 
             var observacion = $"Descuento por {descuento.Descripcion}";
             if (saldoRestante < monto)
@@ -1364,8 +1393,8 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             );
         }
 
-        var esPagoEnBolivianos = EsPagoEnBolivianos(producto.EmpresaId);
-        var decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, esPagoEnBolivianos);
+        var monedaCuota = MonedaCuota(producto.EmpresaId);
+        var decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, estado.MonedaCiclo, monedaCuota);
 
         if (decisionPago.EsFechaValor)
         {
@@ -1394,7 +1423,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             }
 
             cuota = cuotaFechaValor;
-            decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, esPagoEnBolivianos);
+            decisionPago = DecidirPago(cuota, montoDisponible, DateTime.Now, estado.MonedaCiclo, monedaCuota);
         }
 
         if (decisionPago.MontoPagar <= 0)
@@ -1426,7 +1455,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             }
 
             var observacionVistaPrevia = ConstruirObservacionFinal(context.Observacion, decisionPago.SufijoObservacion);
-            observacionVistaPrevia = AgregarDetalleMoneda(observacionVistaPrevia, esPagoEnBolivianos, decisionPago);
+            observacionVistaPrevia = AgregarDetalleMoneda(observacionVistaPrevia, decisionPago);
             estado.PagosSesion.Add(
                 new RegistroPagoAplicaciones
                 {
@@ -1456,6 +1485,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                     ProductoId = context.ProductoId,
                     Monto = decisionPago.MontoPagar,
                     MontoEjecutado = decisionPago.MontoEjecutar,
+                    MonedaComision = decisionPago.MonedaComision,
                     MonedaPago = decisionPago.MonedaPago,
                     TipoCambio = decisionPago.TipoCambio,
                     Observacion = observacionVistaPrevia,
@@ -1501,7 +1531,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         }
 
         var observacion = ConstruirObservacionFinal(context.Observacion, decisionPago.SufijoObservacion);
-        observacion = AgregarDetalleMoneda(observacion, esPagoEnBolivianos, decisionPago);
+        observacion = AgregarDetalleMoneda(observacion, decisionPago);
         var registroPago = new RegistroPagoAplicaciones
         {
             Ciclo = context.Ciclo,
@@ -1590,6 +1620,7 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
                 ProductoId = context.ProductoId,
                 Monto = decisionPago.MontoPagar,
                 MontoEjecutado = decisionPago.MontoEjecutar,
+                MonedaComision = decisionPago.MonedaComision,
                 MonedaPago = decisionPago.MonedaPago,
                 TipoCambio = decisionPago.TipoCambio,
                 Observacion = observacionFinal,
@@ -1631,34 +1662,39 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         return await ObtenerClientePorDocumentoAsync(context.DocumentoComisionadoContable);
     }
 
+    // Regla (PLAN_APLICACIONES_POR_MONEDA_CICLO.md, sección 2):
+    //   MontoPagar    = lo que se descuenta de la comisión, en la moneda del ciclo.
+    //   MontoEjecutar = lo que se paga en Sion, en la moneda de la cuota.
+    //   Pago completo: se paga la cuota exacta, sin diferencias de redondeo.
     private DecisionPagoAplicaciones DecidirPago(
         CuotaAplicaciones cuota,
         decimal montoDisponible,
         DateTime ahora,
-        bool esPagoEnBolivianos
+        MonedaCiclo monedaCiclo,
+        string monedaCuota
     )
     {
-        var montoCuotaUsd = ConvertirMontoCuotaAUsd(esPagoEnBolivianos, cuota.MontoPago);
-        var montoPagar = Math.Min(montoCuotaUsd, montoDisponible);
-        var pagoCompleto = montoDisponible >= montoCuotaUsd;
+        var tipoCambio = TipoCambioConversion(monedaCiclo, monedaCuota);
+        var cuotaEnMonedaComision = ConvertirCuotaAMonedaComision(cuota.MontoPago, monedaCiclo, monedaCuota);
+        var montoPagar = Math.Min(cuotaEnMonedaComision, montoDisponible);
+        var pagoCompleto = montoDisponible >= cuotaEnMonedaComision;
         var fechaValor = PuedePagarAFechaValor(cuota.FechaVencimiento, ahora);
         var montoEjecutar = montoPagar;
 
-        if (esPagoEnBolivianos)
+        if (tipoCambio is not null)
         {
-            // La cuota completa se paga exactamente como llega de Sion (en BOB).
-            // El tipo de cambio solo permite validar y descontar el saldo de comisión en USD.
             montoEjecutar = pagoCompleto
                 ? cuota.MontoPago
-                : decimal.Round(montoPagar * _configuracionAplicaciones.PagosBolivianos.TipoCambio, 2, MidpointRounding.AwayFromZero);
+                : ConvertirComisionAMonedaCuota(montoPagar, monedaCiclo, monedaCuota);
         }
 
         return new DecisionPagoAplicaciones
         {
             MontoPagar = montoPagar,
             MontoEjecutar = montoEjecutar,
-            MonedaPago = esPagoEnBolivianos ? "BOB" : "USD",
-            TipoCambio = esPagoEnBolivianos ? _configuracionAplicaciones.PagosBolivianos.TipoCambio : null,
+            MonedaComision = CodigoMonedaComision(monedaCiclo),
+            MonedaPago = monedaCuota,
+            TipoCambio = tipoCambio,
             FechaPagoEfectiva = fechaValor ? cuota.FechaVencimiento : ahora,
             EsFechaValor = fechaValor,
             Modo = pagoCompleto ? "Completo" : "A Cuenta",
@@ -1667,12 +1703,85 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         };
     }
 
-    private bool EsPagoEnBolivianos(int empresaId)
+    // Moneda de la cuota: BOB si la empresa está en PagosBolivianos.Empresas (y está habilitado); USD si no.
+    private string MonedaCuota(int empresaId)
     {
         var configuracion = _configuracionAplicaciones.PagosBolivianos;
         return configuracion.Habilitado
             && configuracion.TipoCambio > 0
-            && configuracion.Empresas.Contains(empresaId);
+            && configuracion.Empresas.Contains(empresaId)
+            ? MonedaBolivianos
+            : MonedaDolares;
+    }
+
+    private static string CodigoMonedaComision(MonedaCiclo monedaCiclo)
+    {
+        return monedaCiclo == MonedaCiclo.BS ? MonedaBolivianos : MonedaDolares;
+    }
+
+    // Tipo de cambio entre la moneda de la comisión y la de la cuota; null si son iguales.
+    //   Ciclo SUS + cuota BOB: PagosBolivianos.TipoCambio (lógica actual, sin cambios).
+    //   Ciclo BS  + cuota USD: cambioDolar.tipoCambioHistorico.
+    private decimal? TipoCambioConversion(MonedaCiclo monedaCiclo, string monedaCuota)
+    {
+        if (CodigoMonedaComision(monedaCiclo) == monedaCuota)
+        {
+            return null;
+        }
+
+        return monedaCiclo == MonedaCiclo.BS
+            ? _cambioDolar.TipoCambioHistorico
+            : _configuracionAplicaciones.PagosBolivianos.TipoCambio;
+    }
+
+    private decimal ConvertirCuotaAMonedaComision(decimal montoCuota, MonedaCiclo monedaCiclo, string monedaCuota)
+    {
+        var tipoCambio = TipoCambioConversion(monedaCiclo, monedaCuota);
+        if (tipoCambio is null)
+        {
+            return montoCuota;
+        }
+
+        // SUS: cuota BOB -> USD (÷ TC). BS: cuota USD -> Bs (× TC).
+        return Redondear(monedaCiclo == MonedaCiclo.BS ? montoCuota * tipoCambio.Value : montoCuota / tipoCambio.Value);
+    }
+
+    private decimal ConvertirComisionAMonedaCuota(decimal montoComision, MonedaCiclo monedaCiclo, string monedaCuota)
+    {
+        var tipoCambio = TipoCambioConversion(monedaCiclo, monedaCuota);
+        if (tipoCambio is null)
+        {
+            return montoComision;
+        }
+
+        // SUS: USD -> cuota BOB (× TC). BS: Bs -> cuota USD (÷ TC).
+        return Redondear(monedaCiclo == MonedaCiclo.BS ? montoComision / tipoCambio.Value : montoComision * tipoCambio.Value);
+    }
+
+    // MontoMinimoParaPagoACuenta está en USD. En ciclos BS se compara contra su equivalente con el TC oficial.
+    private decimal MontoMinimoParaPagoACuenta(MonedaCiclo monedaCiclo)
+    {
+        return ConvertirMontoFijoUsdAMonedaCiclo(_configuracionAplicaciones.MontoMinimoParaPagoACuenta, monedaCiclo);
+    }
+
+    // Montos fijos configurados en USD (saldo mínimo, descuentos de monto fijo): en ciclos BS × TC oficial.
+    private decimal ConvertirMontoFijoUsdAMonedaCiclo(decimal montoUsd, MonedaCiclo monedaCiclo)
+    {
+        return monedaCiclo == MonedaCiclo.BS
+            ? Redondear(montoUsd * _cambioDolar.TipoCambioOficial)
+            : montoUsd;
+    }
+
+    private string DescribirMonedaCiclo(MonedaCiclo monedaCiclo)
+    {
+        return monedaCiclo == MonedaCiclo.BS
+            ? $"Moneda del ciclo: BS. La comisión se aplica en Bs; cuotas USD con TC histórico {_cambioDolar.TipoCambioHistorico:N2}; montos fijos y saldo mínimo a cuenta ({MontoMinimoParaPagoACuenta(monedaCiclo):N2} Bs) con TC oficial {_cambioDolar.TipoCambioOficial:N2}."
+            : $"Moneda del ciclo: SUS. La comisión se aplica en USD; cuotas BOB con TC {_configuracionAplicaciones.PagosBolivianos.TipoCambio:N2}.";
+    }
+
+    private static decimal Redondear(decimal monto)
+    {
+        return decimal.Round(monto, 2, MidpointRounding.AwayFromZero);
     }
 
     private bool DebeFacturarEmpresa(int empresaId)
@@ -1681,23 +1790,17 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
             && !_configuracionAplicaciones.EmpresasSinFacturacion.Contains(empresaId);
     }
 
-    private decimal ConvertirMontoCuotaAUsd(int empresaId, decimal montoCuota)
+    // Solo cuando hubo conversión. Ej.: "Pago BOB 700,00; consume USD 100,00; TC 7,00." (SUS)
+    // o "Pago USD 100,00; consume Bs 697,00; TC 6,97." (BS).
+    private static string AgregarDetalleMoneda(string observacion, DecisionPagoAplicaciones decision)
     {
-        return ConvertirMontoCuotaAUsd(EsPagoEnBolivianos(empresaId), montoCuota);
-    }
+        if (decision.TipoCambio is null)
+        {
+            return observacion;
+        }
 
-    private decimal ConvertirMontoCuotaAUsd(bool esPagoEnBolivianos, decimal montoCuota)
-    {
-        return esPagoEnBolivianos
-            ? decimal.Round(montoCuota / _configuracionAplicaciones.PagosBolivianos.TipoCambio, 2, MidpointRounding.AwayFromZero)
-            : montoCuota;
-    }
-
-    private static string AgregarDetalleMoneda(string observacion, bool esPagoEnBolivianos, DecisionPagoAplicaciones decision)
-    {
-        return esPagoEnBolivianos
-            ? $"{observacion} - Pago BOB {decision.MontoEjecutar:N2}; consume USD {decision.MontoPagar:N2}; TC {decision.TipoCambio:N2}."
-            : observacion;
+        var etiquetaComision = decision.MonedaComision == MonedaBolivianos ? "Bs" : decision.MonedaComision;
+        return $"{observacion} - Pago {decision.MonedaPago} {decision.MontoEjecutar:N2}; consume {etiquetaComision} {decision.MontoPagar:N2}; TC {decision.TipoCambio:N2}.";
     }
 
     private static bool PuedePagarAFechaValor(DateTime fechaVencimiento, DateTime ahora)
@@ -1842,11 +1945,28 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
         return DateTime.Now.ToString("HHmmssffffff");
     }
 
+    // Las operaciones sin conversión (prorrateo, descuentos, marcado) se crean con USD por defecto:
+    // se completan con la moneda del ciclo para que el consumidor sepa en qué moneda está cada monto.
+    private static void CompletarMonedasOperaciones(EstadoProcesoAplicaciones estado)
+    {
+        var monedaComision = CodigoMonedaComision(estado.MonedaCiclo);
+        foreach (var operacion in estado.Comisionados.SelectMany(item => item.Operaciones))
+        {
+            operacion.MonedaComision = monedaComision;
+            if (operacion.TipoCambio is null)
+            {
+                operacion.MonedaPago = monedaComision;
+            }
+        }
+    }
+
     private static RespuestaVistaPreviaAplicaciones ConstruirRespuestaVistaPrevia(EstadoProcesoAplicaciones estado)
     {
+        CompletarMonedasOperaciones(estado);
         return new RespuestaVistaPreviaAplicaciones
         {
             LCicloId = estado.Ciclo,
+            MonedaCiclo = estado.MonedaCicloRespuesta,
             VistaPrevia = true,
             AplicacionesComisionadoExiste = estado.AplicacionesComisionadoExiste,
             ExistenComisionesPorEmpresa = estado.ExistenComisionesPorEmpresa,
@@ -1863,9 +1983,11 @@ public partial class AplicacionesRepositorio : IAplicacionesRepositorio
 
     private static RespuestaEjecucionAplicaciones ConstruirRespuestaEjecucion(EstadoProcesoAplicaciones estado)
     {
+        CompletarMonedasOperaciones(estado);
         return new RespuestaEjecucionAplicaciones
         {
             LCicloId = estado.Ciclo,
+            MonedaCiclo = estado.MonedaCicloRespuesta,
             VistaPrevia = false,
             AplicacionesComisionadoExiste = estado.AplicacionesComisionadoExiste,
             ExistenComisionesPorEmpresa = estado.ExistenComisionesPorEmpresa,
@@ -1910,6 +2032,19 @@ internal sealed class EstadoProcesoAplicaciones
     }
 
     public int Ciclo { get; }
+    // Se asigna al inicio del proceso desde administracionciclo.moneda (validada).
+    private MonedaCiclo _monedaCiclo = MonedaCiclo.SUS;
+    public MonedaCiclo MonedaCiclo
+    {
+        get => _monedaCiclo;
+        set
+        {
+            _monedaCiclo = value;
+            MonedaCicloValidada = true;
+        }
+    }
+    public bool MonedaCicloValidada { get; private set; }
+    public string MonedaCicloRespuesta => MonedaCicloValidada ? MonedaCiclo.ToString() : string.Empty;
     public bool OmitirPagosGrupoSion { get; }
     public bool MarcarComisionadosProcesados { get; }
     public bool AplicacionesComisionadoExiste { get; set; }
@@ -1943,6 +2078,7 @@ internal sealed class DecisionPagoAplicaciones
 {
     public decimal MontoPagar { get; set; }
     public decimal MontoEjecutar { get; set; }
+    public string MonedaComision { get; set; } = "USD";
     public string MonedaPago { get; set; } = "USD";
     public decimal? TipoCambio { get; set; }
     public DateTime FechaPagoEfectiva { get; set; }

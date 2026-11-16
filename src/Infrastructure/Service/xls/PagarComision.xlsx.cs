@@ -6,7 +6,7 @@ public class PagarComisionxls
  
 
     public async Task<(bool success, string base64)> GetPagarComisionXls(
-    List<RptPagarComision> listado, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa, List<RedistribucionPagoComision> redistribucionesPorRetencion)
+    List<RptPagarComision> listado, List<RptProrrateo> prorrateo, List<EmpresaHeaderPagarComision> headerEmpresa, List<RedistribucionPagoComision> redistribucionesPorRetencion, string moneda)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
@@ -21,7 +21,7 @@ public class PagarComisionxls
         ConfigurarColumnas(worksheet, headerEmpresa);
 
         // ENCABEZADOS
-        CrearEncabezados(worksheet, headerRow, headerEmpresa);
+        CrearEncabezados(worksheet, headerRow, headerEmpresa, moneda);
 
         // DETALLE
         int currentRow = firstDataRow;
@@ -133,7 +133,7 @@ public class PagarComisionxls
         ws.Column(rowAux).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
         
     }
-    private static void CrearEncabezados(IXLWorksheet ws, int row, List<EmpresaHeaderPagarComision> headerEmpresa)
+    private static void CrearEncabezados(IXLWorksheet ws, int row, List<EmpresaHeaderPagarComision> headerEmpresa, string moneda)
     {
         int rowAux = 9;
         ws.Cell(row, 2).Value = "TIPO CTA";
@@ -142,7 +142,7 @@ public class PagarComisionxls
         ws.Cell(row, 5).Value = "CIUDAD";
         ws.Cell(row, 6).Value = "ASESOR";
         ws.Cell(row, 7).Value = "CI";
-        ws.Cell(row, 8).Value = "COMISIÓN INICIAL";
+        ws.Cell(row, 8).Value = $"COMISIÓN INICIAL {moneda}";
         foreach (var item in headerEmpresa)
         {
             string nombre = item.SEmpresa;
@@ -153,9 +153,9 @@ public class PagarComisionxls
             rowAux += 1;
         }
 
-        ws.Cell(row, rowAux).Value = "TOTAL DESCUENTO";
+        ws.Cell(row, rowAux).Value = $"TOTAL DESCUENTO {moneda}";
         rowAux += 1;
-        ws.Cell(row, rowAux).Value = "TOTAL A PAGAR";
+        ws.Cell(row, rowAux).Value = $"TOTAL A PAGAR {moneda}";
 
         var range = ws.Range(row, 2, row, rowAux);
         range.Style.Font.Bold = true;

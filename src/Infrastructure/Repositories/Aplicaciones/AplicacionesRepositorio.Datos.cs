@@ -99,6 +99,38 @@ public partial class AplicacionesRepositorio
         }
     }
 
+    // Lee y valida administracionciclo.moneda (Guardian). Debe llamarse antes de limpiar o cargar datos.
+    private async Task<ResultadoAplicaciones<MonedaCiclo>> ObtenerMonedaCicloAsync(int ciclo)
+    {
+        try
+        {
+            using var conexion = _guardianContext.CreateConnection();
+            var monedas = (await conexion.QueryAsync<string?>(
+                new CommandDefinition(
+                    "SELECT moneda FROM administracionciclo WHERE lciclo_id = @Ciclo;",
+                    new { Ciclo = ciclo },
+                    commandTimeout: _configuracionAplicaciones.TiempoEsperaComandoSegundos
+                )
+            )).ToList();
+            if (monedas.Count == 0)
+            {
+                return ResultadoAplicaciones<MonedaCiclo>.Fail($"No se encontró el ciclo {ciclo}.", true);
+            }
+
+            var validacion = AdministracionCicloMonedaExtensions.ValidarMoneda(ciclo, monedas[0]);
+            return validacion.Success
+                ? ResultadoAplicaciones<MonedaCiclo>.Ok(validacion.Moneda)
+                : ResultadoAplicaciones<MonedaCiclo>.Fail(validacion.Mensaje, true);
+        }
+        catch (Exception ex)
+        {
+            return ResultadoAplicaciones<MonedaCiclo>.Fail(
+                $"No se pudo obtener la moneda del ciclo {ciclo}: {ex.Message}",
+                true
+            );
+        }
+    }
+
     private async Task<ResultadoAplicaciones<ConteoRetencionesAplicaciones>> ObtenerConteoRetencionesAsync(int ciclo)
     {
         try

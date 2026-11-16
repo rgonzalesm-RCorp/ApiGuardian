@@ -34,6 +34,8 @@ namespace ApiGuardian.Infrastructure.Repositories
                     dtfechaprecierre2 AS DtFechaPreCierre2,
                     cverenweb AS CVerEnWeb,
                     estadogestor AS EstadoGestor,
+                    simulacion AS Simulacion,
+                    moneda AS Moneda,
                     susuarioadd AS SUsuarioAdd,
                     dtfechaadd AS DtFechaAdd,
                     susuariomod AS SUsuarioMod,
@@ -79,6 +81,8 @@ namespace ApiGuardian.Infrastructure.Repositories
                     dtfechaprecierre2 AS DtFechaPreCierre2,
                     cverenweb AS CVerEnWeb,
                     estadogestor AS EstadoGestor,
+                    simulacion AS Simulacion,
+                    moneda AS Moneda,
                     susuarioadd AS SUsuarioAdd,
                     dtfechaadd AS DtFechaAdd,
                     susuariomod AS SUsuarioMod,
@@ -125,6 +129,8 @@ namespace ApiGuardian.Infrastructure.Repositories
                     dtfechaprecierre2 AS DtFechaPreCierre2,
                     cverenweb AS CVerEnWeb,
                     estadogestor AS EstadoGestor,
+                    simulacion AS Simulacion,
+                    moneda AS Moneda,
                     susuarioadd AS SUsuarioAdd,
                     dtfechaadd AS DtFechaAdd,
                     susuariomod AS SUsuarioMod,
@@ -170,11 +176,13 @@ namespace ApiGuardian.Infrastructure.Repositories
                 INSERT INTO administracionciclo
                 (lciclo_id, snombre, dtfechainicio, dtfechafin, lestado, 
                 dtfechacierre, dtfechaprecierre1, dtfechaprecierre2, 
-                cverenweb, estadogestor, susuarioadd, dtfechaadd, susuariomod, dtfechamod)
+                cverenweb, estadogestor, simulacion, moneda,
+                susuarioadd, dtfechaadd, susuariomod, dtfechamod)
                 VALUES
                 (@nextId, @SNombre, @DtFechaInicio, @DtFechaFin, @LEstado,
                 @DtFechaCierre, @DtFechaPreCierre1, @DtFechaPreCierre2, 
-                @CVerEnWeb, @EstadoGestor, @Usuario, NOW(), @Usuario, NOW());
+                @CVerEnWeb, @EstadoGestor, @Simulacion, @Moneda,
+                @Usuario, NOW(), @Usuario, NOW());
             ";
             _log.Info(log, NOMBREARCHIVO, metodo, $"Inicio query: {query}");
             _log.Info(log, NOMBREARCHIVO, metodo, $"nextIdQuery : {nextIdQuery}");
@@ -197,6 +205,8 @@ namespace ApiGuardian.Infrastructure.Repositories
                     ciclo.DtFechaPreCierre2,
                     ciclo.CVerEnWeb,
                     ciclo.EstadoGestor,
+                    ciclo.Simulacion,
+                    ciclo.Moneda,
                     ciclo.Usuario
                 });
                 _log.Info(log, NOMBREARCHIVO, metodo, $"Fin de metodo [mensaje: { (rows > 0 ? "Registro creado correctamente." : "No se insertó el registro.") }]");
@@ -225,6 +235,8 @@ namespace ApiGuardian.Infrastructure.Repositories
                     dtfechaprecierre2 = @DtFechaPreCierre2,
                     cverenweb = @CVerEnWeb,
                     estadogestor = @EstadoGestor,
+                    simulacion = @Simulacion,
+                    moneda = @Moneda,
                     susuariomod = @Usuario,
                     dtfechamod = NOW()
                 WHERE lciclo_id = @LCicloId;

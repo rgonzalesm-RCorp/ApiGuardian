@@ -11,7 +11,20 @@
   },
   "AllowedHosts": "*",
   "HabilidacionesParaNoComprimirRed": [],
-  "cambioDolar": { "idsComplejosProyectos": [], "tipoCambio": 6.97 },
+  "SoloEspecialesDesdeCicloId": 149,
+  "cambioDolar": {
+    "idsComplejosProyectos": [],
+    "fechaCorte": "2026-06-30",
+    "tipoCambioHistorico": 6.97,
+    "tipoCambioOficial": 7.0
+  },
+  "Simulacion": {
+    "ZonaHoraria": "America/La_Paz",
+    "NombreTablaEjecucion": "comisiones_light_ejecucion",
+    "UsuarioCron": "cron",
+    "HorasMaximasEnCurso": 12,
+    "HabilitarEndpointManual": false
+  },
   "PagoComision": {
     "RedistribucionesPorRetencion": [
       { "EmpresaOrigenId": 0, "EmpresaAsumeId": 0 }
@@ -27,15 +40,7 @@
   ],
   "ControlProceso": { "PasoValidar": "VentaPersonal" },
   "MonteSion": {
-    "ProfundidadMaxima": 7,
-    "Rangos": [
-      { "Nombre": "Líder", "ProduccionRequerida": 5000, "BonoUsd": 0 },
-      { "Nombre": "Senior", "ProduccionRequerida": 10000, "BonoUsd": 0 },
-      { "Nombre": "Zafiro", "ProduccionRequerida": 25000, "BonoUsd": 100 },
-      { "Nombre": "Ruby", "ProduccionRequerida": 50000, "BonoUsd": 200 },
-      { "Nombre": "Esmeralda", "ProduccionRequerida": 100000, "VmePorcentaje": 80, "BonoUsd": 300, "IncentivoUsd": 500, "Incentivo": "Pago único de 500 $us" },
-      { "Nombre": "Diamante", "ProduccionRequerida": 200000, "VmePorcentaje": 70, "BonoUsd": 400, "IncentivoUsd": 1000, "Incentivo": "Pago único de 1.000 $us" }
-    ]
+    "ProfundidadMaxima": 7
   },
   "Aplicaciones": {
     "MontoMinimoParaPagoACuenta": 20,

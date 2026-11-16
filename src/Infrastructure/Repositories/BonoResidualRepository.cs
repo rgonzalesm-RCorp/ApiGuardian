@@ -327,7 +327,7 @@ public class BonoResidualRepository : IBonoResidualRepository
         }
     }
 
-    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuota(string LogTransaccionId, string Usuario, string inicio, string fin)
+    public async Task<(IEnumerable<TCuota> ListaCuota, bool Success, string Mensaje)> GetCuota(string LogTransaccionId, string Usuario, string inicio, string fin, MonedaCiclo moneda = MonedaCiclo.SUS)
     {
         string nombreMetodo = "GetCuota()";
         var query = ScriptCnx.QueryObetnerCuotas(_configuration);
@@ -342,7 +342,7 @@ public class BonoResidualRepository : IBonoResidualRepository
 
             foreach (var cuota in ListaCuota)
             {
-                _cambioDolarService.Convertir(cuota);
+                _cambioDolarService.Convertir(cuota, moneda);
             }
 
             bool success = true;

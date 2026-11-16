@@ -51,6 +51,12 @@ public class RedesRepository : IRedesRepository
         if (Listado == null || Listado.Count == 0)
             return (false, "No existen registros para guardar.");
 
+        // La red comprimida se guarda por ciclo: solo se reemplaza la del ciclo que se procesa.
+        var ciclos = Listado.Select(item => item.LCicloId).Distinct().ToList();
+        if (ciclos.Count != 1 || ciclos[0] <= 0)
+            return (false, "La red comprimida a guardar debe pertenecer a un único ciclo válido.");
+        var cicloId = ciclos[0];
+
         const int batchSize = 500;
 
         try
@@ -61,9 +67,12 @@ public class RedesRepository : IRedesRepository
 
             using var transaction = connection.BeginTransaction();
 
+            // DELETE por ciclo (no TRUNCATE): conserva la red de los demás ciclos y, a diferencia de
+            // TRUNCATE (que hace commit implícito en MySQL), se revierte si falla la inserción.
             await connection.ExecuteAsync(
-                "TRUNCATE TABLE red_comprimida;",
-                transaction: transaction
+                "DELETE FROM red_comprimida WHERE lciclo_id = @CicloId;",
+                new { CicloId = cicloId },
+                transaction
             );
 
             int totalInsertados = 0;

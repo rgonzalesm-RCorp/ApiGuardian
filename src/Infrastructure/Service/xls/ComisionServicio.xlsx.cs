@@ -4,7 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 public class ComisionServicioXls
 {
     public async Task<(bool success, string base64)> GetComisionServicioXls(
-        List<RptComisionServicio> listado, int empresaId)
+        List<RptComisionServicio> listado, int empresaId, string moneda)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
@@ -16,7 +16,7 @@ public class ComisionServicioXls
         const int firstDataRow = headerRow + 1;
 
         ConfigurarColumnas(worksheet, empresaId);
-        CrearEncabezados(worksheet, headerRow, empresaId);
+        CrearEncabezados(worksheet, headerRow, empresaId, moneda);
 
         int currentRow = firstDataRow;
 
@@ -104,19 +104,19 @@ public class ComisionServicioXls
         ws.Columns(4, fila).Style.NumberFormat.Format = "#,##0.00";
         ws.Columns(4, fila).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
     }
-    private static void CrearEncabezados(IXLWorksheet ws, int row, int empresaId)
+    private static void CrearEncabezados(IXLWorksheet ws, int row, int empresaId, string moneda)
     {
         string[] headers = {};
         if(empresaId == -1)  
         {
             headers = new string[] {
-            "COD.", "ASESOR","EMPRESA", "COMISION $", "SERVICIO $", "TOTAL COM. $",
-            "13%", "87%", "RET. %", "RET. $", "TOTAL $", "TOTAL PAGAR $"};
+            "COD.", "ASESOR","EMPRESA", $"COMISION {moneda}", $"SERVICIO {moneda}", $"TOTAL COM. {moneda}",
+            "13%", "87%", "RET. %", $"RET. {moneda}", $"TOTAL {moneda}", $"TOTAL PAGAR {moneda}"};
         } else {
             headers = new string[]
             {
-                "COD.", "ASESOR", "COMISION $", "SERVICIO $", "TOTAL COM. $",
-                "13%", "87%", "RET. %", "RET. $", "TOTAL $", "TOTAL PAGAR $"
+                "COD.", "ASESOR", $"COMISION {moneda}", $"SERVICIO {moneda}", $"TOTAL COM. {moneda}",
+                "13%", "87%", "RET. %", $"RET. {moneda}", $"TOTAL {moneda}", $"TOTAL PAGAR {moneda}"
             };
             
         }

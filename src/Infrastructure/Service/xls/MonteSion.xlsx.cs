@@ -3,13 +3,14 @@ using ClosedXML.Excel;
 
 public sealed class MonteSionXls
 {
-    public Task<(bool Success, string Base64)> GenerarAsync(IEnumerable<MonteSionResultadoRango> resultados)
+    public Task<(bool Success, string Base64)> GenerarAsync(IEnumerable<MonteSionResultadoRango> resultados, string moneda)
     {
         var lista = resultados.ToList();
         if (lista.Count == 0) return Task.FromResult((false, string.Empty));
 
+        var simbolo = string.Equals(moneda, "BS", StringComparison.OrdinalIgnoreCase) ? "Bs" : "$us";
         using var libro = new XLWorkbook();
-        CrearConsolidado(libro.Worksheets.Add("Consolidado"), lista);
+        CrearConsolidado(libro.Worksheets.Add("Consolidado"), lista, simbolo);
         CrearDetalle(libro.Worksheets.Add("Detalle por equipo"), lista);
 
         using var stream = new MemoryStream();
@@ -17,13 +18,13 @@ public sealed class MonteSionXls
         return Task.FromResult((true, Convert.ToBase64String(stream.ToArray())));
     }
 
-    private static void CrearConsolidado(IXLWorksheet hoja, List<MonteSionResultadoRango> resultados)
+    private static void CrearConsolidado(IXLWorksheet hoja, List<MonteSionResultadoRango> resultados, string simbolo)
     {
         hoja.Cell(1, 1).Value = "MONTE SION · CONSOLIDADO DE RANGOS";
         hoja.Range(1, 1, 1, 12).Merge();
         EstiloTitulo(hoja.Range(1, 1, 1, 12));
 
-        var encabezados = new[] { "Código", "Emprendedor", "Fecha registro", "Producción neta", "Producción válida", "Rango actual", "Rango ascenso", "Primera calificación", "Recalificación", "Bono", "Incentivo", "Motivo" };
+        var encabezados = new[] { "Código", "Emprendedor", "Fecha registro", "Producción neta", "Producción válida", "Rango actual", "Rango ascenso", "Primera calificación", "Recalificación", $"Bono ({simbolo})", $"Incentivo ({simbolo})", "Motivo" };
         for (var columna = 0; columna < encabezados.Length; columna++) hoja.Cell(3, columna + 1).Value = encabezados[columna];
         EstiloEncabezado(hoja.Range(3, 1, 3, encabezados.Length));
 
@@ -39,15 +40,15 @@ public sealed class MonteSionXls
             hoja.Cell(fila, 7).Value = resultado.RangoFinal ?? "Independent Affiliate";
             hoja.Cell(fila, 8).Value = resultado.Beneficio?.PrimeraCalificacion == true ? "Sí" : "No";
             hoja.Cell(fila, 9).Value = resultado.Beneficio?.EsRecalificacion == true ? "Sí" : "No";
-            hoja.Cell(fila, 10).Value = resultado.Beneficio?.BonoAPagarUsd ?? 0m;
-            hoja.Cell(fila, 11).Value = resultado.Beneficio?.IncentivoAEntregar ?? "Ninguno";
+            hoja.Cell(fila, 10).Value = resultado.Beneficio?.BonoAPagar ?? 0m;
+            hoja.Cell(fila, 11).Value = resultado.Beneficio?.IncentivoAPagar ?? 0m;
             hoja.Cell(fila, 12).Value = resultado.Beneficio?.Motivo ?? "Sin rango final.";
             fila++;
         }
 
         hoja.Range(4, 3, fila - 1, 3).Style.DateFormat.Format = "dd/MM/yyyy";
         hoja.Range(4, 4, fila - 1, 5).Style.NumberFormat.Format = "#,##0.00";
-        hoja.Range(4, 10, fila - 1, 10).Style.NumberFormat.Format = "#,##0.00";
+        hoja.Range(4, 10, fila - 1, 11).Style.NumberFormat.Format = "#,##0.00";
         AplicarFormatoTabla(hoja, 3, fila - 1, encabezados.Length);
     }
 
@@ -85,7 +86,7 @@ public sealed class MonteSionXls
                     hoja.Cell(fila, 8).Value = equipo.LimiteVme ?? 0m;
                     hoja.Cell(fila, 9).Value = equipo.ProduccionValida;
                     hoja.Cell(fila, 10).Value = equipo.ProduccionDescartada;
-                    hoja.Cell(fila, 11).Value = evaluacion.VmeAplicado ?? 0m;
+                    hoja.Cell(fila, 11).Value = evaluacion.VmePorcentaje;
                     hoja.Cell(fila, 12).Value = string.Join(", ", nivel.NumerosVenta);
                     hoja.Cell(fila, 13).Value = evaluacion.Califica ? "CALIFICA" : "NO CALIFICA";
                     fila++;

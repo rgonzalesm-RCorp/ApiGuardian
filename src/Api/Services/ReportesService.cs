@@ -1,6 +1,8 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.DTO;
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Services.Pdf;
+using ApiGuardian.Infrastructure.Services;
 using ApiGuardian.Models;
 using QuestPDF.Fluent;
 using Microsoft.Extensions.Options;
@@ -12,22 +14,28 @@ public sealed class ReportesService : IReportesService
     private readonly IReportesRepository _repository;
     private readonly IAdministracionDescuentoComisionRepository _comision;
     private readonly IAdministracionDetalleFacturaRepository _detalleFactura;
+    private readonly IAdministracionCicloRepository _cicloRepository;
     private readonly PagoComisionOpciones _pagoComisionOpciones;
-    private readonly MonteSionOpciones _monteSionOpciones;
+    private readonly IMonteSionRepository _monteSionRepository;
+    private readonly CambioDolarService _cambioDolar;
 
     public ReportesService(
         IReportesRepository repository,
         IAdministracionDescuentoComisionRepository comision,
         IAdministracionDetalleFacturaRepository detalleFactura,
+        IAdministracionCicloRepository cicloRepository,
         IOptions<PagoComisionOpciones> pagoComisionOpciones,
-        IOptions<MonteSionOpciones> monteSionOpciones
+        IMonteSionRepository monteSionRepository,
+        CambioDolarService cambioDolar
     )
     {
         _repository = repository;
         _comision = comision;
         _detalleFactura = detalleFactura;
+        _cicloRepository = cicloRepository;
         _pagoComisionOpciones = pagoComisionOpciones.Value;
-        _monteSionOpciones = monteSionOpciones.Value;
+        _monteSionRepository = monteSionRepository;
+        _cambioDolar = cambioDolar;
     }
 
     public async Task<(bool Success, string Mensaje, object Data)> ReporteComisionesAsync(
@@ -37,6 +45,10 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje, SinArchivo());
+
             var r = await _repository.GetReporteComision(Id(), cicloId, contactoId);
             var c = await _comision.GetComision(Id(), contactoId, cicloId, 1);
             r.Data.Comisiones = c.Data;
@@ -47,7 +59,7 @@ public sealed class ReportesService : IReportesService
                 || r.Data.BonoRedisual.Any()
                 || r.Data.BonoPar.Any()
                 || r.Data.BonoCarrera.Any();
-            var pdf = Convert.ToBase64String(new ReporteComisionesDocumento(r.Data).GeneratePdf());
+            var pdf = Convert.ToBase64String(new ReporteComisionesDocumento(r.Data, moneda.Moneda).GeneratePdf());
             return (
                 true,
                 "Reporte generado correctamente.",
@@ -73,6 +85,10 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje, SinArchivo());
+
             var r = await _repository.GetReporteAplicacines(Id(), cicloId, contactoId);
             if (r.Data.Aplicaciones == null || !r.Data.Aplicaciones.Any())
                 return (
@@ -81,7 +97,7 @@ public sealed class ReportesService : IReportesService
                     SinArchivo()
                 );
             var pdf = Convert.ToBase64String(
-                new ReporteAplicacionesDocumento(r.Data).GeneratePdf()
+                new ReporteAplicacionesDocumento(r.Data, moneda.Moneda).GeneratePdf()
             );
             return (
                 true,
@@ -107,12 +123,14 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success) return (false, moneda.Mensaje, SinArchivo());
             var r = await _repository.GetReporteDecuentoEmpresa(Id(), cicloId, empresaId);
             if (r.Data == null || !r.Data.Any())
                 return (false, "No existe descuentos para el ciclo seleccionado", SinArchivo());
             var lista = r.Data.ToList();
-            var pdf = Convert.ToBase64String(new ReporteDescuentoEmpresa(lista).GeneratePdf());
-            var xls = await new DescuentoEmpresaXls().GetDescuentoEmpresaXls(lista);
+            var pdf = Convert.ToBase64String(new ReporteDescuentoEmpresa(lista, moneda.Moneda).GeneratePdf());
+            var xls = await new DescuentoEmpresaXls().GetDescuentoEmpresaXls(lista, moneda.Moneda);
             return (
                 true,
                 "Reporte generado correctamente.",
@@ -153,6 +171,10 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje, SinArchivo());
+
             var r = await _repository.GetReporteFacturacion(Id(), cicloId, contactoId);
             var detalle = await _detalleFactura.GetDetalleFacturaPagination(Id(), 0, 10);
             if (r.Data == null || !r.Data.Any())
@@ -162,7 +184,7 @@ public sealed class ReportesService : IReportesService
                 Path.Combine(Directory.GetCurrentDirectory(), "Assets", "Logokalomai.png")
             );
             var pdf = Convert.ToBase64String(
-                new ReporteFacturacion(lista, logo, detalle.Data.ToList()).GeneratePdf()
+                new ReporteFacturacion(lista, logo, detalle.Data.ToList(), moneda.Moneda).GeneratePdf()
             );
             return (
                 true,
@@ -187,12 +209,14 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success) return (false, moneda.Mensaje, SinArchivo());
             var r = await _repository.GetReporteProrrateo(Id(), cicloId);
             if (r.Data == null || !r.Data.Any())
                 return (false, "No existe datos para el ciclo seleccionado", SinArchivo());
             var lista = r.Data.ToList();
-            var pdf = Convert.ToBase64String(new ReporteProrrateo(lista).GeneratePdf());
-            var xls = await new ProrrateoXls().GetProrrateoXls(lista);
+            var pdf = Convert.ToBase64String(new ReporteProrrateo(lista, moneda.Moneda).GeneratePdf());
+            var xls = await new ProrrateoXls().GetProrrateoXls(lista, moneda.Moneda);
             return (
                 true,
                 "Reporte generado correctamente.",
@@ -219,15 +243,17 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success) return (false, moneda.Mensaje, SinArchivo());
             var r = await _repository.GetReporteComisionServicio(Id(), cicloId, empresaId);
             if (r.Data == null || !r.Data.Any())
                 return (false, "No existe datos para el ciclo seleccionado", SinArchivo());
             var lista = r.Data.ToList();
             var nombre = empresaId == -1 ? "TODAS" : lista[0].Empresa;
             var pdf = Convert.ToBase64String(
-                new ReporteComisionServicio(lista, empresaId).GeneratePdf()
+                new ReporteComisionServicio(lista, empresaId, moneda.Moneda).GeneratePdf()
             );
-            var xls = await new ComisionServicioXls().GetComisionServicioXls(lista, empresaId);
+            var xls = await new ComisionServicioXls().GetComisionServicioXls(lista, empresaId, moneda.Moneda);
             return (
                 true,
                 "Reporte generado correctamente.",
@@ -253,6 +279,8 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success) return (false, moneda.Mensaje, SinArchivo());
             var pagar = await _repository.GetReportePagarComision(Id(), cicloId);
             var prorrateo = await _repository.GetReporteProrrateo(Id(), cicloId);
             var descuentosAplicaciones = await _repository.GetDescuentosAplicacionesProrrateo(Id(), cicloId);
@@ -283,9 +311,9 @@ public sealed class ReportesService : IReportesService
                 item.TotalDescuento = descuentosPorContacto.GetValueOrDefault(item.LContactold);
             }
             var pdf = Convert.ToBase64String(
-                new ReportePagarComision(lista, listaP, headers, _pagoComisionOpciones.RedistribucionesPorRetencion).GeneratePdf()
+                new ReportePagarComision(lista, listaP, headers, _pagoComisionOpciones.RedistribucionesPorRetencion, moneda.Moneda).GeneratePdf()
             );
-            var xls = await new PagarComisionxls().GetPagarComisionXls(lista, listaP, headers, _pagoComisionOpciones.RedistribucionesPorRetencion);
+            var xls = await new PagarComisionxls().GetPagarComisionXls(lista, listaP, headers, _pagoComisionOpciones.RedistribucionesPorRetencion, moneda.Moneda);
             return (
                 true,
                 "Reporte generado correctamente.",
@@ -311,24 +339,32 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success) return (false, moneda.Mensaje, SinArchivo());
             var r = await _repository.GetReportePlanCarrera(Id(), cicloId);
             if (r.Data == null || !r.Data.Any())
                 return (false, "No existe datos para el ciclo seleccionado", SinArchivo());
-            var incentivosPorRango = _monteSionOpciones.Rangos
-                .Where(rango => rango.IncentivoUsd > 0)
-                .ToDictionary(rango => NormalizarRango(rango.Nombre), rango => rango.IncentivoUsd, StringComparer.OrdinalIgnoreCase);
+            // Incentivos del plan de carrera vigente en la moneda del ciclo (administracionnivelplancarrera).
+            if (!MonedaCicloHelper.TryParse(moneda.Moneda, out var monedaCiclo))
+                return (false, AdministracionCicloMonedaExtensions.MensajeMonedaInvalida(cicloId, moneda.Moneda), SinArchivo());
+            var niveles = await _monteSionRepository.ObtenerNivelesAsync(Id(), monedaCiclo);
+            if (!niveles.Success) return (false, niveles.Mensaje, SinArchivo());
+            var incentivosPorRango = niveles.Data
+                .Where(nivel => nivel.Incentivo > 0)
+                .GroupBy(nivel => NormalizarRango(nivel.Nombre), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(grupo => grupo.Key, grupo => grupo.First().Incentivo, StringComparer.OrdinalIgnoreCase);
             var lista = r.Data.Select(item =>
             {
-                if (item.Escalados > 0 && incentivosPorRango.TryGetValue(NormalizarRango(item.NivelAlcanzadoCiclo), out var incentivoUsd))
-                    item.Monto = incentivoUsd;
+                if (item.Escalados > 0 && incentivosPorRango.TryGetValue(NormalizarRango(item.NivelAlcanzadoCiclo), out var incentivo))
+                    item.Monto = incentivo;
                 return item;
             }).Where(item => item.Monto > 0).ToList();
             if (lista.Count == 0)
                 return (false, "No existen bonos o incentivos con importe mayor a cero para el ciclo seleccionado", SinArchivo());
             for (var indice = 0; indice < lista.Count; indice++)
                 lista[indice].Nro = indice + 1;
-            var pdf = Convert.ToBase64String(new ReportePlanCarrera(lista).GeneratePdf());
-            var xls = await new PlanCarreraXls().GetPlanCarreraXls(lista);
+            var pdf = Convert.ToBase64String(new ReportePlanCarrera(lista, moneda.Moneda, _cambioDolar.TipoCambioOficial).GeneratePdf());
+            var xls = await new PlanCarreraXls().GetPlanCarreraXls(lista, moneda.Moneda, _cambioDolar.TipoCambioOficial);
             return (
                 true,
                 "Reporte generado correctamente.",
@@ -354,6 +390,9 @@ public sealed class ReportesService : IReportesService
     {
         try
         {
+            var moneda = await ObtenerMonedaCicloAsync(cicloId);
+            if (!moneda.Success) return (false, moneda.Mensaje, SinArchivo());
+
             var r = await _repository.GetReporteAscensoRango(Id(), cicloId);
             if (r.Data == null || !r.Data.Any())
                 return (false, "No existe datos para el ciclo seleccionado", SinArchivo());
@@ -380,6 +419,19 @@ public sealed class ReportesService : IReportesService
     }
 
     private static string Id() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+
+    private async Task<(bool Success, string Mensaje, string Moneda)> ObtenerMonedaCicloAsync(int cicloId)
+    {
+        var ciclo = await _cicloRepository.GetCiclo(Id(), cicloId);
+        if (!ciclo.Success)
+            return (false, "No se encontró el ciclo seleccionado para obtener su moneda.", string.Empty);
+
+        var moneda = ciclo.Data.Moneda?.Trim().ToUpperInvariant();
+        if (moneda is not ("BS" or "SUS"))
+            return (false, "El ciclo seleccionado no tiene una moneda válida. Debe ser BS o SUS.", string.Empty);
+
+        return (true, string.Empty, moneda);
+    }
 
     private static object SinArchivo() =>
         new

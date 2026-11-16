@@ -3,7 +3,7 @@ using ClosedXML.Excel;
 public class DescuentoEmpresaXls
 {
     public async Task<(bool success, string base64)> GetDescuentoEmpresaXls(
-        List<RptDescuentoEmpresa> listado)
+        List<RptDescuentoEmpresa> listado, string moneda)
     {
         if (listado == null || !listado.Any())
             return (false, string.Empty);
@@ -15,7 +15,7 @@ public class DescuentoEmpresaXls
         const int firstDataRow = headerRow + 1;
 
         ConfigurarColumnas(worksheet);
-        CrearEncabezados(worksheet, headerRow);
+        CrearEncabezados(worksheet, headerRow, moneda);
 
         int currentRow = firstDataRow;
 
@@ -56,7 +56,7 @@ public class DescuentoEmpresaXls
     // ===============================
     // HEADERS
     // ===============================
-    private static void CrearEncabezados(IXLWorksheet ws, int row)
+    private static void CrearEncabezados(IXLWorksheet ws, int row, string moneda)
     {
         string[] headers =
         {
@@ -67,7 +67,7 @@ public class DescuentoEmpresaXls
             "LT",
             "UV",
             "TIPO",
-            "MONTO",
+            $"MONTO {moneda}",
             "OBSERVACION"
         };
 

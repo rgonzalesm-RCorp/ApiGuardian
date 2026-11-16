@@ -48,6 +48,10 @@ public sealed class AdministracionCicloService : IAdministracionCicloService
     {
         try
         {
+            if (!EsMonedaValida(data.Moneda))
+                return (false, "La moneda debe ser BS o SUS.");
+
+            data.Moneda = data.Moneda.Trim().ToUpperInvariant();
             var r = await _repository.GuardarCiclo(id, data);
             return (r.Success, r.Mensaje);
         }
@@ -64,6 +68,10 @@ public sealed class AdministracionCicloService : IAdministracionCicloService
     {
         try
         {
+            if (!EsMonedaValida(data.Moneda))
+                return (false, "La moneda debe ser BS o SUS.");
+
+            data.Moneda = data.Moneda.Trim().ToUpperInvariant();
             var r = await _repository.ModificarCiclo(id, data);
             return (r.Success, r.Mensaje);
         }
@@ -85,4 +93,8 @@ public sealed class AdministracionCicloService : IAdministracionCicloService
             return (false, ex.Message);
         }
     }
+
+    private static bool EsMonedaValida(string? moneda) =>
+        string.Equals(moneda, "BS", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(moneda, "SUS", StringComparison.OrdinalIgnoreCase);
 }

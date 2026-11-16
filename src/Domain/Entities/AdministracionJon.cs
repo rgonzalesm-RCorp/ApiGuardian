@@ -4,6 +4,8 @@ public class ItemProcesoJon
     public int Estado { get; set; }
     public DateTime Inicio { get; set; }
     public DateTime Fin { get; set; }
+    // administracionciclo.moneda del ciclo del job: BS o SUS.
+    public string? Moneda { get; set; }
 }
 
 public class VentaPersonalComisionDto

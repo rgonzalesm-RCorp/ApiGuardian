@@ -1,5 +1,6 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.DTO;
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Persistence;
 using Dapper;
 using Microsoft.Extensions.Configuration;
@@ -101,24 +102,54 @@ public sealed class MonteSionRepository : IMonteSionRepository
         return filas;
     }
 
-    public async Task<(IEnumerable<MonteSionNivel> Data, bool Success, string Mensaje)> ObtenerNivelesAsync(string logTransaccionId)
+    public async Task<(IEnumerable<MonteSionNivel> Data, bool Success, string Mensaje)> ObtenerNivelesAsync(
+        string logTransaccionId,
+        MonedaCiclo moneda)
     {
+        // El nombre del rango y el % de liderazgo salen de administracionnivel;
+        // desde/hasta, VME, corte VME, bono e incentivo, de administracionnivelplancarrera según la moneda del ciclo.
         const string sql = """
-            SELECT lnivel_id AS NivelId, snombre AS Nombre, ddesde AS ProduccionDesde, dhasta AS ProduccionHasta,
-                   dbono AS BonoUsd, dbonomembresia AS PorcentajeLiderazgo, VME AS VmeMonto
-            FROM administracionnivel
-            ORDER BY lnivel_id;
+            SELECT n.lnivel_id              AS NivelId,
+                   n.snombre                AS Nombre,
+                   n.dbonomembresia         AS PorcentajeLiderazgo,
+                   p.lnivelplancarrera_id   AS PlanCarreraId,
+                   p.moneda                 AS Moneda,
+                   p.dproducciondesde       AS ProduccionDesde,
+                   p.dproduccionhasta       AS ProduccionHasta,
+                   p.dvmeporcentaje         AS VmePorcentaje,
+                   p.dproduccioncortevme    AS ProduccionCorteVme,
+                   p.dbono                  AS Bono,
+                   p.dincentivo             AS Incentivo
+            FROM administracionnivel n
+            LEFT JOIN administracionnivelplancarrera p
+                   ON p.lnivel_id = n.lnivel_id
+                  AND p.moneda = @Moneda
+                  AND p.estado = 1
+            ORDER BY n.lnivel_id;
             """;
+        var codigoMoneda = moneda.ToString();
         try
         {
             using var connection = _context.CreateConnection();
-            var data = await connection.QueryAsync<MonteSionNivel>(sql);
-            return (data, true, "Niveles Monte Sion obtenidos correctamente.");
+            var data = (await connection.QueryAsync<MonteSionNivel>(sql, new { Moneda = codigoMoneda })).ToList();
+
+            var sinConfiguracion = data
+                .Where(nivel => nivel.NivelId > 0 && nivel.PlanCarreraId is null)
+                .Select(nivel => nivel.Nombre)
+                .ToList();
+            if (sinConfiguracion.Count > 0)
+            {
+                var mensaje = $"No existe plan de carrera vigente en {codigoMoneda} para los rangos: {string.Join(", ", sinConfiguracion)}. Configúrelos en administracionnivelplancarrera.";
+                _log.Info(logTransaccionId, NombreArchivo, nameof(ObtenerNivelesAsync), mensaje);
+                return (Enumerable.Empty<MonteSionNivel>(), false, mensaje);
+            }
+
+            return (data, true, $"Plan de carrera Monte Sion en {codigoMoneda} obtenido correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(logTransaccionId, NombreArchivo, nameof(ObtenerNivelesAsync), "Error al obtener niveles Monte Sion.", ex);
-            return (Enumerable.Empty<MonteSionNivel>(), false, $"Error al obtener niveles: {ex.Message}");
+            return (Enumerable.Empty<MonteSionNivel>(), false, $"Error al obtener el plan de carrera: {ex.Message}");
         }
     }
 
@@ -220,7 +251,7 @@ public sealed class MonteSionRepository : IMonteSionRepository
                 var nivelesEscalados = subioNivel ? nivelAlcanzado - nivelActual : 0;
                 var ventaPersonal = ventasPersonales.GetValueOrDefault(resultado.EmprendedorId);
                 var cantidadGrupo = resultado.RangoEvaluado?.Equipos.Sum(equipo => equipo.VentasPorNivel.Sum(venta => venta.NumerosVenta.Count)) ?? 0;
-                var monto = resultado.Beneficio?.BonoAPagarUsd ?? 0m;
+                var monto = resultado.Beneficio?.BonoAPagar ?? 0m;
                 var porcentajeLiderazgo = resultado.RangoEvaluado?.PorcentajeLiderazgo ?? 0m;
 
                 const string planSql = """
@@ -374,7 +405,7 @@ public sealed class MonteSionRepository : IMonteSionRepository
     }
     private sealed class VentaPersonalMonteSion { public int ContactoId { get; init; } public decimal Vendido { get; init; } public int Cantidad { get; init; } }
 
-    public async Task<(IEnumerable<MonteSionContactoRed> Contactos, IEnumerable<MonteSionContactoRed> Evaluables, IEnumerable<MonteSionProduccionContacto> Producciones, IEnumerable<MonteSionRangoHistorico> HistorialRangos, IEnumerable<int> EmprendedoresPrimeraVenta, IEnumerable<int> VendedoresAntesDeMayo2026, bool Success, string Mensaje)>
+    public async Task<(IEnumerable<MonteSionContactoRed> Contactos, IEnumerable<MonteSionContactoRed> Evaluables, IEnumerable<MonteSionProduccionContacto> Producciones, IEnumerable<MonteSionRedNivel1> RedNivel1, IEnumerable<MonteSionRangoHistorico> HistorialRangos, IEnumerable<int> EmprendedoresPrimeraVenta, IEnumerable<int> VendedoresAntesDeMayo2026, bool Success, string Mensaje)>
         ObtenerDatosCicloAsync(string logTransaccionId, int cicloId)
     {
         const string metodo = "ObtenerDatosCicloAsync";
@@ -418,6 +449,14 @@ public sealed class MonteSionRepository : IMonteSionRepository
               AND red.Nivel BETWEEN 1 AND 7
               AND contrato.dtfecha >= DATE(ciclo.dtfechainicio)
               AND contrato.dtfecha < DATE_ADD(DATE(ciclo.dtfechafin), INTERVAL 1 DAY);";
+        // Todas las relaciones de nivel 1 del ciclo, tengan o no ventas: permiten recorrer la línea
+        // vendedor -> ... -> línea directa del emprendedor para agrupar por equipo.
+        const string redNivel1Query = @"
+            SELECT red.lcontacto_id AS VendedorId,
+                   red.lasesor_id   AS PatrocinadorId
+            FROM red_comprimida red
+            WHERE red.lciclo_id = @CicloId
+              AND red.Nivel = 1;";
         const string historialRangosQuery = @"
             SELECT DISTINCT
                 historial.lcontacto_id AS EmprendedorId,
@@ -449,18 +488,19 @@ public sealed class MonteSionRepository : IMonteSionRepository
             var contactos = (await connection.QueryAsync<MonteSionContactoRed>(contactosQuery)).ToList();
             var evaluables = (await connection.QueryAsync<MonteSionContactoRed>(evaluablesQuery, new { CicloId = cicloId })).ToList();
             var producciones = (await connection.QueryAsync<MonteSionProduccionContacto>(produccionQuery, new { CicloId = cicloId })).ToList();
+            var redNivel1 = (await connection.QueryAsync<MonteSionRedNivel1>(redNivel1Query, new { CicloId = cicloId })).ToList();
             var historialRangos = (await connection.QueryAsync<MonteSionRangoHistorico>(historialRangosQuery, new { CicloId = cicloId })).ToList();
             var emprendedoresPrimeraVenta = (await connection.QueryAsync<int>(primeraVentaQuery, new { CicloId = cicloId })).ToList();
             var vendedoresAntesDeMayo2026 = (await connection.QueryAsync<int>(ventasAntesDeMayo2026Query)).ToList();
             _log.Info(logTransaccionId, NombreArchivo, metodo,
                 $"Datos MonteSion obtenidos. Ciclo: {cicloId}, emprendedores evaluables: {evaluables.Count}.");
 
-            return (contactos, evaluables, producciones, historialRangos, emprendedoresPrimeraVenta, vendedoresAntesDeMayo2026, true, "Producción de red obtenida correctamente.");
+            return (contactos, evaluables, producciones, redNivel1, historialRangos, emprendedoresPrimeraVenta, vendedoresAntesDeMayo2026, true, "Producción de red obtenida correctamente.");
         }
         catch (Exception ex)
         {
             _log.Error(logTransaccionId, NombreArchivo, metodo, "Error al obtener producción de red.", ex);
-            return (Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionProduccionContacto>(), Enumerable.Empty<MonteSionRangoHistorico>(), Enumerable.Empty<int>(), Enumerable.Empty<int>(), false,
+            return (Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionContactoRed>(), Enumerable.Empty<MonteSionProduccionContacto>(), Enumerable.Empty<MonteSionRedNivel1>(), Enumerable.Empty<MonteSionRangoHistorico>(), Enumerable.Empty<int>(), Enumerable.Empty<int>(), false,
                 $"Error al obtener producción de red: {ex.Message}");
         }
     }

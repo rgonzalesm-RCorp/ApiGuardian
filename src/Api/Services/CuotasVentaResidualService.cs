@@ -10,15 +10,18 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly IAdministracionCicloRepository _cicloRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
+    private readonly IContactosSoloEspecialesService _soloEspecialesService;
 
     public CuotasVentaResidualService(
         ICuotasVentaResidualRepository repository,
         IAdministracionVentaPersonalRepository ventaPersonal,
         IAdministracionHabilitacionComisionRepository habilitacionRepository,
         IAdministracionCicloRepository cicloRepository,
-        IControlProcesoRepository controlProcesoRepository
+        IControlProcesoRepository controlProcesoRepository,
+        IContactosSoloEspecialesService soloEspecialesService
     )
     {
+        _soloEspecialesService = soloEspecialesService;
         _repository = repository;
         _ventaPersonal = ventaPersonal;
         _habilitacionRepository = habilitacionRepository;
@@ -42,7 +45,8 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
                 usuario,
                 fechas.Inicio,
                 fechas.Fin,
-                cicloId
+                cicloId,
+                fechas.Moneda
             );
             var productos = await _repository.GetProductosPagarMensuales(id, usuario);
             var ventasPersonal = await _ventaPersonal.GetVentaPersonal(id, usuario, cicloId);
@@ -59,13 +63,17 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
             );
             if (!habilitaciones.Success)
                 return (false, habilitaciones.Mensaje, "");
+            var soloEspeciales = await _soloEspecialesService.ObtenerAsync(id, usuario, cicloId);
+            if (!soloEspeciales.Success)
+                return (false, soloEspeciales.Mensaje, "");
 
             var personas = habilitaciones.Data.ToList();
             var listado = await ConstruirListadoAsync(
                 cuotas.ListadoCuotasVentasResidual,
                 productos.ListadoProductosPagarMensuales,
                 ventasPersonal.ListadoAdministracionVentaPersonal,
-                personas
+                personas,
+                soloEspeciales.Contactos
             );
             var xls = await new ComisionVentaResidualXls().GetComisionVentaResidualXlS(listado);
             return (
@@ -132,7 +140,8 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
                 usuario,
                 fechas.Inicio,
                 fechas.Fin,
-                cicloId
+                cicloId,
+                fechas.Moneda
             );
             if (!cuotas.Success)
                 return await CancelarAsync(id, usuario, cicloId, cuotas.Mensaje);
@@ -145,6 +154,9 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
             );
             if (!habilitaciones.Success)
                 return await CancelarAsync(id, usuario, cicloId, habilitaciones.Mensaje);
+            var soloEspeciales = await _soloEspecialesService.ObtenerAsync(id, usuario, cicloId);
+            if (!soloEspeciales.Success)
+                return await CancelarAsync(id, usuario, cicloId, soloEspeciales.Mensaje);
 
             await _repository.SaveCuotasVentasProductosPagarMensual(
                 id,
@@ -155,7 +167,8 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
                 cuotas.ListadoCuotasVentasResidual,
                 productos.ListadoProductosPagarMensuales,
                 ventasPersonal.ListadoAdministracionVentaPersonal,
-                habilitaciones.Data
+                habilitaciones.Data,
+                soloEspeciales.Contactos
             );
             var fechaActual = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             var updates = listado
@@ -235,25 +248,31 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
         bool Success,
         string Mensaje,
         string Inicio,
-        string Fin
+        string Fin,
+        MonedaCiclo Moneda
     )> ObtenerFechasCicloAsync(string id, int cicloId)
     {
         var r = await _cicloRepository.GetCiclo(id, cicloId);
         if (!r.Success || r.Data.LCicloId <= 0)
-            return (false, $"No se encontró el ciclo {cicloId}.", "", "");
+            return (false, $"No se encontró el ciclo {cicloId}.", "", "", MonedaCiclo.SUS);
         if (
             string.IsNullOrWhiteSpace(r.Data.DtFechaInicio)
             || string.IsNullOrWhiteSpace(r.Data.DtFechaFin)
         )
-            return (false, $"El ciclo {cicloId} no tiene fechas configuradas.", "", "");
-        return (true, r.Mensaje, r.Data.DtFechaInicio, r.Data.DtFechaFin);
+            return (false, $"El ciclo {cicloId} no tiene fechas configuradas.", "", "", MonedaCiclo.SUS);
+        // La moneda del ciclo define la conversión de las cuotas de venta residual.
+        var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloId, r.Data.Moneda);
+        if (!moneda.Success)
+            return (false, moneda.Mensaje, "", "", MonedaCiclo.SUS);
+        return (true, r.Mensaje, r.Data.DtFechaInicio, r.Data.DtFechaFin, moneda.Moneda);
     }
 
     private static async Task<List<ListadoComisionCuotaResidual>> ConstruirListadoAsync(
         IEnumerable<VentaResidual> cuotas,
         IEnumerable<ProductosPagarMensuales> productos,
         IEnumerable<AdministracionVentaPersonal> ventasPersonal,
-        IEnumerable<ItemHabilitacionComision> habilitaciones
+        IEnumerable<ItemHabilitacionComision> habilitaciones,
+        HashSet<int> soloEspeciales
     )
     {
         var bloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(
@@ -265,7 +284,12 @@ public sealed class CuotasVentaResidualService : ICuotasVentaResidualService
             .ToHashSet();
         var asesores = ventasPersonal
             .Select(x => x.lcontacto_id)
-            .Where(id => !bloqueados.Contains(Convert.ToInt32(id)))
+            // Regla "solo especiales": la comisión directa de una venta especial no habilita la cuota del mes;
+            // la cuota queda como no habilitada y se pierde.
+            .Where(id =>
+                !bloqueados.Contains(Convert.ToInt32(id))
+                && !soloEspeciales.Contains(Convert.ToInt32(id))
+            )
             .Concat(habilitados)
             .ToHashSet();
         var tareas = cuotas.Join(

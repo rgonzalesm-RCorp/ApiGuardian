@@ -205,12 +205,13 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
             WHERE ldescuentociclodetalle_id = @LDescuentoDetalleId;
         ";
 
-        const string queryUpdate = @"
+        // El resumen muestra los montos con la moneda del ciclo (Bs. / $us.).
+        const string queryUpdate = $@"
             UPDATE administraciondescuentociclo DC
             SET 
                 DC.sdetalles = (
                     IFNULL((SELECT GROUP_CONCAT(
-                            CONCAT(DCD.sobservacion, ' - Monto: ', DCD.dmonto, ' $us. - ', DCD.suv)
+                            CONCAT(DCD.sobservacion, ' - Monto: ', DCD.dmonto, {SqlMonedaCiclo.SeparadorMontoDescuento}, DCD.suv)
                             SEPARATOR ','
                         )
                     FROM administraciondescuentociclodetalle DCD
@@ -327,12 +328,13 @@ public class AdministracionDescuentoComisionRepository : IAdministracionDescuent
                 UPPER(@Descripcion)
         ";
 
-        const string queryUpdate = @"
+        // El resumen muestra los montos con la moneda del ciclo (Bs. / $us.).
+        const string queryUpdate = $@"
             UPDATE administraciondescuentociclo DC
             SET 
                 DC.sdetalles = (
                     IFNULL((SELECT GROUP_CONCAT(
-                            CONCAT(DCD.sobservacion, ' - Monto: ', DCD.dmonto, ' $us. - ', DCD.suv)
+                            CONCAT(DCD.sobservacion, ' - Monto: ', DCD.dmonto, {SqlMonedaCiclo.SeparadorMontoDescuento}, DCD.suv)
                             SEPARATOR ','
                         )
                     FROM administraciondescuentociclodetalle DCD

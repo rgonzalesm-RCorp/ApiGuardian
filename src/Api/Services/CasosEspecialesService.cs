@@ -7,14 +7,17 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
 {
     private readonly ICasosEspecialesRepository _repository;
     private readonly IAdministracionContratoRepository _contratoRepository;
+    private readonly IAdministracionCicloRepository _cicloRepository;
 
     public CasosEspecialesService(
         ICasosEspecialesRepository repository,
-        IAdministracionContratoRepository contratoRepository
+        IAdministracionContratoRepository contratoRepository,
+        IAdministracionCicloRepository cicloRepository
     )
     {
         _repository = repository;
         _contratoRepository = contratoRepository;
+        _cicloRepository = cicloRepository;
     }
 
     public async Task<(bool Success, string Mensaje, object Data)> ObtenerAsync(
@@ -26,7 +29,11 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
     {
         try
         {
-            var ventas = await _repository.GetVentasCasosEspeciales(Id(), usuario, inicio, fin);
+            // La moneda del ciclo define la conversión de casos especiales y upgrades.
+            var moneda = await _cicloRepository.ObtenerMonedaAsync(Id(), cicloId);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje, "");
+            var ventas = await _repository.GetVentasCasosEspeciales(Id(), usuario, inicio, fin, moneda.Moneda);
             var contratos = await _contratoRepository.GetContratoFecha(Id(), inicio, fin);
             var upgradeIds = string.Join(
                 ",",
@@ -40,7 +47,8 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
             var upgrades = await _repository.GetUpgradeSolicitudPorVentasCnx(
                 Id(),
                 usuario,
-                upgradeIds
+                upgradeIds,
+                moneda.Moneda
             );
             foreach (var item in ventas.VentasCasosEspeciales)
             {
@@ -49,9 +57,7 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
                     //item.SCuotaInicial = item.DPrecio * 3 / 100;
                 }
                 item.SCuotaInicial = item.SCuotaInicialOriginal;
-                if (
-                    item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE
-                )
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE)
                 {
                     var solicitud = upgrades.Lista.FirstOrDefault(x => x.VentaId == item.IdVenta);
                     if (solicitud != null)
@@ -69,16 +75,12 @@ public sealed class CasosEspecialesService : ICasosEspecialesService
 
                     }
                 }
-                if (
-                    item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA
-                )
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.RECOMPRA)
                     item.SCuotaInicial =
                         (item.DPrecio == item.SCuotaInicial || item.SCuotaInicial == 0)
                             ? item.DPrecio * 3 / 100
                             : item.SCuotaInicial;
-                if (
-                    item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.CASOSESPECIALES
-                )
+                if (item.TipoComisionable == TiposContratosDiccionario.TiposContratosDiccionarioCnx.CASOSESPECIALES)
                 {
                     decimal inicial = (item.DPrecio - item.SCuotaInicial) * 3 / 100;
                     item.SCuotaInicial = Math.Round(inicial + inicial * 49.25M / 100, 2); // se aunmente un 49.25% por el tema de la retencion de impuestos

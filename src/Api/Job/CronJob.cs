@@ -1,3 +1,4 @@
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Repositories;
 using DocumentFormat.OpenXml.Office2010.ExcelAc;
@@ -217,7 +218,14 @@ public class MiCronJob : IJob
         string inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
         string fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
 
-        var vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin);
+        // La moneda del ciclo del job define la conversión de las ventas.
+        if (!MonedaCicloHelper.TryParse(responseProceso.Data.Moneda, out var moneda))
+        {
+            _logger.LogWarning("Job de ventas cancelado: el ciclo no tiene una moneda válida ('{moneda}'). Debe ser BS o SUS.", responseProceso.Data.Moneda);
+            return false;
+        }
+
+        var vtaCnx = await _ventasCnxRepository.GetVentaCnx("", inicio, fin, moneda);
         int counter = 0;
 
         foreach (var item in vtaCnx.Data)
@@ -297,7 +305,14 @@ public class MiCronJob : IJob
             inicio = responseProceso.Data.Inicio.ToString("yyyyMMdd");
             fin = responseProceso.Data.Fin.ToString("yyyyMMdd");
 
-            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin);
+            // La moneda del ciclo del job define la conversión de las ventas. Se valida antes de iniciar el paso.
+            if (!MonedaCicloHelper.TryParse(responseProceso.Data.Moneda, out var moneda))
+            {
+                _logger.LogWarning("Proceso principal cancelado: el ciclo no tiene una moneda válida ('{moneda}'). Debe ser BS o SUS.", responseProceso.Data.Moneda);
+                return false;
+            }
+
+            var vtaCnx = await _ventasCnxRepository.GetVentaCnx(LogTransaccionId, inicio, fin, moneda);
             Lista = vtaCnx.Data.ToList();
 
             var responseInicioPaso = await _controlProcesoRepository.IniciarPaso(

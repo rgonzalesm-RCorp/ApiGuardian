@@ -26,6 +26,7 @@ public class ProcesoComisionesRepository : IProcesoComisionesRepository
             , J.estado Estado
             , C.dtfechainicio Inicio
             , C.dtfechafin Fin
+            , C.moneda Moneda
             from administracionjob J
             inner join administracionciclo C on C.lciclo_id = J.lciclo_id and J.estado = 1 
             WHERE J.proceso = '{Proceso}'

@@ -1,6 +1,7 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Persistence;
+using ApiGuardian.Infrastructure.Services;
 using Dapper;
 using System.Globalization;
 
@@ -12,16 +13,19 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
     private readonly DapperContext _guardianContext;
     private readonly DapperContextSqlServer _sqlContext;
     private readonly IAdministracionComplejoRepository _administracionComplejoRepository;
+    private readonly CambioDolarService _cambioDolar;
 
     public MigracionAplicacionesProrrateoRepository(
         DapperContext guardianContext,
         DapperContextSqlServer sqlContext,
-        IAdministracionComplejoRepository administracionComplejoRepository
+        IAdministracionComplejoRepository administracionComplejoRepository,
+        CambioDolarService cambioDolar
     )
     {
         _guardianContext = guardianContext;
         _sqlContext = sqlContext;
         _administracionComplejoRepository = administracionComplejoRepository;
+        _cambioDolar = cambioDolar;
     }
 
     public async Task<(ResultadoMigracionAplicacionesProrrateo Datos, bool Exito, string Mensaje)> VistaPreviaAsync(SolicitudMigracionAplicacionesProrrateo solicitud)
@@ -115,12 +119,13 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
 
             foreach (var contactoId in encabezados.Keys)
             {
-                await conexion.ExecuteAsync("""
+                // El resumen muestra los montos con la moneda del ciclo (Bs. / $us.).
+                await conexion.ExecuteAsync($"""
                     UPDATE administraciondescuentociclo encabezado
                     SET dtotal = COALESCE((SELECT SUM(detalle.dmonto) FROM administraciondescuentociclodetalle detalle WHERE detalle.ldescuentociclo_id = encabezado.ldescuentociclo_id), 0),
-                        sdetalles = COALESCE((SELECT GROUP_CONCAT(CONCAT(detalle.sobservacion, ' - Monto: ', detalle.dmonto, ' $us. - ', detalle.suv) SEPARATOR ',') FROM administraciondescuentociclodetalle detalle WHERE detalle.ldescuentociclo_id = encabezado.ldescuentociclo_id), '')
+                        sdetalles = COALESCE((SELECT GROUP_CONCAT(CONCAT(detalle.sobservacion, ' - Monto: ', detalle.dmonto, {SqlMonedaCiclo.SeparadorMontoDescuento}, detalle.suv) SEPARATOR ',') FROM administraciondescuentociclodetalle detalle WHERE detalle.ldescuentociclo_id = encabezado.ldescuentociclo_id), '')
                     WHERE encabezado.lciclo_id = @CicloDestino AND encabezado.lcontacto_id = @ContactoId;
-                    """, new { CicloDestino = cicloDestino, ContactoId = contactoId }, transaccion);
+                    """, new { CicloDestino = cicloDestino, LCicloId = cicloDestino, ContactoId = contactoId }, transaccion);
             }
 
             resultado.ProrrateosInsertados = await RegenerarProrrateoAsync(
@@ -157,6 +162,25 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
         var resultado = new ResultadoMigracionAplicacionesProrrateo { RegistrosOrigen = origenFilas.Count };
 
         using var guardian = _guardianContext.CreateConnection();
+        // Los montos de AplicacionesPagos/AplicacionesProrrateo están en la moneda del ciclo:
+        // sin una moneda válida no se puede migrar ni describir el descuento.
+        var monedas = (await guardian.QueryAsync<string?>(
+            "SELECT moneda FROM administracionciclo WHERE lciclo_id = @Ciclo;",
+            new { Ciclo = cicloDestino }
+        )).ToList();
+        if (monedas.Count == 0)
+        {
+            resultado.Errores.Add($"No se encontró el ciclo {cicloDestino}.");
+            return (resultado, [], []);
+        }
+        var validacionMoneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloDestino, monedas[0]);
+        if (!validacionMoneda.Success)
+        {
+            resultado.Errores.Add(validacionMoneda.Mensaje);
+            return (resultado, [], []);
+        }
+        var monedaCiclo = validacionMoneda.Moneda;
+
         var tipoExiste = await guardian.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM administraciondescuentociclotipo WHERE ldescuentociclotipo_id = @Id;", new { Id = TipoDescuentoAplicacionesId });
         if (tipoExiste == 0)
         {
@@ -249,12 +273,12 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
                 continue;
             }
 
-            var glosa = (fila.Observaciones ?? string.Empty).TrimEnd();
-            if (fila.EmpresaId is 32 or 33)
-            {
-                var montoBob = decimal.Round(fila.Monto * 6.96m, 0, MidpointRounding.AwayFromZero);
-                glosa = $"{glosa} - Equivalente BOB {montoBob:N0} (TC 6.96)";
-            }
+            var glosa = AgregarEquivalenteGlosa(
+                (fila.Observaciones ?? string.Empty).TrimEnd(),
+                fila.EmpresaId,
+                fila.Monto,
+                monedaCiclo
+            );
 
             var migracion = new FilaMigracion(
                 contactoId,
@@ -365,6 +389,31 @@ public sealed class MigracionAplicacionesProrrateoRepository : IMigracionAplicac
         }
 
         return filas.Count;
+    }
+
+    // fila.Monto es lo descontado de la comisión, en la moneda del ciclo. La glosa agrega el
+    // equivalente en la moneda de la cuota solo cuando es distinta:
+    //   ciclo SUS: cuota en Bs (empresas 32 y 33)  -> equivalente BOB (texto histórico, TC 6.96).
+    //   ciclo BS : cuota en USD (resto de empresas) -> equivalente USD al tipo de cambio histórico.
+    //   ciclo BS : cuota en Bs                      -> sin equivalente (misma moneda).
+    private string AgregarEquivalenteGlosa(string glosa, int empresaId, decimal monto, MonedaCiclo monedaCiclo)
+    {
+        var cuotaEnBolivianos = empresaId is 32 or 33;
+        if (monedaCiclo == MonedaCiclo.SUS)
+        {
+            if (!cuotaEnBolivianos)
+                return glosa;
+
+            var montoBob = decimal.Round(monto * 6.96m, 0, MidpointRounding.AwayFromZero);
+            return $"{glosa} - Equivalente BOB {montoBob:N0} (TC 6.96)";
+        }
+
+        if (cuotaEnBolivianos)
+            return glosa;
+
+        var tipoCambio = _cambioDolar.TipoCambioHistorico;
+        var montoUsd = decimal.Round(monto / tipoCambio, 2, MidpointRounding.AwayFromZero);
+        return $"{glosa} - Equivalente USD {montoUsd:N2} (TC {tipoCambio.ToString("0.00##", CultureInfo.InvariantCulture)})";
     }
 
     private static string? ValidarSolicitud(SolicitudMigracionAplicacionesProrrateo solicitud)
