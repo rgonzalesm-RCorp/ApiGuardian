@@ -26,7 +26,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
         _configuration = configuration;
         _cambioDolarService = cambioDolarService;
     }
-    public async Task<(bool Success, string Mensaje, IEnumerable<VentaResidual> ListadoCuotasVentasResidual)> GetCuotasVentasResidual(string LogTransaccionId, string Usuario, string Inicio, string Fin, int LCicloId)
+    public async Task<(bool Success, string Mensaje, IEnumerable<VentaResidual> ListadoCuotasVentasResidual)> GetCuotasVentasResidual(string LogTransaccionId, string Usuario, string Inicio, string Fin, int LCicloId, MonedaCiclo moneda = MonedaCiclo.SUS)
     {
         List<EmpresaCalculoComision> empresas = _configuration.GetSection("EmpresaCalculoComisiones").Get<List<EmpresaCalculoComision>>() ?? new List<EmpresaCalculoComision>();
 
@@ -45,7 +45,7 @@ public class CuotasVentaResidualRepository : ICuotasVentaResidualRepository
 
                 foreach (var venta in ListaEmpresa)
                 {
-                    _cambioDolarService.Convertir(venta);
+                    _cambioDolarService.Convertir(venta, moneda);
                 }
 
                 Lista.AddRange(ListaEmpresa);

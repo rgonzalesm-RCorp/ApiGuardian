@@ -1,3 +1,5 @@
+using ApiGuardian.Domain.Entities;
+
 namespace ApiGuardian.Application.Interfaces.Simulacion;
 
 public interface ISimulacionService
@@ -6,7 +8,7 @@ public interface ISimulacionService
     Task<(bool Exito, string Mensaje)> EjecutarCorridaAsync(string usuario, CancellationToken cancellationToken);
 
     // Fase 2: Obtener Ventas normales del ciclo (rango de fechas del ciclo).
-    Task<(bool Exito, string Mensaje)> ObtenerVentasAsync(string logId, string usuario, string inicio, string fin);
+    Task<(bool Exito, string Mensaje)> ObtenerVentasAsync(string logId, string usuario, string inicio, string fin, MonedaCiclo moneda = MonedaCiclo.SUS);
 
     // F1-T6: candado por ciclo en la tabla de ejecución (D-21).
     // Iniciada = true: la corrida puede seguir y su Id debe cerrarse con TerminarCorridaAsync.

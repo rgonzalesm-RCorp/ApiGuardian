@@ -10,12 +10,15 @@ public sealed partial class SimulacionRepositorio
         public int LCicloId { get; set; }
         public string Inicio { get; set; } = string.Empty;
         public string Fin { get; set; } = string.Empty;
+        // administracionciclo.moneda: BS o SUS. Se valida en SimulacionService.
+        public string? Moneda { get; set; }
     }
 
     private const string SqlUltimoCiclo = @"
         SELECT lciclo_id AS LCicloId,
                DATE_FORMAT(dtfechainicio, '%Y%m%d') AS Inicio,
-               DATE_FORMAT(dtfechafin, '%Y%m%d') AS Fin
+               DATE_FORMAT(dtfechafin, '%Y%m%d') AS Fin,
+               moneda AS Moneda
         FROM administracionciclo
         WHERE simulacion = 1
           AND lestado = 0

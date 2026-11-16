@@ -1,5 +1,6 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Domain.DTO;
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Services.Pdf;
 using ApiGuardian.Infrastructure.Services;
 using ApiGuardian.Models;
@@ -15,7 +16,7 @@ public sealed class ReportesService : IReportesService
     private readonly IAdministracionDetalleFacturaRepository _detalleFactura;
     private readonly IAdministracionCicloRepository _cicloRepository;
     private readonly PagoComisionOpciones _pagoComisionOpciones;
-    private readonly MonteSionOpciones _monteSionOpciones;
+    private readonly IMonteSionRepository _monteSionRepository;
     private readonly CambioDolarService _cambioDolar;
 
     public ReportesService(
@@ -24,7 +25,7 @@ public sealed class ReportesService : IReportesService
         IAdministracionDetalleFacturaRepository detalleFactura,
         IAdministracionCicloRepository cicloRepository,
         IOptions<PagoComisionOpciones> pagoComisionOpciones,
-        IOptions<MonteSionOpciones> monteSionOpciones,
+        IMonteSionRepository monteSionRepository,
         CambioDolarService cambioDolar
     )
     {
@@ -33,7 +34,7 @@ public sealed class ReportesService : IReportesService
         _detalleFactura = detalleFactura;
         _cicloRepository = cicloRepository;
         _pagoComisionOpciones = pagoComisionOpciones.Value;
-        _monteSionOpciones = monteSionOpciones.Value;
+        _monteSionRepository = monteSionRepository;
         _cambioDolar = cambioDolar;
     }
 
@@ -343,13 +344,19 @@ public sealed class ReportesService : IReportesService
             var r = await _repository.GetReportePlanCarrera(Id(), cicloId);
             if (r.Data == null || !r.Data.Any())
                 return (false, "No existe datos para el ciclo seleccionado", SinArchivo());
-            var incentivosPorRango = _monteSionOpciones.Rangos
-                .Where(rango => rango.IncentivoUsd > 0)
-                .ToDictionary(rango => NormalizarRango(rango.Nombre), rango => rango.IncentivoUsd, StringComparer.OrdinalIgnoreCase);
+            // Incentivos del plan de carrera vigente en la moneda del ciclo (administracionnivelplancarrera).
+            if (!MonedaCicloHelper.TryParse(moneda.Moneda, out var monedaCiclo))
+                return (false, AdministracionCicloMonedaExtensions.MensajeMonedaInvalida(cicloId, moneda.Moneda), SinArchivo());
+            var niveles = await _monteSionRepository.ObtenerNivelesAsync(Id(), monedaCiclo);
+            if (!niveles.Success) return (false, niveles.Mensaje, SinArchivo());
+            var incentivosPorRango = niveles.Data
+                .Where(nivel => nivel.Incentivo > 0)
+                .GroupBy(nivel => NormalizarRango(nivel.Nombre), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(grupo => grupo.Key, grupo => grupo.First().Incentivo, StringComparer.OrdinalIgnoreCase);
             var lista = r.Data.Select(item =>
             {
-                if (item.Escalados > 0 && incentivosPorRango.TryGetValue(NormalizarRango(item.NivelAlcanzadoCiclo), out var incentivoUsd))
-                    item.Monto = incentivoUsd;
+                if (item.Escalados > 0 && incentivosPorRango.TryGetValue(NormalizarRango(item.NivelAlcanzadoCiclo), out var incentivo))
+                    item.Monto = incentivo;
                 return item;
             }).Where(item => item.Monto > 0).ToList();
             if (lista.Count == 0)

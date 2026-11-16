@@ -23,7 +23,7 @@ public class VentaCnxRepository : IVentasCnxRepository
         _configuration = configuration;
         _cambioDolarService = cambioDolarService;
     }
-    public async Task<(IEnumerable<ItemVentaCnx> Data, bool Success, string Mensaje)> GetVentaCnx(string LogTransaccionId, string inicio, string fin)
+    public async Task<(IEnumerable<ItemVentaCnx> Data, bool Success, string Mensaje)> GetVentaCnx(string LogTransaccionId, string inicio, string fin, MonedaCiclo moneda = MonedaCiclo.SUS)
     {
         string nombreMetodo = "GetVentaCnx()";
 
@@ -43,7 +43,7 @@ public class VentaCnxRepository : IVentasCnxRepository
 
             foreach (var venta in data)
             {
-                _cambioDolarService.Convertir(venta);
+                _cambioDolarService.Convertir(venta, moneda);
 
             }
 

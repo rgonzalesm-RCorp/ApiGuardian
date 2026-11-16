@@ -79,6 +79,11 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
             if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
                 return (false, $"El ciclo {request.LCicloId} no tiene fechas configuradas.");
 
+            // La moneda del ciclo define la conversión de upgrades (casos especiales). Se valida antes de iniciar el paso.
+            var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(request.LCicloId, ciclo.Data.Moneda);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje);
+
             var siguientePaso = await _controlProcesoRepository.GetSiguientePaso(
                 logTransaccionId,
                 request.Usuario,
@@ -130,7 +135,8 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
                                 == TiposContratosDiccionario.TiposContratosDiccionarioCnx.UPGRADE
                             )
                             .Select(x => x.IdVenta)
-                    )
+                    ),
+                    moneda.Moneda
                 );
 
                 await _casosEspecialesRepository.SaveUpgradeSolicitud(
@@ -200,7 +206,10 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
             var fechas = await FechasAsync(cicloId);
             if (!fechas.Success)
                 return (false, fechas.Mensaje, "");
-            var ventas = await _ventasCnxRepository.GetVentaCnx(Id(), fechas.Inicio, fechas.Fin);
+            var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloId, fechas.Moneda);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje, "");
+            var ventas = await _ventasCnxRepository.GetVentaCnx(Id(), fechas.Inicio, fechas.Fin, moneda.Moneda);
             var contratos = await _contratoRepository.GetContratoFecha(
                 Id(),
                 fechas.Inicio,
@@ -729,19 +738,19 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
         }
     }
 
-    private async Task<(bool Success, string Mensaje, string Inicio, string Fin)> FechasAsync(
+    private async Task<(bool Success, string Mensaje, string Inicio, string Fin, string? Moneda)> FechasAsync(
         int cicloId
     )
     {
         var r = await _administracionCicloRepository.GetCiclo(Id(), cicloId);
         if (!r.Success || r.Data.LCicloId <= 0)
-            return (false, $"No se encontró el ciclo {cicloId}.", "", "");
+            return (false, $"No se encontró el ciclo {cicloId}.", "", "", null);
         if (
             string.IsNullOrWhiteSpace(r.Data.DtFechaInicio)
             || string.IsNullOrWhiteSpace(r.Data.DtFechaFin)
         )
-            return (false, $"El ciclo {cicloId} no tiene fechas configuradas.", "", "");
-        return (true, r.Mensaje, r.Data.DtFechaInicio, r.Data.DtFechaFin);
+            return (false, $"El ciclo {cicloId} no tiene fechas configuradas.", "", "", null);
+        return (true, r.Mensaje, r.Data.DtFechaInicio, r.Data.DtFechaFin, r.Data.Moneda);
     }
 
     private async Task<bool> CalculoVentaResidualAsync(

@@ -56,7 +56,6 @@ public sealed partial class SimulacionRepositorio
 
     // Fuera de la transaccion: TRUNCATE hace commit implicito en MySQL.
     private const string SqlTruncateCartera = "TRUNCATE TABLE Cartera;";
-    private const string SqlMaxCiclo = "SELECT IFNULL(MAX(lciclo_id), 0) FROM administracionciclo;";
 
     public async Task<(bool Success, string Mensaje)> ResetCicloAsync(string logId, int lCicloId, string inicio, string fin)
     {
@@ -68,10 +67,7 @@ public sealed partial class SimulacionRepositorio
         using var connection = _context.CreateConnection();
         connection.Open();
 
-        // R-17: Cartera solo se trunca para el ciclo de mayor lciclo_id. Se valida antes de borrar nada.
-        var maxCiclo = await connection.ExecuteScalarAsync<int>(SqlMaxCiclo);
-        if (lCicloId != maxCiclo)
-            return (false, $"Reset cancelado: Cartera solo se trunca para el ciclo de mayor lciclo_id ({maxCiclo}).");
+        // Cartera se trunca en cada ejecución, sin importar el ciclo (igual que BonoResidualRepository.GuardarCartera).
 
         var parametros = new { LCicloId = lCicloId, Inicio = inicio, Fin = fin };
 

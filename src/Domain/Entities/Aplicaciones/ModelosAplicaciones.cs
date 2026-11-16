@@ -17,6 +17,8 @@ public class AplicacionComisionadoDetalle
 public class RespuestaVistaPreviaAplicaciones
 {
     public int LCicloId { get; set; }
+    // Moneda del ciclo (BS o SUS): TotalAplicar, saldos y Monto de las operaciones están en esta moneda.
+    public string MonedaCiclo { get; set; } = string.Empty;
     public bool VistaPrevia { get; set; }
     public bool AplicacionesComisionadoExiste { get; set; }
     public bool ExistenComisionesPorEmpresa { get; set; }
@@ -56,10 +58,13 @@ public class OperacionAplicacion
     public int? EmpresaId { get; set; }
     public int? VentaId { get; set; }
     public string ProductoId { get; set; } = string.Empty;
-    // Monto es siempre el saldo consumido de la comisión, expresado en USD.
+    // Monto es el saldo consumido de la comisión, en la moneda del ciclo (MonedaComision).
     public decimal Monto { get; set; }
+    // MontoEjecutado es lo pagado en Sion, en la moneda de la cuota (MonedaPago).
     public decimal MontoEjecutado { get; set; }
+    public string MonedaComision { get; set; } = "USD";
     public string MonedaPago { get; set; } = "USD";
+    // Se informa solo cuando MonedaComision y MonedaPago son distintas.
     public decimal? TipoCambio { get; set; }
     public string Observacion { get; set; } = string.Empty;
     public int? ReciboId { get; set; }

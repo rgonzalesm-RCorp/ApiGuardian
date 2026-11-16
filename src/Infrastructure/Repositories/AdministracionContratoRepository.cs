@@ -503,5 +503,46 @@ public class AdministracionContratoRepository : IAdministracionContratoRepositor
             return (Enumerable.Empty<ListaAdministracionContrato>(), false, $"Error al consultar contratos: {ex.Message}", 0);
         }
     }
-    
+    // Regla "solo especiales": el asesor tiene ventas en el período y ninguna es de un tipo distinto de 6 a 9.
+    // Los tipos 3, 4 y 5 cuentan como venta no especial (decisión 4 del plan).
+    public async Task<(IEnumerable<int> Data, bool Success, string Mensaje)> GetContactosSoloEspeciales(string LogTransaccionId, string inicio, string fin)
+    {
+        string nombreMetodo = "GetContactosSoloEspeciales()";
+
+        const string query = @"
+            SELECT C.lasesor_id
+            FROM administracioncontrato C
+            WHERE C.dtfecha BETWEEN @inicio AND @fin
+            GROUP BY C.lasesor_id
+            HAVING SUM(CASE WHEN C.ltipocontrato_id IN @TiposContratoEspeciales THEN 0 ELSE 1 END) = 0;
+        ";
+
+        _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Inicio de metodo [script: {query}, inicio:{inicio}, fin:{fin}]");
+
+        try
+        {
+            using var connection = _context.CreateConnection();
+
+            var data = (await connection.QueryAsync<int>(
+                query,
+                new
+                {
+                    inicio,
+                    fin,
+                    TiposContratoEspeciales = HabilitacionComisionHelper.TiposContratoEspeciales
+                }
+            )).ToList();
+
+            string mensaje = $"Contactos solo especiales obtenidos correctamente. Total: {data.Count}.";
+
+            _log.Info(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, $"Fin de metodo [mensaje: {mensaje}, data:{string.Join(",", data)}]");
+
+            return (data, true, mensaje);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogTransaccionId, NOMBREARCHIVO, nombreMetodo, "Fin de metodo", ex);
+            return (Enumerable.Empty<int>(), false, $"Error al consultar contactos solo especiales: {ex.Message}");
+        }
+    }
 }

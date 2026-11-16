@@ -98,6 +98,94 @@ public sealed class CambioDolarService
     // Todas las conversiones se redondean una sola vez, al resultado final, a 2 decimales.
     private static decimal Redondear(decimal valor) => decimal.Round(valor, 2, MidpointRounding.AwayFromZero);
 
+    public decimal TipoCambioHistorico => _tipoCambioHistorico;
+
+    // ===== Conversión según la moneda del ciclo =====
+    // SUS: lógica actual (métodos sin moneda). BS: proyectos BOB sin cambio; proyectos USD × TC histórico,
+    // sin importar la fecha de venta (no se usa fechaCorte ni tipoCambioOficial).
+
+    public void Convertir(ItemVentaCnx venta, MonedaCiclo moneda)
+    {
+        if (moneda == MonedaCiclo.SUS)
+        {
+            Convertir(venta);
+            return;
+        }
+
+        // Misma corrección de dato que en SUS, antes de convertir.
+        venta.SCuotaInicial = (venta.SCuotaInicial != venta.ValorCi) ? venta.ValorCi : venta.SCuotaInicial;
+
+        venta.DPrecio = ConvertirABolivianos(venta.DPrecio, venta.LComplejoId);
+        venta.PrecioInicial = ConvertirABolivianos(venta.PrecioInicial, venta.LComplejoId);
+        venta.SCuotaInicial = ConvertirABolivianos(venta.SCuotaInicial, venta.LComplejoId);
+        venta.SCuotaInicialOriginal = ConvertirABolivianos(venta.SCuotaInicialOriginal, venta.LComplejoId);
+        venta.ValorCi = ConvertirABolivianos(venta.ValorCi, venta.LComplejoId);
+    }
+
+    public void Convertir(TCuota cuota, MonedaCiclo moneda)
+    {
+        if (moneda == MonedaCiclo.SUS)
+        {
+            Convertir(cuota);
+            return;
+        }
+
+        var idComplejoProyecto = cuota.Idproyecto != 0
+            ? cuota.Idproyecto
+            : cuota.LComplejoId;
+
+        cuota.Bono = ConvertirABolivianos(cuota.Bono, idComplejoProyecto);
+        cuota.Amortizacion = ConvertirABolivianos(cuota.Amortizacion, idComplejoProyecto);
+        cuota.Capital = ConvertirABolivianos(cuota.Capital, idComplejoProyecto);
+        cuota.Interes = ConvertirABolivianos(cuota.Interes, idComplejoProyecto);
+        cuota.Seguro = ConvertirABolivianos(cuota.Seguro, idComplejoProyecto);
+        cuota.Expensa = ConvertirABolivianos(cuota.Expensa, idComplejoProyecto);
+        cuota.Multa = ConvertirABolivianos(cuota.Multa, idComplejoProyecto);
+        cuota.Acuenta = ConvertirABolivianos(cuota.Acuenta, idComplejoProyecto);
+        cuota.Totalpago = ConvertirABolivianos(cuota.Totalpago, idComplejoProyecto);
+        cuota.Montodeuda = ConvertirABolivianos(cuota.Montodeuda, idComplejoProyecto);
+        cuota.Pagosacuenta = ConvertirABolivianos(cuota.Pagosacuenta, idComplejoProyecto);
+    }
+
+    public void Convertir(VentaResidual venta, MonedaCiclo moneda)
+    {
+        if (moneda == MonedaCiclo.SUS)
+        {
+            Convertir(venta);
+            return;
+        }
+
+        venta.ImporteTotal = ConvertirABolivianos(venta.ImporteTotal, venta.IdAlmacen);
+    }
+
+    public void Convertir(UpgradeSolicitudDto solicitud, MonedaCiclo moneda)
+    {
+        if (moneda == MonedaCiclo.SUS)
+        {
+            Convertir(solicitud);
+            return;
+        }
+
+        solicitud.MontoHold = ConvertirABolivianos(solicitud.MontoHold, solicitud.ProyectoHoldId);
+        solicitud.PagadoHold = ConvertirABolivianos(solicitud.PagadoHold, solicitud.ProyectoHoldId);
+        solicitud.DeudaHold = ConvertirABolivianos(solicitud.DeudaHold, solicitud.ProyectoHoldId);
+
+        if (solicitud.ProyectoId.HasValue)
+        {
+            solicitud.Monto = ConvertirABolivianos(solicitud.Monto, solicitud.ProyectoId.Value);
+            solicitud.Deuda = ConvertirABolivianos(solicitud.Deuda, solicitud.ProyectoId.Value);
+            solicitud.Cuota = ConvertirABolivianos(solicitud.Cuota, solicitud.ProyectoId.Value);
+        }
+    }
+
+    // Ciclo BS: los proyectos BOB ya están en bolivianos; los USD se expresan en BOB al TC histórico.
+    private decimal ConvertirABolivianos(decimal monto, int idComplejoProyecto)
+    {
+        return _idsComplejosProyectos.Contains(idComplejoProyecto)
+            ? monto
+            : Redondear(monto * _tipoCambioHistorico);
+    }
+
     public void Convertir(UpgradeSolicitudDto solicitud)
     {
         solicitud.MontoHold = Convertir(solicitud.MontoHold, solicitud.ProyectoHoldId);

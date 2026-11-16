@@ -5,14 +5,14 @@ using Dapper;
 namespace ApiGuardian.Infrastructure.Repositories.Simulacion;
 
 // F6-T2 y F6-T3: escrituras de Datos Residual (cartera y cuotas). SQL copiado de BonoResidualRepository (R2).
-// Cartera: TRUNCATE solo si el ciclo es el de mayor lciclo_id (R-17). Cuotas: DELETE por FECHA_PAGO del ciclo (R11), no TRUNCATE.
+// Cartera: TRUNCATE en cada ejecución, sin importar el ciclo (igual que BonoResidualRepository.GuardarCartera). Cuotas: DELETE por FECHA_PAGO del ciclo (R11), no TRUNCATE.
 // Sin excedente (D-03).
 public sealed partial class SimulacionRepositorio
 {
-    // SqlMaxCiclo y SqlTruncateCartera ya están definidos en SimulacionRepositorio.Reset.cs (mismo SQL).
+    // SqlTruncateCartera ya está definido en SimulacionRepositorio.Reset.cs (mismo SQL).
     private const string SqlDeleteCuotasCiclo = "DELETE FROM T_ACCIONESCUOTASGRL WHERE FECHA_PAGO BETWEEN @Inicio AND @Fin;";
 
-    // Copia de BonoResidualRepository.GuardarCartera. Guardia R-17 antes de truncar.
+    // Copia de BonoResidualRepository.GuardarCartera: trunca y vuelve a cargar la cartera completa.
     public async Task<(bool Success, string Mensaje)> ReemplazarCarteraAsync(string logId, int lCicloId, List<TCartera> listado)
     {
         const string metodo = nameof(ReemplazarCarteraAsync);
@@ -23,10 +23,6 @@ public sealed partial class SimulacionRepositorio
         try
         {
             using var connection = _context.CreateConnection();
-
-            var maxCiclo = await connection.ExecuteScalarAsync<int>(SqlMaxCiclo);
-            if (lCicloId != maxCiclo)
-                return (false, $"No se trunca Cartera: el ciclo {lCicloId} no es el mayor ({maxCiclo}) (R-17).");
 
             foreach (var item in listado)
             {

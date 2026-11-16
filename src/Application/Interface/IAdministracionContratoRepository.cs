@@ -12,4 +12,9 @@ public interface IAdministracionContratoRepository
     Task<(bool Success, string Mensaje)> DeleteContrato(string LogTransaccionId, int lContratoId);
     Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje)> GetContratoXNroVenta(string LogTransaccionId, string sLote, string inicio, string fin);
     Task<(IEnumerable<ListaAdministracionContrato> Data, bool Success, string Mensaje, int Total)> GetAdministracionContratoFechaVentaResidual(string LogTransaccionId, string inicio, string fin);
+    /// <summary>
+    /// Asesores cuyas ventas del período son todas de tipo especial (upgrade, recuperación, recompra, casos especiales).
+    /// Una lista vacía es un resultado válido; Success solo es false si la consulta falla.
+    /// </summary>
+    Task<(IEnumerable<int> Data, bool Success, string Mensaje)> GetContactosSoloEspeciales(string LogTransaccionId, string inicio, string fin);
 }

@@ -160,6 +160,7 @@ builder.Services.AddScoped<IAdministracionContratoService, AdministracionContrat
 builder.Services.AddScoped<IAdministracionTipoContratoService, AdministracionTipoContratoService>();
 builder.Services.AddScoped<ICuotasVentaResidualService, CuotasVentaResidualService>();
 builder.Services.AddScoped<IRetencionEmpresaService, RetencionEmpresaService>();
+builder.Services.AddScoped<IContactosSoloEspecialesService, ContactosSoloEspecialesService>();
 builder.Services.AddScoped<IRedesService, RedesService>();
 builder.Services.AddScoped<IRedSerService, RedSerService>();
 builder.Services.AddScoped<IMonteSionService, MonteSionService>();

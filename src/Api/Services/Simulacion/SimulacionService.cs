@@ -1,5 +1,6 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Application.Interfaces.Simulacion;
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Repositories.Simulacion;
 using Microsoft.Extensions.Options;
 
@@ -25,6 +26,8 @@ public sealed partial class SimulacionService : ISimulacionService
     private readonly IAdministracionSemanaCicloRepository _semanaLectura;
     private readonly IBonoResidualRepository _bonoLectura;
     private readonly IBrConfiguracionRepository _brConfiguracionLectura;
+    private readonly IMonteSionArbolService _monteSionArbol;
+    private readonly IContactosSoloEspecialesService _soloEspeciales;
 
     public SimulacionService(
         IVentasCnxRepository ventasCnx,
@@ -39,11 +42,15 @@ public sealed partial class SimulacionService : ISimulacionService
         IConfiguration configurationGlobal,
         IAdministracionSemanaCicloRepository semanaLectura,
         IBonoResidualRepository bonoLectura,
-        IBrConfiguracionRepository brConfiguracionLectura)
+        IBrConfiguracionRepository brConfiguracionLectura,
+        IMonteSionArbolService monteSionArbol,
+        IContactosSoloEspecialesService soloEspeciales)
     {
+        _soloEspeciales = soloEspeciales;
         _semanaLectura = semanaLectura;
         _bonoLectura = bonoLectura;
         _brConfiguracionLectura = brConfiguracionLectura;
+        _monteSionArbol = monteSionArbol;
         _ventasCnx = ventasCnx;
         _contactoLectura = contactoLectura;
         _contratoLectura = contratoLectura;
@@ -174,7 +181,8 @@ public sealed partial class SimulacionService : ISimulacionService
     }
 
     // Corrida del job: candado (F1-T6), reset (F2-T2), Obtener Ventas (F2), Comision Directa (F3), Red (F4),
-    // Comision Grupo (F5), Datos Residual (F6), Bono Residual (F7) y Bono Par (F8). Un fallo detiene la corrida en ese paso (R13).
+    // Comision Grupo (F5), Datos Residual (F6), Bono Residual (F7), Bono Par (F8) y Armado del árbol (MonteSionArbol/armar).
+    // Un fallo detiene la corrida en ese paso (R13).
     public async Task<(bool Exito, string Mensaje)> EjecutarCorridaAsync(string usuario, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -188,15 +196,23 @@ public sealed partial class SimulacionService : ISimulacionService
         if (!candado.Iniciada)
             return (false, candado.Mensaje);
 
-        string paso = "RESET";
+        string paso = "MONEDA CICLO";
         try
         {
+            // La moneda del ciclo define la conversión de ventas y cuotas. Si no es válida, se detiene antes del RESET.
+            if (!MonedaCicloHelper.TryParse(ciclo.Moneda, out var moneda))
+                return await CerrarConErrorAsync(logId, candado.Id, paso,
+                    $"El ciclo {ciclo.LCicloId} no tiene una moneda válida ('{ciclo.Moneda}'). Debe ser BS o SUS.");
+
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"Ciclo {ciclo.LCicloId}: moneda {moneda}.");
+
+            paso = "RESET";
             var reset = await _repositorio.ResetCicloAsync(logId, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!reset.Success)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, reset.Mensaje);
 
             paso = "OBTENER VENTAS";
-            var ventas = await ObtenerVentasAsync(logId, usuario, ciclo.Inicio, ciclo.Fin);
+            var ventas = await ObtenerVentasAsync(logId, usuario, ciclo.Inicio, ciclo.Fin, moneda);
             if (!ventas.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, ventas.Mensaje);
 
@@ -221,7 +237,7 @@ public sealed partial class SimulacionService : ISimulacionService
                 return await CerrarConErrorAsync(logId, candado.Id, paso, comisionGrupo.Mensaje);
 
             paso = "DATOS RESIDUAL";
-            var datosResidual = await DatosResidualAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
+            var datosResidual = await DatosResidualAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin, moneda);
             if (!datosResidual.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, datosResidual.Mensaje);
 
@@ -235,9 +251,17 @@ public sealed partial class SimulacionService : ISimulacionService
             if (!bonoPar.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, bonoPar.Mensaje);
 
-            // Los siete pasos terminaron: la corrida queda OK.
-            await TerminarCorridaAsync(logId, candado.Id, true, null, "Corrida completa: los siete pasos terminaron.");
-            return (true, "Corrida completa: los siete pasos terminaron.");
+            // Mismo servicio que usa el endpoint POST api/MonteSionArbol/armar.
+            paso = "ARMADO ARBOL";
+            var arbol = await _monteSionArbol.ArmarAsync(ciclo.LCicloId, usuario);
+            if (!arbol.Success)
+                return await CerrarConErrorAsync(logId, candado.Id, paso, arbol.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"Árbol armado para el ciclo {ciclo.LCicloId}: {arbol.Total} nodos.");
+
+            // Los ocho pasos terminaron: la corrida queda OK.
+            var mensajeFinal = $"Corrida completa: los ocho pasos terminaron. Moneda del ciclo: {moneda}. Árbol: {arbol.Total} nodos.";
+            await TerminarCorridaAsync(logId, candado.Id, true, null, mensajeFinal);
+            return (true, mensajeFinal);
         }
         catch (Exception ex)
         {
@@ -252,9 +276,10 @@ public sealed partial class SimulacionService : ISimulacionService
     }
 
     // F2-T3 y F2-T4: Obtener Ventas normales del ciclo (rama JOB de ProcesoPrincipal, sin rezagadas ni especiales, D-09).
-    public async Task<(bool Exito, string Mensaje)> ObtenerVentasAsync(string logId, string usuario, string inicio, string fin)
+    public async Task<(bool Exito, string Mensaje)> ObtenerVentasAsync(string logId, string usuario, string inicio, string fin, MonedaCiclo moneda = MonedaCiclo.SUS)
     {
-        var ventas = await _ventasCnx.GetVentaCnx(logId, inicio, fin);
+        // Ciclo SUS: lógica actual. Ciclo BS: proyectos BOB sin cambio y USD × TC histórico.
+        var ventas = await _ventasCnx.GetVentaCnx(logId, inicio, fin, moneda);
         if (!ventas.Success)
             return (false, ventas.Mensaje);
 
@@ -333,6 +358,12 @@ public sealed partial class SimulacionService : ISimulacionService
         if (!activos.Success)
             return (false, activos.Mensaje);
 
+        // Regla "solo especiales", igual que en RedesService pero sobre la misma ventana de los activos:
+        // quien solo tiene ventas especiales en la ventana no cuenta como activo, salvo habilitación manual.
+        var soloEspeciales = await _soloEspeciales.ObtenerPorPeriodoAsync(logId, usuario, lCicloId, inicioVentana, fin);
+        if (!soloEspeciales.Success)
+            return (false, soloEspeciales.Mensaje);
+
         var red = await _repositorio.GetRedContactosAsync(logId);
         if (!red.Success)
             return (false, red.Mensaje);
@@ -343,7 +374,7 @@ public sealed partial class SimulacionService : ISimulacionService
                 LContactoId = x.LContactoId > 0 ? x.LContactoId : x.LVendedorId,
                 LVendedorId = x.LVendedorId > 0 ? x.LVendedorId : x.LContactoId,
             })
-            .Where(x => x.LVendedorId > 0)
+            .Where(x => x.LVendedorId > 0 && !soloEspeciales.Contactos.Contains(x.LVendedorId))
             .GroupBy(x => x.LVendedorId)
             .ToDictionary(x => x.Key, x => x.First());
         foreach (var h in personas)
@@ -444,9 +475,9 @@ public sealed partial class SimulacionService : ISimulacionService
     }
 
     // F6-T2 a F6-T3: Datos Residual. Cartera (OBTENER CARTERA) y cuotas (OBTENER CUOTAS), sin excedente (D-03).
-    // Lectura: BonoResidualRepository.GetCarteraAll (BDComisiones) y GetCuota (SQL Server, con conversion de dolar).
-    // Escritura: SimulacionRepositorio (Cartera con guardia R-17; T_ACCIONESCUOTASGRL con DELETE por FECHA_PAGO).
-    public async Task<(bool Exito, string Mensaje)> DatosResidualAsync(string logId, string usuario, int lCicloId, string inicio, string fin)
+    // Lectura: BonoResidualRepository.GetCarteraAll (BDComisiones) y GetCuota (SQL Server, con conversion segun la moneda del ciclo).
+    // Escritura: SimulacionRepositorio (Cartera con TRUNCATE en cada ejecución; T_ACCIONESCUOTASGRL con DELETE por FECHA_PAGO).
+    public async Task<(bool Exito, string Mensaje)> DatosResidualAsync(string logId, string usuario, int lCicloId, string inicio, string fin, MonedaCiclo moneda = MonedaCiclo.SUS)
     {
         var cartera = await _bonoLectura.GetCarteraAll(logId, usuario);
         if (!cartera.Success)
@@ -455,7 +486,7 @@ public sealed partial class SimulacionService : ISimulacionService
         if (!guardadoCartera.Success)
             return (false, guardadoCartera.Mensaje);
 
-        var cuotas = await _bonoLectura.GetCuota(logId, usuario, inicio, fin);
+        var cuotas = await _bonoLectura.GetCuota(logId, usuario, inicio, fin, moneda);
         if (!cuotas.Success)
             return (false, cuotas.Mensaje);
         var guardadoCuotas = await _repositorio.ReemplazarCuotasAsync(logId, inicio, fin, cuotas.ListaCuota.ToList());

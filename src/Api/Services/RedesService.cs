@@ -8,15 +8,18 @@ public sealed class RedesService : IRedesService
     private readonly IRedesRepository _repository;
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
     private readonly IControlProcesoRepository _controlProcesoRepository;
+    private readonly IContactosSoloEspecialesService _soloEspecialesService;
     private readonly HashSet<int> _noComprimir;
 
     public RedesService(
         IRedesRepository repository,
         IAdministracionHabilitacionComisionRepository habilitacionRepository,
         IControlProcesoRepository controlProcesoRepository,
+        IContactosSoloEspecialesService soloEspecialesService,
         IConfiguration configuration
     )
     {
+        _soloEspecialesService = soloEspecialesService;
         _repository = repository;
         _habilitacionRepository = habilitacionRepository;
         _controlProcesoRepository = controlProcesoRepository;
@@ -74,6 +77,13 @@ public sealed class RedesService : IRedesService
                 cicloId
             );
             var activos = await _repository.GetObetenerContactoVentasMes(id, usuario, inicio, fin);
+            // Regla "solo especiales": quien solo tiene ventas especiales en el ciclo no cuenta como activo;
+            // sus niveles suben al siguiente activo. Si la lista no se puede obtener, el paso se cancela.
+            var soloEspeciales = await _soloEspecialesService.ObtenerAsync(id, usuario, cicloId);
+            if (!soloEspeciales.Success)
+                return controlPaso
+                    ? await CancelarAsync(id, usuario, cicloId, paso, soloEspeciales.Mensaje)
+                    : (false, soloEspeciales.Mensaje, "");
             var red = await _repository.GetRedCotactoAll(id, usuario);
             var personas = habilitaciones.Data.ToList();
             var activosPorId = activos
@@ -82,7 +92,7 @@ public sealed class RedesService : IRedesService
                     LContactoId = x.LContactoId > 0 ? x.LContactoId : x.LVendedorId,
                     LVendedorId = x.LVendedorId > 0 ? x.LVendedorId : x.LContactoId,
                 })
-                .Where(x => x.LVendedorId > 0)
+                .Where(x => x.LVendedorId > 0 && !soloEspeciales.Contactos.Contains(x.LVendedorId))
                 .GroupBy(x => x.LVendedorId)
                 .ToDictionary(x => x.Key, x => x.First());
             foreach (var h in personas)
@@ -165,6 +175,7 @@ public sealed class RedesService : IRedesService
                     personasHabilitadas = personas,
                     habilidacionesParaNoComprimirRed = _noComprimir.OrderBy(x => x),
                     habilidacionesConfiguradasNoEncontradas = noEncontradas,
+                    contactosSoloEspeciales = soloEspeciales.Contactos.OrderBy(x => x),
                     guardado.Success,
                     guardado.Mensaje,
                 }

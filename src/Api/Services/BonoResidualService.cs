@@ -1,3 +1,4 @@
+using ApiGuardian.Domain.Entities;
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Infrastructure.Services;
 
@@ -15,6 +16,7 @@ public sealed class BonoResidualService : IBonoResidualService
     private readonly IAdministracionContratoRepository _administracionContratoRepository;
     private readonly IBrConfiguracionRepository _brConfiguracionRepository;
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionRepository;
+    private readonly IContactosSoloEspecialesService _soloEspecialesService;
     private readonly HashSet<int> _contactosConComisionResidualCero;
 
     private const string NombreArchivo = "BonoResidualService.cs";
@@ -30,9 +32,11 @@ public sealed class BonoResidualService : IBonoResidualService
         IAdministracionHabilitacionComisionRepository habilitacionRepository,
         IAdministracionContratoRepository administracionContratoRepository,
         IBrConfiguracionRepository brConfiguracionRepository,
+        IContactosSoloEspecialesService soloEspecialesService,
         IConfiguration configuration
     )
     {
+        _soloEspecialesService = soloEspecialesService;
         _log = log;
         _bonoResidualRepository = bonoResidualRepository;
         _controlProcesoRepository = controlProcesoRepository;
@@ -71,13 +75,22 @@ public sealed class BonoResidualService : IBonoResidualService
             usuario
         );
         var cartera = await _bonoResidualRepository.GetCarteraGRD(logTransaccionId, usuario);
-        if (!datos.Success || !habilitaciones.Success || !configuracion.Success || !cartera.Success)
+        // Regla "solo especiales": quien solo tiene ventas especiales en el ciclo no cuenta como activo del residual.
+        var soloEspeciales = await _soloEspecialesService.ObtenerAsync(logTransaccionId, usuario, cicloId);
+        if (
+            !datos.Success
+            || !habilitaciones.Success
+            || !configuracion.Success
+            || !cartera.Success
+            || !soloEspeciales.Success
+        )
         {
             var mensaje =
                 !datos.Success ? datos.Mensaje
                 : !habilitaciones.Success ? habilitaciones.Mensaje
                 : !configuracion.Success ? configuracion.Mensaje
-                : cartera.Mensaje;
+                : !cartera.Success ? cartera.Mensaje
+                : soloEspeciales.Mensaje;
             return new BonoResidualCalculoResult { Mensaje = mensaje };
         }
 
@@ -89,7 +102,7 @@ public sealed class BonoResidualService : IBonoResidualService
         );
         var activos = datos
             .ListaContactosActivos.Select(x => x.LContactoId)
-            .Where(x => !bloqueados.Contains(x))
+            .Where(x => !bloqueados.Contains(x) && !soloEspeciales.Contactos.Contains(x))
             .Concat(habilitados)
             // Solo en bono residual, los contactos configurados se incluyen aunque
             // estén bloqueados; su comisión se fuerza a cero más adelante.
@@ -354,6 +367,10 @@ public sealed class BonoResidualService : IBonoResidualService
                 {
                     Mensaje = $"No se encontró el ciclo {cicloId}.",
                 };
+            // La moneda del ciclo define la conversión de ventas y cuotas. Se valida antes de iniciar el paso.
+            var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloId, ciclo.Data.Moneda);
+            if (!moneda.Success)
+                return new BonoResidualGuardadoResult { Mensaje = moneda.Mensaje };
             var inicio = ciclo.Data.DtFechaInicio ?? string.Empty;
             var fin = ciclo.Data.DtFechaFin ?? string.Empty;
             if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
@@ -365,7 +382,8 @@ public sealed class BonoResidualService : IBonoResidualService
                 logTransaccionId,
                 usuario,
                 inicio,
-                fin
+                fin,
+                moneda.Moneda
             );
             if (!cuotas.Success)
                 return new BonoResidualGuardadoResult { Mensaje = cuotas.Mensaje };
@@ -426,9 +444,13 @@ public sealed class BonoResidualService : IBonoResidualService
                 {
                     Mensaje = $"No se encontró el ciclo {cicloId}.",
                 };
+            // La moneda del ciclo define la conversión de ventas y cuotas. Se valida antes de iniciar el paso.
+            var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloId, ciclo.Data.Moneda);
+            if (!moneda.Success)
+                return new BonoResidualGuardadoResult { Mensaje = moneda.Mensaje };
             var inicio = ciclo.Data.DtFechaInicio ?? string.Empty;
             var fin = ciclo.Data.DtFechaFin ?? string.Empty;
-            var ventas = await _ventasCnxRepository.GetVentaCnx(logTransaccionId, inicio, fin);
+            var ventas = await _ventasCnxRepository.GetVentaCnx(logTransaccionId, inicio, fin, moneda.Moneda);
             if (!ventas.Success)
                 return new BonoResidualGuardadoResult { Mensaje = ventas.Mensaje };
             var lista = ventas
@@ -650,6 +672,10 @@ public sealed class BonoResidualService : IBonoResidualService
                 {
                     Mensaje = $"No se encontró el ciclo {cicloId}.",
                 };
+            // La moneda del ciclo define la conversión de ventas y cuotas. Se valida antes de iniciar el paso.
+            var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloId, ciclo.Data.Moneda);
+            if (!moneda.Success)
+                return new BonoResidualGuardadoResult { Mensaje = moneda.Mensaje };
             var inicio = ciclo.Data.DtFechaInicio ?? string.Empty;
             var fin = ciclo.Data.DtFechaFin ?? string.Empty;
             if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
@@ -688,7 +714,8 @@ public sealed class BonoResidualService : IBonoResidualService
                 logTransaccionId,
                 usuario,
                 inicio,
-                fin
+                fin,
+                moneda.Moneda
             );
             if (!cuotas.Success)
             {
@@ -768,6 +795,10 @@ public sealed class BonoResidualService : IBonoResidualService
             if (!ciclo.Success || ciclo.Data.LCicloId <= 0)
                 return (false, $"No se encontró el ciclo {cicloId}.", listaFiltrada);
 
+            // La moneda del ciclo define la conversión de ventas y cuotas. Se valida antes de iniciar el paso.
+            var moneda = AdministracionCicloMonedaExtensions.ValidarMoneda(cicloId, ciclo.Data.Moneda);
+            if (!moneda.Success)
+                return (false, moneda.Mensaje, listaFiltrada);
             var inicio = ciclo.Data.DtFechaInicio ?? string.Empty;
             var fin = ciclo.Data.DtFechaFin ?? string.Empty;
             if (string.IsNullOrWhiteSpace(inicio) || string.IsNullOrWhiteSpace(fin))
@@ -797,7 +828,7 @@ public sealed class BonoResidualService : IBonoResidualService
                 return (false, inicioPaso.Data?.mensaje ?? inicioPaso.Mensaje, listaFiltrada);
 
             pasoIniciado = true;
-            var ventas = await _ventasCnxRepository.GetVentaCnx(logTransaccionId, inicio, fin);
+            var ventas = await _ventasCnxRepository.GetVentaCnx(logTransaccionId, inicio, fin, moneda.Moneda);
             if (!ventas.Success)
             {
                 await _controlProcesoRepository.CancelarPaso(
