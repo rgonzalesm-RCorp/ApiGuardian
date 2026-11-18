@@ -69,11 +69,11 @@ En `SimulacionService.EjecutarCorridaAsync`, después de `ARMADO ARBOL`:
 
 | Fase | Descripción | Estado |
 |---|---|---|
-| 0 | Confirmación de decisiones | 🔄 En curso (falta confirmar la opción A de moneda) |
-| 1 | Moneda en el cálculo Monte Sion (compartido) | ⏳ Pendiente |
-| 2 | Guardado compartido con modo simulación | ⏳ Pendiente |
-| 3 | Reset y paso MONTE SION en la simulación | ⏳ Pendiente |
-| 4 | Pruebas y cierre | ⏳ Pendiente |
+| 0 | Confirmación de decisiones | ✅ Terminado |
+| 1 | Moneda en el cálculo Monte Sion (compartido) | ✅ Cubierto por `PLAN_PLAN_CARRERA_MONTE_SION_POR_MONEDA.md` |
+| 2 | Guardado compartido con modo simulación | ✅ Terminado |
+| 3 | Reset y paso MONTE SION en la simulación | ✅ Terminado |
+| 4 | Pruebas y cierre | 🔄 En curso (compilación OK; faltan pruebas con base) |
 
 Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 
@@ -81,7 +81,7 @@ Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 
 ## Fase 0 — Confirmación de decisiones
 
-**Estado:** 🔄 En curso
+**Estado:** ✅ Terminado
 
 - [x] **Datos reales del mismo ciclo → ACEPTADO:** el ciclo define si es simulación; el RESET puede reemplazar los datos Monte Sion del ciclo.
 - [x] **Ascensos sin actualizar el contacto → SÍ:** se inserta en `t_nuevos_rangos_montesion_2025` aunque no se actualice `administracioncontacto`.
@@ -89,13 +89,13 @@ Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 - [x] **Incentivos → en Bs** si el ciclo es `BS`.
 - [x] **Monto a pagar →** se guarda en la moneda del ciclo y se borra por ciclo en el RESET. Se mantiene el truncado a entero de `Monto_Pagar` en `t_plan_montesion`.
 - [x] **Sin calificados → OK** con 0 registros en la simulación.
-- [ ] **Opción de moneda para VME y umbrales:** se propone la **A** (convertir umbrales, bono e incentivo × `tipoCambioHistorico` en ciclos `BS`, sin cambios en la base). Alternativas: B (valores por moneda en la base) o C (producción a USD solo para Monte Sion). **Falta confirmación.**
+- [x] **Opción de moneda para VME y umbrales → resuelta por otro plan:** `PLAN_PLAN_CARRERA_MONTE_SION_POR_MONEDA.md` (cerrado 2026-11-11) lee umbrales, VME, bono e incentivo de `administracionnivelplancarrera` según la moneda del ciclo. Texto original: se propone la **A** (convertir umbrales, bono e incentivo × `tipoCambioHistorico` en ciclos `BS`, sin cambios en la base). Alternativas: B (valores por moneda en la base) o C (producción a USD solo para Monte Sion). **Falta confirmación.**
 
 ---
 
 ## Fase 1 — Moneda en el cálculo Monte Sion
 
-**Estado:** ⏳ Pendiente
+**Estado:** ✅ Cubierto por `PLAN_PLAN_CARRERA_MONTE_SION_POR_MONEDA.md` (no se implementó la opción A; las tareas de abajo quedan sin efecto)
 
 - [ ] Inyectar `IAdministracionCicloRepository` y `CambioDolarService` en `MonteSionService`.
 - [ ] En `CalcularRangosAsync`, obtener y validar la moneda del ciclo.
@@ -107,28 +107,28 @@ Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 
 ## Fase 2 — Guardado compartido con modo simulación
 
-**Estado:** ⏳ Pendiente
+**Estado:** ✅ Terminado
 
-- [ ] Agregar `bool esSimulacion = false` en `IMonteSionService.GuardarRangosAsync` / `MonteSionService`.
-- [ ] Agregar `bool esSimulacion = false` en `IMonteSionRepository.GuardarRangosAsync` / `MonteSionRepository`.
-- [ ] En el repositorio, no ejecutar `UPDATE administracioncontacto` cuando `esSimulacion = true`.
-- [ ] En el servicio, con `esSimulacion = true` y 0 calificados, devolver éxito con 0 registros.
-- [ ] Verificar que el endpoint `rangos/guardar` mantiene su comportamiento.
+- [x] Agregar `bool esSimulacion = false` en `IMonteSionService.GuardarRangosAsync` / `MonteSionService`.
+- [x] Agregar `bool esSimulacion = false` en `IMonteSionRepository.GuardarRangosAsync` / `MonteSionRepository`.
+- [x] En el repositorio, no ejecutar `UPDATE administracioncontacto` cuando `esSimulacion = true`.
+- [x] En el servicio, con `esSimulacion = true` y 0 calificados, devolver éxito con 0 registros.
+- [x] Verificar (por código) que el endpoint `rangos/guardar` mantiene su comportamiento.
 
 ## Fase 3 — Reset y paso MONTE SION en la simulación
 
-**Estado:** ⏳ Pendiente
+**Estado:** ✅ Terminado
 
-- [ ] Agregar los 3 `DELETE` por `lciclo_id` al RESET de la simulación.
-- [ ] Inyectar `IMonteSionService` en `SimulacionService`.
-- [ ] Agregar el paso `MONTE SION` después de `ARMADO ARBOL`, con el manejo de error de los demás pasos.
-- [ ] Actualizar el comentario de la corrida y el mensaje final.
+- [x] Agregar los 3 `DELETE` por `lciclo_id` al RESET de la simulación.
+- [x] Inyectar `IMonteSionService` en `SimulacionService`.
+- [x] Agregar el paso `MONTE SION` después de `ARMADO ARBOL`, con el manejo de error de los demás pasos.
+- [x] Actualizar el comentario de la corrida y el mensaje final ("todos los pasos terminaron", con rangos y ascensos).
 
 ## Fase 4 — Pruebas y cierre
 
-**Estado:** ⏳ Pendiente
+**Estado:** 🔄 En curso
 
-- [ ] Compilación sin errores ni advertencias nuevas.
+- [x] Compilación sin errores ni advertencias nuevas.
 - [ ] Ciclo `SUS`: el cálculo da lo mismo que hoy (regresión).
 - [ ] Ciclo `BS`: umbrales, VME, bono e incentivo en Bs; mismo rango para vendedores de proyectos USD que en un ciclo SUS equivalente.
 - [ ] Simulación: `administracioncontacto.lnivel_id` **no cambia**.
@@ -146,3 +146,4 @@ Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 | 2026-11-11 | — | Plan creado. Todas las fases en Pendiente. |
 | 2026-11-11 | 0 → 🔄 | Confirmado: reemplazo de datos del ciclo desde la simulación; registro de ascensos sin actualizar `administracioncontacto`. |
 | 2026-11-11 | 0 | Confirmado: cálculo y guardado compartidos (en simulación no se actualiza el contacto); incentivos en Bs para ciclos BS; monto a pagar en la moneda del ciclo, borrado por ciclo; sin calificados = OK. Plan reestructurado en 5 fases. Pendiente: confirmar la opción A de moneda. |
+| 2026-11-17 | 0–3 → ✅, 4 → 🔄 | Moneda resuelta por el plan de carrera por moneda. Implementado `esSimulacion` (sin UPDATE de `lnivel_id`, 0 calificados = OK), 3 DELETE en el RESET y paso MONTE SION tras ARMADO ARBOL. Compila sin advertencias nuevas. Faltan pruebas con base. |

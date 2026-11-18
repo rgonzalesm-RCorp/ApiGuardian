@@ -28,6 +28,7 @@ public sealed partial class SimulacionService : ISimulacionService
     private readonly IBrConfiguracionRepository _brConfiguracionLectura;
     private readonly IMonteSionArbolService _monteSionArbol;
     private readonly IContactosSoloEspecialesService _soloEspeciales;
+    private readonly IMonteSionService _monteSion;
 
     public SimulacionService(
         IVentasCnxRepository ventasCnx,
@@ -44,9 +45,11 @@ public sealed partial class SimulacionService : ISimulacionService
         IBonoResidualRepository bonoLectura,
         IBrConfiguracionRepository brConfiguracionLectura,
         IMonteSionArbolService monteSionArbol,
-        IContactosSoloEspecialesService soloEspeciales)
+        IContactosSoloEspecialesService soloEspeciales,
+        IMonteSionService monteSion)
     {
         _soloEspeciales = soloEspeciales;
+        _monteSion = monteSion;
         _semanaLectura = semanaLectura;
         _bonoLectura = bonoLectura;
         _brConfiguracionLectura = brConfiguracionLectura;
@@ -181,7 +184,8 @@ public sealed partial class SimulacionService : ISimulacionService
     }
 
     // Corrida del job: candado (F1-T6), reset (F2-T2), Obtener Ventas (F2), Comision Directa (F3), Red (F4),
-    // Comision Grupo (F5), Datos Residual (F6), Bono Residual (F7), Bono Par (F8) y Armado del árbol (MonteSionArbol/armar).
+    // Comision Grupo (F5), Datos Residual (F6), Bono Residual (F7), Bono Par (F8), Armado del árbol (MonteSionArbol/armar)
+    // y Monte Sion (mismo cálculo y guardado que MonteSion/rangos/guardar, sin actualizar el rango del contacto).
     // Un fallo detiene la corrida en ese paso (R13).
     public async Task<(bool Exito, string Mensaje)> EjecutarCorridaAsync(string usuario, CancellationToken cancellationToken)
     {
@@ -258,8 +262,18 @@ public sealed partial class SimulacionService : ISimulacionService
                 return await CerrarConErrorAsync(logId, candado.Id, paso, arbol.Mensaje);
             _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"Árbol armado para el ciclo {ciclo.LCicloId}: {arbol.Total} nodos.");
 
-            // Los ocho pasos terminaron: la corrida queda OK.
-            var mensajeFinal = $"Corrida completa: los ocho pasos terminaron. Moneda del ciclo: {moneda}. Árbol: {arbol.Total} nodos.";
+            // Mismo servicio que POST api/MonteSion/rangos/guardar, en modo simulación:
+            // no actualiza administracioncontacto.lnivel_id y 0 calificados es OK.
+            paso = "MONTE SION";
+            var monteSion = await _monteSion.GuardarRangosAsync(ciclo.LCicloId, usuario, esSimulacion: true);
+            if (!monteSion.Success)
+                return await CerrarConErrorAsync(logId, candado.Id, paso, monteSion.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync),
+                $"Monte Sion del ciclo {ciclo.LCicloId}: {monteSion.Data.RegistrosPlan} rangos, {monteSion.Data.Ascensos} ascensos.");
+
+            // Todos los pasos terminaron: la corrida queda OK.
+            var mensajeFinal = $"Corrida completa: todos los pasos terminaron. Moneda del ciclo: {moneda}. Árbol: {arbol.Total} nodos. " +
+                               $"Monte Sion: {monteSion.Data.RegistrosPlan} rangos, {monteSion.Data.Ascensos} ascensos.";
             await TerminarCorridaAsync(logId, candado.Id, true, null, mensajeFinal);
             return (true, mensajeFinal);
         }
@@ -330,6 +344,8 @@ public sealed partial class SimulacionService : ISimulacionService
             var existente = await _contratoLectura.GetContratoXNroVenta(logId, $"{item.IdVenta}-{item.Lote}", inicio, fin);
             if (existente.Data == null || !existente.Data.Any())
             {
+                if (procesadas == 45)
+                    _log.Info(logId, NOMBRE_ARCHIVO, nameof(ObtenerVentasAsync), $"Procesadas {procesadas} ventas.");
                 await _repositorio.InsertContratoAsync(logId, contrato);
             }
 
