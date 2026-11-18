@@ -10,6 +10,10 @@ public sealed partial class SimulacionRepositorio
     // Pasos dentro de la transaccion. Parametros: @LCicloId, @Inicio, @Fin.
     private static readonly string[] SqlResetTransaccional =
     {
+        // Monte Sion del ciclo (se recalcula en el paso MONTE SION). No toca administracioncontacto.
+        @"DELETE FROM t_nuevos_rangos_montesion_2025 WHERE lciclo_id = @LCicloId;",
+        @"DELETE FROM reportesmontesion WHERE lciclo_id = @LCicloId;",
+        @"DELETE FROM t_plan_montesion WHERE lciclo_id = @LCicloId;",
         // 1. Detalle de bono par
         @"DELETE BPD FROM bonopardetalle BPD
           INNER JOIN bonopar BP ON BP.id = BPD.bonopar_id

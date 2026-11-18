@@ -25,6 +25,9 @@
     "HorasMaximasEnCurso": 12,
     "HabilitarEndpointManual": false
   },
+  "ReporteMensual": {
+    "TipoCambioPorCiclo": { "147": 6.97, "148": 6.96, "149": 7.00 }
+  },
   "PagoComision": {
     "RedistribucionesPorRetencion": [
       { "EmpresaOrigenId": 0, "EmpresaAsumeId": 0 }
