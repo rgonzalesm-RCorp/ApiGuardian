@@ -1,5 +1,6 @@
 using ApiGuardian.Application.Interfaces;
 using ApiGuardian.Application.Interfaces.Simulacion;
+using ApiGuardian.Domain.DTO;
 using ApiGuardian.Domain.Entities;
 using ApiGuardian.Infrastructure.Repositories.Simulacion;
 using Microsoft.Extensions.Options;
@@ -28,7 +29,9 @@ public sealed partial class SimulacionService : ISimulacionService
     private readonly IBrConfiguracionRepository _brConfiguracionLectura;
     private readonly IMonteSionArbolService _monteSionArbol;
     private readonly IContactosSoloEspecialesService _soloEspeciales;
-    private readonly IMonteSionService _monteSion;
+    // Monte Sion: solo lecturas del repositorio actual; cálculo y guardado propios (SimulacionService.MonteSion.cs).
+    private readonly IMonteSionRepository _monteSionLectura;
+    private readonly MonteSionOpciones _monteSionOpciones;
 
     public SimulacionService(
         IVentasCnxRepository ventasCnx,
@@ -46,10 +49,12 @@ public sealed partial class SimulacionService : ISimulacionService
         IBrConfiguracionRepository brConfiguracionLectura,
         IMonteSionArbolService monteSionArbol,
         IContactosSoloEspecialesService soloEspeciales,
-        IMonteSionService monteSion)
+        IMonteSionRepository monteSionLectura,
+        IOptions<MonteSionOpciones> monteSionOpciones)
     {
         _soloEspeciales = soloEspeciales;
-        _monteSion = monteSion;
+        _monteSionLectura = monteSionLectura;
+        _monteSionOpciones = monteSionOpciones.Value;
         _semanaLectura = semanaLectura;
         _bonoLectura = bonoLectura;
         _brConfiguracionLectura = brConfiguracionLectura;
@@ -185,7 +190,7 @@ public sealed partial class SimulacionService : ISimulacionService
 
     // Corrida del job: candado (F1-T6), reset (F2-T2), Obtener Ventas (F2), Comision Directa (F3), Red (F4),
     // Comision Grupo (F5), Datos Residual (F6), Bono Residual (F7), Bono Par (F8), Armado del árbol (MonteSionArbol/armar)
-    // y Monte Sion (mismo cálculo y guardado que MonteSion/rangos/guardar, sin actualizar el rango del contacto).
+    // y Monte Sion (copia propia del cálculo y guardado de MonteSion/rangos/guardar, sin actualizar el rango del contacto).
     // Un fallo detiene la corrida en ese paso (R13).
     public async Task<(bool Exito, string Mensaje)> EjecutarCorridaAsync(string usuario, CancellationToken cancellationToken)
     {
@@ -262,18 +267,18 @@ public sealed partial class SimulacionService : ISimulacionService
                 return await CerrarConErrorAsync(logId, candado.Id, paso, arbol.Mensaje);
             _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"Árbol armado para el ciclo {ciclo.LCicloId}: {arbol.Total} nodos.");
 
-            // Mismo servicio que POST api/MonteSion/rangos/guardar, en modo simulación:
+            // Copia propia del cálculo y guardado Monte Sion (no usa MonteSionService):
             // no actualiza administracioncontacto.lnivel_id y 0 calificados es OK.
             paso = "MONTE SION";
-            var monteSion = await _monteSion.GuardarRangosAsync(ciclo.LCicloId, usuario, esSimulacion: true);
-            if (!monteSion.Success)
+            var monteSion = await MonteSionAsync(logId, usuario, ciclo.LCicloId, moneda);
+            if (!monteSion.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, monteSion.Mensaje);
             _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync),
-                $"Monte Sion del ciclo {ciclo.LCicloId}: {monteSion.Data.RegistrosPlan} rangos, {monteSion.Data.Ascensos} ascensos.");
+                $"Monte Sion del ciclo {ciclo.LCicloId}: {monteSion.Rangos} rangos, {monteSion.Ascensos} ascensos.");
 
             // Todos los pasos terminaron: la corrida queda OK.
             var mensajeFinal = $"Corrida completa: todos los pasos terminaron. Moneda del ciclo: {moneda}. Árbol: {arbol.Total} nodos. " +
-                               $"Monte Sion: {monteSion.Data.RegistrosPlan} rangos, {monteSion.Data.Ascensos} ascensos.";
+                               $"Monte Sion: {monteSion.Rangos} rangos, {monteSion.Ascensos} ascensos.";
             await TerminarCorridaAsync(logId, candado.Id, true, null, mensajeFinal);
             return (true, mensajeFinal);
         }
@@ -490,18 +495,12 @@ public sealed partial class SimulacionService : ISimulacionService
         return (true, $"Comisión Grupo: {rows.Count} registros.");
     }
 
-    // F6-T2 a F6-T3: Datos Residual. Cartera (OBTENER CARTERA) y cuotas (OBTENER CUOTAS), sin excedente (D-03).
-    // Lectura: BonoResidualRepository.GetCarteraAll (BDComisiones) y GetCuota (SQL Server, con conversion segun la moneda del ciclo).
-    // Escritura: SimulacionRepositorio (Cartera con TRUNCATE en cada ejecución; T_ACCIONESCUOTASGRL con DELETE por FECHA_PAGO).
+    // F6-T2 a F6-T3: Datos Residual. Solo cuotas (OBTENER CUOTAS), sin excedente (D-03).
+    // La simulación no carga la cartera: su bono residual no revisa vencidos.
+    // Lectura: BonoResidualRepository.GetCuota (SQL Server, con conversion segun la moneda del ciclo).
+    // Escritura: SimulacionRepositorio (T_ACCIONESCUOTASGRL con DELETE por FECHA_PAGO).
     public async Task<(bool Exito, string Mensaje)> DatosResidualAsync(string logId, string usuario, int lCicloId, string inicio, string fin, MonedaCiclo moneda = MonedaCiclo.SUS)
     {
-        var cartera = await _bonoLectura.GetCarteraAll(logId, usuario);
-        if (!cartera.Success)
-            return (false, cartera.Mensaje);
-        var guardadoCartera = await _repositorio.ReemplazarCarteraAsync(logId, lCicloId, cartera.ListaCartera.ToList());
-        if (!guardadoCartera.Success)
-            return (false, guardadoCartera.Mensaje);
-
         var cuotas = await _bonoLectura.GetCuota(logId, usuario, inicio, fin, moneda);
         if (!cuotas.Success)
             return (false, cuotas.Mensaje);
@@ -509,7 +508,7 @@ public sealed partial class SimulacionService : ISimulacionService
         if (!guardadoCuotas.Success)
             return (false, guardadoCuotas.Mensaje);
 
-        return (true, $"Datos residual: cartera {cartera.ListaCartera.Count()} registros; cuotas {cuotas.ListaCuota.Count()} registros.");
+        return (true, $"Datos residual: cuotas {cuotas.ListaCuota.Count()} registros.");
     }
 
     // F4-T3: Red completa (RedesService.ObtenerRedCuotasAsync sin control de paso). Carga tmp_residual_red,

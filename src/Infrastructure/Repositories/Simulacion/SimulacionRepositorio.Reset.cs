@@ -58,8 +58,7 @@ public sealed partial class SimulacionRepositorio
         @"DELETE FROM administracioncontrato WHERE dtfecha BETWEEN @Inicio AND @Fin;",
     };
 
-    // Fuera de la transaccion: TRUNCATE hace commit implicito en MySQL.
-    private const string SqlTruncateCartera = "TRUNCATE TABLE Cartera;";
+    // La tabla Cartera no se toca: es compartida con el proceso principal y la simulación no la usa.
 
     public async Task<(bool Success, string Mensaje)> ResetCicloAsync(string logId, int lCicloId, string inicio, string fin)
     {
@@ -70,8 +69,6 @@ public sealed partial class SimulacionRepositorio
 
         using var connection = _context.CreateConnection();
         connection.Open();
-
-        // Cartera se trunca en cada ejecución, sin importar el ciclo (igual que BonoResidualRepository.GuardarCartera).
 
         var parametros = new { LCicloId = lCicloId, Inicio = inicio, Fin = fin };
 
@@ -89,16 +86,6 @@ public sealed partial class SimulacionRepositorio
             transaccion.Rollback();
             _log.Error(logId, NOMBRE_ARCHIVO, metodo, $"Error en reset del ciclo {lCicloId}: {ex.Message}");
             return (false, $"Error en reset del ciclo {lCicloId}: {ex.Message}");
-        }
-
-        try
-        {
-            await connection.ExecuteAsync(SqlTruncateCartera);
-        }
-        catch (Exception ex)
-        {
-            _log.Error(logId, NOMBRE_ARCHIVO, metodo, $"Error al truncar Cartera en el reset del ciclo {lCicloId}: {ex.Message}");
-            return (false, $"Los DELETE del reset se aplicaron, pero falló TRUNCATE de Cartera: {ex.Message}");
         }
 
         _log.Info(logId, NOMBRE_ARCHIVO, metodo, $"Reset del ciclo {lCicloId} completado.");

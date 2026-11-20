@@ -147,23 +147,17 @@ public sealed class MonteSionService : IMonteSionService
         });
     }
 
-    public async Task<(bool Success, string Mensaje, MonteSionGuardadoResultado Data)> GuardarRangosAsync(int cicloId, string? usuario, bool esSimulacion = false)
+    public async Task<(bool Success, string Mensaje, MonteSionGuardadoResultado Data)> GuardarRangosAsync(int cicloId, string? usuario)
     {
         var calculo = await CalcularRangosAsync(cicloId);
         if (!calculo.Success)
             return (false, calculo.Mensaje, new MonteSionGuardadoResultado { CicloId = cicloId });
 
-        var resultados = calculo.Data.ToList();
-        // En la simulación, que nadie califique no es un error: la corrida sigue con 0 registros.
-        if (esSimulacion && resultados.Count == 0)
-            return (true, "Ningún emprendedor califica a un rango Monte Sion en el ciclo.", new MonteSionGuardadoResultado { CicloId = cicloId });
-
         return await _repository.GuardarRangosAsync(
             Guid.NewGuid().ToString("N"),
             cicloId,
             string.IsNullOrWhiteSpace(usuario) ? "Sistema" : usuario.Trim(),
-            resultados,
-            esSimulacion
+            calculo.Data.ToList()
         );
     }
 

@@ -74,6 +74,7 @@ En `SimulacionService.EjecutarCorridaAsync`, después de `ARMADO ARBOL`:
 | 2 | Guardado compartido con modo simulación | ✅ Terminado |
 | 3 | Reset y paso MONTE SION en la simulación | ✅ Terminado |
 | 4 | Pruebas y cierre | 🔄 En curso (compilación OK; faltan pruebas con base) |
+| 5 | Separar Monte Sion de la simulación del proceso actual | ✅ Terminado |
 
 Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 
@@ -124,6 +125,22 @@ Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 - [x] Agregar el paso `MONTE SION` después de `ARMADO ARBOL`, con el manejo de error de los demás pasos.
 - [x] Actualizar el comentario de la corrida y el mensaje final ("todos los pasos terminaron", con rangos y ascensos).
 
+## Fase 5 — Separar Monte Sion de la simulación del proceso actual
+
+**Estado:** ✅ Terminado (2026-11-19)
+
+Pedido del usuario: que el cálculo de la simulación no afecte al proceso actual, igual que Comisión Directa (copia propia en la simulación). Reemplaza el diseño de la Fase 2 (guardado compartido con `esSimulacion`).
+
+- [x] Quitar `esSimulacion` de `IMonteSionService`, `MonteSionService`, `IMonteSionRepository` y `MonteSionRepository`: el proceso real vuelve a ser idéntico al anterior a este plan.
+- [x] `SimulacionService.MonteSion.cs`: copia del cálculo (`CalcularRangosAsync`, `CalcularRango`, beneficio, equipos, VME). Usa la moneda del ciclo de la corrida.
+- [x] Lecturas: `IMonteSionRepository.ObtenerDatosCicloAsync` y `ObtenerNivelesAsync` (solo lectura), como Comisión Directa usa los repositorios de lectura del proceso actual.
+- [x] `SimulacionRepositorio.MonteSion.cs` → `ReemplazarMonteSionAsync`: SQL copiado; borra el ciclo en las 3 tablas y vuelve a insertar en una transacción; sin `UPDATE administracioncontacto`; 0 calificados = OK.
+- [x] `SimulacionService` ya no inyecta `IMonteSionService`; inyecta `IMonteSionRepository` y `IOptions<MonteSionOpciones>`.
+- [x] Evaluados: todos los contactos de la red comprimida del ciclo (vendedor o patrocinador en `red_comprimida`, `cbaja = 0`), **sin exigir venta personal en el ciclo** (no se usa la consulta de evaluables de `administracionventapersonal`). La regla de primera venta desde mayo 2026 para el rango Emprendedor se mantiene.
+- [x] Compilación sin errores ni advertencias nuevas.
+
+Consecuencia: un cambio futuro en el cálculo Monte Sion del proceso real **no** se refleja solo en la simulación; hay que copiarlo a `SimulacionService.MonteSion.cs`.
+
 ## Fase 4 — Pruebas y cierre
 
 **Estado:** 🔄 En curso
@@ -147,3 +164,5 @@ Leyenda: ⏳ Pendiente · 🔄 En curso · ✅ Terminado · ⛔ Bloqueado
 | 2026-11-11 | 0 → 🔄 | Confirmado: reemplazo de datos del ciclo desde la simulación; registro de ascensos sin actualizar `administracioncontacto`. |
 | 2026-11-11 | 0 | Confirmado: cálculo y guardado compartidos (en simulación no se actualiza el contacto); incentivos en Bs para ciclos BS; monto a pagar en la moneda del ciclo, borrado por ciclo; sin calificados = OK. Plan reestructurado en 5 fases. Pendiente: confirmar la opción A de moneda. |
 | 2026-11-17 | 0–3 → ✅, 4 → 🔄 | Moneda resuelta por el plan de carrera por moneda. Implementado `esSimulacion` (sin UPDATE de `lnivel_id`, 0 calificados = OK), 3 DELETE en el RESET y paso MONTE SION tras ARMADO ARBOL. Compila sin advertencias nuevas. Faltan pruebas con base. |
+| 2026-11-19 | 5 → ✅ | Monte Sion de la simulación separado del proceso actual (copia propia de cálculo y guardado, como Comisión Directa). `esSimulacion` eliminado de `MonteSionService`/`MonteSionRepository`. Compila sin advertencias nuevas. |
+| 2026-11-19 | 5 | Simulación: evalúa a toda la red comprimida del ciclo, sin exigir venta personal en el ciclo. |
