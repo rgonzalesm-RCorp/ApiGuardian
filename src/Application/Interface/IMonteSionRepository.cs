@@ -12,8 +12,7 @@ public interface IMonteSionRepository
     // Falla si algún nivel (lnivel_id > 0) no tiene configuración para esa moneda.
     Task<(IEnumerable<MonteSionNivel> Data, bool Success, string Mensaje)> ObtenerNivelesAsync(string logTransaccionId, MonedaCiclo moneda);
 
-    // esSimulacion = true: guarda en las mismas tablas, pero no actualiza administracioncontacto.lnivel_id.
     Task<(bool Success, string Mensaje, MonteSionGuardadoResultado Data)> GuardarRangosAsync(
-        string logTransaccionId, int cicloId, string usuario, IReadOnlyCollection<MonteSionResultadoRango> resultados, bool esSimulacion = false);
+        string logTransaccionId, int cicloId, string usuario, IReadOnlyCollection<MonteSionResultadoRango> resultados);
     Task<(bool Success, string Mensaje, MonteSionMigracionResultado Data)> MigrarTablasAsync(string logTransaccionId);
 }

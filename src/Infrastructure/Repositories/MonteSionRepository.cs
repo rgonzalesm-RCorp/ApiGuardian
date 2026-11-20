@@ -157,8 +157,7 @@ public sealed class MonteSionRepository : IMonteSionRepository
         string logTransaccionId,
         int cicloId,
         string usuario,
-        IReadOnlyCollection<MonteSionResultadoRango> resultados,
-        bool esSimulacion = false)
+        IReadOnlyCollection<MonteSionResultadoRango> resultados)
     {
         var salida = new MonteSionGuardadoResultado { CicloId = cicloId };
         if (cicloId <= 0 || resultados.Count == 0)
@@ -307,8 +306,7 @@ public sealed class MonteSionRepository : IMonteSionRepository
                     Observacion = resultado.Beneficio?.Motivo.Length > 100 ? resultado.Beneficio.Motivo[..100] : resultado.Beneficio?.Motivo
                 }, transaction);
 
-                // La simulación no cambia el rango real del contacto: cada corrida parte del nivel actual.
-                if (subioNivel && !esSimulacion)
+                if (subioNivel)
                 {
                     const string actualizarRangoContactoSql = """
                         UPDATE administracioncontacto

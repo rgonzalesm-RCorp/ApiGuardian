@@ -8,6 +8,60 @@ namespace ApiGuardian.Infrastructure.Repositories.Simulacion;
 // Diferencia: si no hay ganadores no se ejecuta la consulta de detalle (en el original produce "IN ()" y falla).
 public sealed partial class SimulacionRepositorio
 {
+    // Copia propia de ScriptGrd.QueryBonoPar() para la simulación (el original lo usa el proceso principal).
+    // Diferencia: 10 personas que vendieron pagan 2000 (el original usa "> 10" y con 10 exactas el bono queda en 0).
+    private const string SqlBonoPar = @"
+        SELECT * FROM(
+            SELECT
+                CT.lcontacto_id LContctoGanadorId
+                , CT.SNombreCompleto SNombreGanador
+                , CT.scedulaidentidad SCedulaIdentidadGanador
+                , COUNT(*)PersonaQueVendieron
+                , case
+                    when  TRUNCATE(COUNT(*), 0) BETWEEN 2 AND 3 THEN 200
+                    when  TRUNCATE(COUNT(*), 0) BETWEEN 4 AND 5 THEN 700
+                    when  TRUNCATE(COUNT(*), 0) BETWEEN 6 AND 7 THEN 1100
+                    when  TRUNCATE(COUNT(*), 0) BETWEEN 8 AND 9 THEN 1400
+                    when  TRUNCATE(COUNT(*), 0) >= 10 THEN 2000
+                    ELSE 0
+                END Bono
+                , sum(DAT.CantVta) CantidadVenta
+                , GROUP_CONCAT(DAT.VId)VendedoresId
+                , GROUP_CONCAT(DAT.LContratoId)LContratoId
+                , GROUP_CONCAT(DAT.SNroVenta)SNroVenta
+                , sum(DAT.MontoVentas)MontoVentas
+                , sum(DAT.CuotasIniciales)CuotasIniciales
+            FROM (
+                SELECT
+                    V.lpatrocinante_id GId
+                    , V.lcontacto_id VId
+                    , GROUP_CONCAT(ACT.snroventa) SNroVenta
+                    , GROUP_CONCAT(ACT.lcontrato_id) LContratoId
+                    , GROUP_CONCAT(ACT.dtfecha) Fecha
+                    , COUNT(*) CantVta
+                    , sum(act.dprecio) MontoVentas
+                    , sum(act.dcuota_inicial) CuotasIniciales
+                FROM administracioncontrato ACT
+                INNER JOIN administracioncontacto V ON v.lcontacto_id = ACT.lasesor_id
+                WHERE ACT.dtfecha BETWEEN @Inicio AND @Fin and
+                    CASE WHEN (ACT.dcuota_inicial * 100 / ACT.dprecio) BETWEEN 2.9999 AND 4.98 THEN
+                        CASE WHEN  ACT.dprecio >= 10000 THEN 1 ELSE 0 END
+                    ELSE 1 END = 1 and ACT.ltipocontrato_id in (1,2) and ACT.lcontacto_id != ACT.lasesor_id
+                    AND ACT.snroventa not like '%KTRB5%'
+                GROUP BY V.lpatrocinante_id, V.lcontacto_id
+            )DAT
+            INNER JOIN administracioncontacto CT ON CT.lcontacto_id = DAT.GId
+            GROUP BY CT.lcontacto_id, CT.SNombreCompleto, CT.scedulaidentidad
+        ) DATG where DATG.Bono > 0 ORDER BY SNombreGanador";
+
+    // Asesores con ventas tipo 1 y 2 (crédito y contado) en un periodo. Lo usa el bono par para la ventana de 3 meses.
+    private const string SqlAsesoresConVenta = @"
+        SELECT DISTINCT lasesor_id
+        FROM administracioncontrato
+        WHERE dtfecha BETWEEN @Inicio AND @Fin
+          AND ltipocontrato_id IN (1, 2)
+          AND lasesor_id > 0;";
+
     private const string SqlInsertBonoParCabecera = @"
         INSERT INTO bonopar
         (
@@ -43,7 +97,7 @@ public sealed partial class SimulacionRepositorio
         try
         {
             using var connection = _context.CreateConnection();
-            var lista = (await connection.QueryAsync<ItemBonoPar>(ScriptGrd.QueryBonoPar(), new { Inicio = inicio, Fin = fin })).ToList();
+            var lista = (await connection.QueryAsync<ItemBonoPar>(SqlBonoPar, new { Inicio = inicio, Fin = fin })).ToList();
             if (lista.Count == 0)
                 return (lista, true, "No existen ganadores de bono par.");
 
@@ -58,6 +112,22 @@ public sealed partial class SimulacionRepositorio
         {
             _log.Error(logId, NOMBRE_ARCHIVO, metodo, $"Error al obtener bono par: {ex.Message}");
             return (new List<ItemBonoPar>(), false, $"Error al obtener bono par: {ex.Message}");
+        }
+    }
+
+    public async Task<(HashSet<int> Asesores, bool Success, string Mensaje)> GetAsesoresConVentaAsync(string logId, string inicio, string fin)
+    {
+        const string metodo = nameof(GetAsesoresConVentaAsync);
+        try
+        {
+            using var connection = _context.CreateConnection();
+            var asesores = (await connection.QueryAsync<int>(SqlAsesoresConVenta, new { Inicio = inicio, Fin = fin })).ToHashSet();
+            return (asesores, true, $"Asesores con venta: {asesores.Count}.");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(logId, NOMBRE_ARCHIVO, metodo, $"Error al obtener asesores con venta: {ex.Message}");
+            return (new HashSet<int>(), false, $"Error al obtener asesores con venta: {ex.Message}");
         }
     }
 

@@ -21,11 +21,8 @@ public sealed partial class SimulacionService
         if (!configuracion.Success)
             return (false, configuracion.Mensaje);
 
-        var cartera = await _bonoLectura.GetCarteraGRD(logId, usuario);
-        if (!cartera.Success)
-            return (false, cartera.Mensaje);
-
-        var listado = ConstruirListadoResidual(lCicloId, datos.Cuotas, datos.Contactos, datos.Activos, habilitaciones.Data, configuracion.Data, cartera.ListaCartera);
+        // Solo simulación: no se consulta la cartera (sin filtro de vencidos) y no se exige estar activo.
+        var listado = ConstruirListadoResidual(lCicloId, datos.Cuotas, datos.Contactos, habilitaciones.Data, configuracion.Data);
 
         if (listado.Count == 0)
             return (true, "No existen registros habilitados para generar bono residual.");
@@ -101,37 +98,25 @@ public sealed partial class SimulacionService
         return (true, $"Bono residual: {listado.Count} registros de cálculo, {maestro.Count} contactos.");
     }
 
-    // Copia de BonoResidualService.ConstruirListadoResidualAsync. La cuota se toma por nivel (LPatrocinado1..7).
+    // Basado en BonoResidualService.ConstruirListadoResidualAsync. La cuota se toma por nivel (LPatrocinado1..7).
+    // Diferencias de la simulación: calcula para todos los patrocinadores de la red, estén o no activos en el ciclo,
+    // y no revisa la cartera (vencidos). Se mantienen fuera los bloqueados por habilitación (genera_comisiones = 0).
     private List<BrCalculoItem> ConstruirListadoResidual(
         int lCicloId,
         List<BrCuotaRed> cuotas,
         List<BrContacto> contactosTmp,
-        List<BrContactoActivos> activosCiclo,
         IEnumerable<ItemHabilitacionComision> habilitaciones,
-        IEnumerable<DetailsBrConfiguracion> configuracion,
-        IEnumerable<CarteraCalculoBonoResidual> cartera)
+        IEnumerable<DetailsBrConfiguracion> configuracion)
     {
         var contactos = contactosTmp.ToDictionary(x => x.LContactoId, x => x);
-        var personas = habilitaciones.ToList();
-        var bloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(personas);
-        var habilitados = HabilitacionComisionHelper.GetContactosHabilitadosQueGeneranComision(personas);
+        var bloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(habilitaciones);
 
-        // Solo en bono residual, los contactos configurados se incluyen aunque estén bloqueados (misma clave que red).
-        var activos = activosCiclo
-            .Select(x => x.LContactoId)
-            .Where(x => !bloqueados.Contains(x))
-            .Concat(habilitados)
-            .Concat(_noComprimir)
-            .ToHashSet();
+        // Los contactos configurados (misma clave que red) se incluyen aunque estén bloqueados; cobran 0 más abajo.
+        bool Incluido(int contactoId) => contactoId > 0 && (!bloqueados.Contains(contactoId) || _noComprimir.Contains(contactoId));
 
         var configs = configuracion.Where(x => x.LCicloId == lCicloId).ToList();
         var terreno = configs.Where(x => x.TipoProductoId == 1).ToDictionary(x => x.Nivel, x => x);
         var membresia = configs.Where(x => x.TipoProductoId == 2).ToDictionary(x => x.Nivel, x => x);
-
-        var vencidos = cartera
-            .Where(x => string.Equals(x.Estado?.Trim(), "VENCIDO", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(x.DocId))
-            .Select(x => x.DocId.Trim())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var listado = new List<BrCalculoItem>();
         foreach (var item in cuotas)
@@ -146,8 +131,6 @@ public sealed partial class SimulacionService
                 var porcentaje = string.Equals(item.Empresa?.Trim(), "ADVEL", StringComparison.OrdinalIgnoreCase)
                     ? configMembresia?.PorcentajeComision ?? 0
                     : configTerreno?.PorcentajeComision ?? 0;
-                var documento = contacto?.SCedulaIdentidad?.Trim();
-
                 listado.Add(new BrCalculoItem
                 {
                     LContactoId = patrocinado,
@@ -159,19 +142,20 @@ public sealed partial class SimulacionService
                     Nivel = nivel,
                     Bono = item.Bono,
                     BonoResidual = item.Bono * porcentaje / 100,
-                    ActivoMes = activos.Contains(patrocinado),
+                    ActivoMes = true,
                     PorcentajeComision = porcentaje,
                     LComplejoId = item.ProyectoId,
                     Complejo = item.Proyecto,
                     Empresa = item.Empresa,
                     ProductoId = item.ProductoId,
                     FechaPago = item.FechaPago,
-                    EstaAlDia = string.IsNullOrWhiteSpace(documento) || !vencidos.Contains(documento),
+                    EstaAlDia = true,
                 });
             }
         }
 
-        listado = listado.Where(x => x.ActivoMes && x.EstaAlDia).ToList();
+        // Sin filtro de activos ni de cartera: solo se quitan los niveles sin patrocinador y los bloqueados.
+        listado = listado.Where(x => Incluido(x.LContactoId)).ToList();
         // Comisión residual cero configurada (misma clave que red).
         foreach (var calculo in listado.Where(x => _noComprimir.Contains(x.LContactoId)))
             calculo.BonoResidual = 0;
