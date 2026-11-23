@@ -11,6 +11,7 @@
   },
   "AllowedHosts": "*",
   "HabilidacionesParaNoComprimirRed": [],
+  "ComplejosMembresia": [85, 29, 58, 95, 98, 101, 102, 103, 105],
   "SoloEspecialesDesdeCicloId": 149,
   "cambioDolar": {
     "idsComplejosProyectos": [],
