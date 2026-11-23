@@ -27,7 +27,8 @@ public sealed partial class SimulacionService : ISimulacionService
     private readonly IAdministracionSemanaCicloRepository _semanaLectura;
     private readonly IBonoResidualRepository _bonoLectura;
     private readonly IBrConfiguracionRepository _brConfiguracionLectura;
-    private readonly IMonteSionArbolService _monteSionArbol;
+    // Árbol Monte Sion: solo la lectura de contactos del repositorio actual; guardado propio (SimulacionService.Arbol.cs).
+    private readonly IMonteSionArbolRepository _monteSionArbolLectura;
     private readonly IContactosSoloEspecialesService _soloEspeciales;
     // Monte Sion: solo lecturas del repositorio actual; cálculo y guardado propios (SimulacionService.MonteSion.cs).
     private readonly IMonteSionRepository _monteSionLectura;
@@ -47,7 +48,7 @@ public sealed partial class SimulacionService : ISimulacionService
         IAdministracionSemanaCicloRepository semanaLectura,
         IBonoResidualRepository bonoLectura,
         IBrConfiguracionRepository brConfiguracionLectura,
-        IMonteSionArbolService monteSionArbol,
+        IMonteSionArbolRepository monteSionArbolLectura,
         IContactosSoloEspecialesService soloEspeciales,
         IMonteSionRepository monteSionLectura,
         IOptions<MonteSionOpciones> monteSionOpciones)
@@ -58,7 +59,7 @@ public sealed partial class SimulacionService : ISimulacionService
         _semanaLectura = semanaLectura;
         _bonoLectura = bonoLectura;
         _brConfiguracionLectura = brConfiguracionLectura;
-        _monteSionArbol = monteSionArbol;
+        _monteSionArbolLectura = monteSionArbolLectura;
         _ventasCnx = ventasCnx;
         _contactoLectura = contactoLectura;
         _contratoLectura = contratoLectura;
@@ -219,53 +220,64 @@ public sealed partial class SimulacionService : ISimulacionService
             var reset = await _repositorio.ResetCicloAsync(logId, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!reset.Success)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, reset.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"RESET Ciclo {ciclo.LCicloId}: moneda {moneda} reset: {reset.Mensaje}.");
+
 
             paso = "OBTENER VENTAS";
             var ventas = await ObtenerVentasAsync(logId, usuario, ciclo.Inicio, ciclo.Fin, moneda);
             if (!ventas.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, ventas.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"OBTENER VENTAS Ciclo {ciclo.LCicloId}: moneda {moneda} ventas: {ventas.Mensaje}.");
+
 
             paso = "COMISION DIRECTA";
             var comision = await ComisionDirectaAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!comision.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, comision.Mensaje);
-
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"COMISION DIRECTA Ciclo {ciclo.LCicloId}: moneda {moneda} comision: {comision.Mensaje}.");
             paso = "RED COMPRIMIDA";
             var redComprimida = await RedComprimidaAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!redComprimida.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, redComprimida.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"RED COMPRIMIDA Ciclo {ciclo.LCicloId}: moneda {moneda} redComprimida: {redComprimida.Mensaje}.");
 
             paso = "RED COMPLETA";
             var redCompleta = await RedCompletaAsync(logId);
             if (!redCompleta.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, redCompleta.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"RED COMPLETA Ciclo {ciclo.LCicloId}: moneda {moneda} redCompleta: {redCompleta.Mensaje}.");
 
             paso = "COMISION GRUPO";
             var comisionGrupo = await ComisionGrupoAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!comisionGrupo.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, comisionGrupo.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"COMISION GRUPO Ciclo {ciclo.LCicloId}: moneda {moneda} comisionGrupo: {comisionGrupo.Mensaje}.");
+
 
             paso = "DATOS RESIDUAL";
             var datosResidual = await DatosResidualAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin, moneda);
             if (!datosResidual.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, datosResidual.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"DATOS RESIDUAL Ciclo {ciclo.LCicloId}: moneda {moneda} datosResidual: {datosResidual.Mensaje}.");
 
             paso = "COMISION RESIDUAL";
             var bonoResidual = await BonoResidualAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!bonoResidual.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, bonoResidual.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"COMISION RESIDUAL Ciclo {ciclo.LCicloId}: moneda {moneda} bonoResidual: {bonoResidual.Mensaje}.");
 
             paso = "BONO PAR";
             var bonoPar = await BonoParAsync(logId, usuario, ciclo.LCicloId, ciclo.Inicio, ciclo.Fin);
             if (!bonoPar.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, bonoPar.Mensaje);
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"BONO PAR Ciclo {ciclo.LCicloId}: moneda {moneda} bonoPar: {bonoPar.Mensaje}.");
 
-            // Mismo servicio que usa el endpoint POST api/MonteSionArbol/armar.
+            // Mismo cálculo que el endpoint POST api/MonteSionArbol/armar; guarda solo la diferencia con el árbol del ciclo.
             paso = "ARMADO ARBOL";
-            var arbol = await _monteSionArbol.ArmarAsync(ciclo.LCicloId, usuario);
+            var arbol = await ArmarArbolAsync(logId, ciclo.LCicloId, usuario);
             if (!arbol.Success)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, arbol.Mensaje);
-            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"Árbol armado para el ciclo {ciclo.LCicloId}: {arbol.Total} nodos.");
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"ARMADO ARBOL Ciclo {ciclo.LCicloId}: {arbol.Mensaje}");
 
             // Copia propia del cálculo y guardado Monte Sion (no usa MonteSionService):
             // no actualiza administracioncontacto.lnivel_id y 0 calificados es OK.
@@ -273,8 +285,7 @@ public sealed partial class SimulacionService : ISimulacionService
             var monteSion = await MonteSionAsync(logId, usuario, ciclo.LCicloId, moneda);
             if (!monteSion.Exito)
                 return await CerrarConErrorAsync(logId, candado.Id, paso, monteSion.Mensaje);
-            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync),
-                $"Monte Sion del ciclo {ciclo.LCicloId}: {monteSion.Rangos} rangos, {monteSion.Ascensos} ascensos.");
+            _log.Info(logId, NOMBRE_ARCHIVO, nameof(EjecutarCorridaAsync), $"Monte Sion del ciclo {ciclo.LCicloId}: {monteSion.Rangos} rangos, {monteSion.Ascensos} ascensos.");
 
             // Todos los pasos terminaron: la corrida queda OK.
             var mensajeFinal = $"Corrida completa: todos los pasos terminaron. Moneda del ciclo: {moneda}. Árbol: {arbol.Total} nodos. " +
