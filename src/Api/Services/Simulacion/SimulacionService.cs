@@ -24,6 +24,7 @@ public sealed partial class SimulacionService : ISimulacionService
     private readonly IProcesoComisionesRepository _procesoLectura;
     private readonly IAdministracionHabilitacionComisionRepository _habilitacionLectura;
     private readonly HashSet<int> _noComprimir;
+    private readonly HashSet<int> _complejosMembresia;
     private readonly IAdministracionSemanaCicloRepository _semanaLectura;
     private readonly IBonoResidualRepository _bonoLectura;
     private readonly IBrConfiguracionRepository _brConfiguracionLectura;
@@ -72,6 +73,13 @@ public sealed partial class SimulacionService : ISimulacionService
         // Misma clave y misma lectura que RedesService (HabilidacionesParaNoComprimirRed).
         _noComprimir = configurationGlobal
             .GetSection("HabilidacionesParaNoComprimirRed")
+            .Get<int[]>()
+            ?.Where(id => id > 0)
+            .ToHashSet()
+            ?? new HashSet<int>();
+        // Misma clave que ProcesoComisionesService (ComplejosMembresia).
+        _complejosMembresia = configurationGlobal
+            .GetSection("ComplejosMembresia")
             .Get<int[]>()
             ?.Where(id => id > 0)
             .ToHashSet()
@@ -140,7 +148,7 @@ public sealed partial class SimulacionService : ISimulacionService
             return false;
 
         var bloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(habilitaciones.Data);
-        var membresia = new HashSet<int> { 85, 29, 58, 95, 98, 101, 102 };
+        var membresia = _complejosMembresia;
 
         var lista = contratos.Data
             .Where(x => !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(x.LTipoContratoId)

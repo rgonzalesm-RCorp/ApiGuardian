@@ -20,6 +20,7 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
     private readonly ICuotasVentaResidualRepository _cuotasRepository;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly HashSet<int> _contactosConComisionGrupoCero;
+    private readonly HashSet<int> _complejosMembresia;
 
     private const string NombreArchivo = "ProcesoComisionesService.cs";
 
@@ -57,6 +58,12 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
             .GetSection("HabilidacionesParaNoComprimirRed")
             .Get<int[]>()
             ?.Where(contactoId => contactoId > 0)
+            .ToHashSet() ?? new HashSet<int>();
+        // Complejos de membresía para la venta residual (12 cuotas, directa 40%).
+        _complejosMembresia = configuration
+            .GetSection("ComplejosMembresia")
+            .Get<int[]>()
+            ?.Where(complejoId => complejoId > 0)
             .ToHashSet() ?? new HashSet<int>();
     }
 
@@ -770,7 +777,7 @@ public sealed class ProcesoComisionesService : IProcesoComisionesService
             return false;
 
         var bloqueados = HabilitacionComisionHelper.GetContactosBloqueadosParaComision(hab.Data);
-        var membresia = new HashSet<int> { 85, 29, 58, 95, 98, 101, 102 };
+        var membresia = _complejosMembresia;
         var lista = contratos
             .Data.Where(x =>
                 !HabilitacionComisionHelper.TiposContratoEspeciales.Contains(x.LTipoContratoId)
